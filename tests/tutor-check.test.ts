@@ -20,7 +20,7 @@ const good: LlmClient = { name: 'mock-good', async complete() { return ''; }, as
   yield lines({ topic: { en: 'Rivers', ta: 'ஆறுகள்' } }, { en: 'Rivers give water to fields.', ta: 'ஆறுகள் வயல்களுக்கு நீர் தருகின்றன.', cite: [1], check: { kind: 'ack' } }, { en: 'Crops need this water to grow.', ta: 'பயிர்கள் வளர நீர் தேவை.', cite: [1] });
 } };
 const uncited: LlmClient = { name: 'mock-bad', async complete() { return ''; }, async *stream() { yield lines({ en: 'Made up.', ta: 'கற்பனை.', cite: [] }); } };
-const broken: LlmClient = { name: 'mock-broken', async complete() { throw new Error('provider down'); }, async *stream() { throw new Error('provider down'); } };
+const broken: LlmClient = { name: 'mock-broken', async complete() { throw new Error('provider down'); }, async *stream() { if (Date.now() > 0) throw new Error('provider down'); yield ''; } };
 
 describe('tutor model checker', () => {
   it('reports a good model: usable, cited, right page, Tamil, first-step time', async () => {

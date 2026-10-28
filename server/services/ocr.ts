@@ -95,7 +95,7 @@ export function textQuality(text: string, medium: 'English' | 'Tamil'): { ok: bo
 }
 
 /** Light clean-up of OCR output: unify whitespace, drop stray control characters. */
-export const cleanOcr = (s: string) => s.replace(/[|¦\[\]{}]+/g, ' ').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200D\uFEFF]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+export const cleanOcr = (s: string) => s.replace(/[|¦[\]{}]+/g, ' ').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200D\uFEFF]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
 export type PageText = { page: number; text: string };
 /**

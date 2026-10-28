@@ -20,6 +20,7 @@ export const newToken = (bytes = 16) => randomBytes(bytes).toString('base64url')
 
 export type Role = 'student' | 'parent' | 'teacher' | 'school_admin' | 'admin' | 'pending';
 export type AuthUser = { id: string; email: string; display_name: string; role: Role; school_id: string | null };
+// eslint-disable-next-line @typescript-eslint/no-namespace -- the only way to extend Express's Request type
 declare global { namespace Express { interface Request { user?: AuthUser; csrf?: string } } }
 
 export const COOKIE = 'kavli_session';

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { setup, target } from './helpers';
 import { q, openDb } from '../server/db';
 import { MIGRATIONS } from '../server/migrations';
-import { type Migration, MigrationError, migrationStatus, runMigrations, validate } from '../server/migrate';
+import { type Migration, migrationStatus, runMigrations, validate } from '../server/migrate';
 
 let db: Awaited<ReturnType<typeof setup>>['db'];
 beforeEach(async () => { ({ db } = await setup()); });

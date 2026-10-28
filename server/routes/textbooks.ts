@@ -2,7 +2,6 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { storage } from '../services/storage';
-import { join } from 'node:path';
 import { DB, q } from '../db';
 import { rateLimit, requireAuth, requireRole, uid } from '../security';
 import { iso } from '../clock';

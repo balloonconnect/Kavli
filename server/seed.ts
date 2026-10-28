@@ -15,7 +15,6 @@ const subjects = [
   ['social', 'Social Science', 'சமூக அறிவியல்'], ['tamil', 'Tamil', 'தமிழ்'],
 ];
 
-type Sec = { h_en: string; h_ta: string; en: string; ta: string };
 const lessons: any[] = [
   { id: 'c8-maths-linear', class_level: 8, subject_id: 'maths', chapter_no: 1, chapter_en: 'Algebra', chapter_ta: 'இயற்கணிதம்', title_en: 'Solving linear equations', title_ta: 'ஒருபடிச் சமன்பாடுகளைத் தீர்த்தல்', minutes: 15, position: 1,
     content: {

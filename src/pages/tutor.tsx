@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Card, Icon, Loading, Modal, PageTitle, fmtDT } from '../components/ui';
-import { useLang, LangToggle } from '../components/lang';
+import { useLang } from '../components/lang';
 import { useAuth } from '../auth';
 import { del, get, post, msg } from '../api';
 import { useToast } from '../components/toast';
@@ -34,7 +34,7 @@ function Bubble({ m, actions, onAction, onReport }: { m: Msg; actions: Record<st
 }
 
 export function Tutor() {
-  const [sp] = useSearchParams(); const toast = useToast(); const { lang, setLang } = useLang();
+  const [sp] = useSearchParams(); const toast = useToast(); const { lang } = useLang();
   const [list, setList] = useState<any[]>([]); const [info, setInfo] = useState<any>(null); const [cur, setCur] = useState<any>(null); const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState<{ text: string; action?: string } | null>(null); const [loading, setLoading] = useState(true); const [listening, setListening] = useState(false);
   const [report, setReport] = useState<Msg | null>(null); const [reason, setReason] = useState(''); const [showList, setShowList] = useState(false); const end = useRef<HTMLDivElement>(null); const stop = useRef<() => void>(() => {});

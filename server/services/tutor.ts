@@ -103,7 +103,7 @@ export async function chapterSample(db: DB, classLevel: number, scope: ChapterSc
 }
 
 export async function developmentTutor(db: DB, i: TutorInput): Promise<TutorReply> {
-  const text = i.text.trim(); const lang = i.lang;
+  const text = i.text.trim();
   const la = lastAssistant(i.history); const pending = la?.meta?.pending as { qid: string; wrong: number; level: number; asked: string[] } | undefined;
 
   // 1. Answer to a pending "test my understanding" question → adaptive feedback.
@@ -194,8 +194,8 @@ export async function developmentTutor(db: DB, i: TutorInput): Promise<TutorRepl
 
   // 4. Maths solving.
   const sol = solveLinearFromText(text); if (sol) return mkReply(solutionToBi(sol), { suggestions: ['simpler', 'another', 'test_me', 'mistake'] });
-  const arith = /^(?:what is|calculate|compute|find|evaluate)?\s*([0-9+\-−*×÷\/().\s]+?)\s*[=?]?$/i.exec(text)?.[1];
-  if (arith && /[+\-−*×÷\/]/.test(arith)) { const v = evalConst(arith); if (v) return mkReply(bi(`${arith.trim()} = ${fstr(v)}\nTip: do brackets first, then × and ÷, then + and −.`, `${arith.trim()} = ${fstr(v)}\nகுறிப்பு: முதலில் அடைப்புக்குறி, பிறகு × ÷, அடுத்து + −.`), { suggestions: ['another', 'test_me'] }); }
+  const arith = /^(?:what is|calculate|compute|find|evaluate)?\s*([0-9+\-−*×÷/().\s]+?)\s*[=?]?$/i.exec(text)?.[1];
+  if (arith && /[+\-−*×÷/]/.test(arith)) { const v = evalConst(arith); if (v) return mkReply(bi(`${arith.trim()} = ${fstr(v)}\nTip: do brackets first, then × and ÷, then + and −.`, `${arith.trim()} = ${fstr(v)}\nகுறிப்பு: முதலில் அடைப்புக்குறி, பிறகு × ÷, அடுத்து + −.`), { suggestions: ['another', 'test_me'] }); }
 
   // 5. Grounded in the student's own material.
   if (i.materialPassages?.length) {

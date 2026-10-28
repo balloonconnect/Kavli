@@ -1,5 +1,8 @@
 # Testing
 
+## CI and lint
+`npm run lint` and `npm run typecheck` must pass. GitHub Actions runs lint, type-check, the live front-end build, the whole suite on SQLite, the whole suite on a PostgreSQL 16 service, and a Docker build that starts the image and calls `/api/health`.
+
 ## Automated (`npm test`, 234 tests; `voice.test.ts` covers the voice tutor — see `docs/VOICE_TUTOR.md`)
 - `flow.test.ts` — registration, guardian consent, password hashing, CSRF, full register→lesson→test→result→certificate journey, duplicate/attempt limits, RBAC, parent isolation, manual review → finalise → reissue → revoke → verify.
 - `units.test.ts` — grading, SSRF blocking, solver, Tamil PDF, tutor, under-13 limits, materials privacy, real PDF text extraction, scanned-PDF detection.

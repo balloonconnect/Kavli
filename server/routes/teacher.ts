@@ -4,7 +4,7 @@ import { DB, q, tx } from '../db';
 import { audit, requireRole, uid } from '../security';
 import { iso } from '../clock';
 import { J, canAccessStudent, parse, wrap } from '../http';
-import { HttpError, correctResult, testQuestions, topicPerformance } from '../services/tests';
+import { HttpError, correctResult, testQuestions } from '../services/tests';
 import { studentReport } from './student';
 
 const T = requireRole('teacher', 'school_admin', 'admin');

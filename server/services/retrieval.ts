@@ -75,7 +75,6 @@ export function topPassages(question: string, passages: Passage[], k = 3, o: { r
     let gram = 0; for (const g of qGrams) { const tf = d.gtf.get(g); if (tf) gram += idf(N, gdf.get(g) ?? 0) * bm25(tf, d.glen, gavg); }
     gram = qGrams.length ? gram / Math.sqrt(qGrams.length) : 0;
     const coveredIdx = qTa.map((_, i) => i).filter(i => covered[i][di]);
-    const distinct = new Set([...hitTerms, ...coveredIdx.map(i => `c:${stem(qTa[i])}`)]);
     const strong = hitTerms.some(t => [...t].length >= (isTa(t) ? 3 : 4) && (df.get(t) ?? 0) <= rare) || coveredIdx.some(i => [...stem(qTa[i])].length >= 4 && coverN[i] <= rare);
     const matched = new Set([...hitTerms, ...coveredIdx.map(i => term(qTa[i]))]); const share = [...matched].reduce((a, t) => a + qWeight(t), 0) / totalWeight;
     // a lone matching word is only enough when it carries a real share of a multi-word question ("Einstein relativity doctrine" must not match on "doctrine")

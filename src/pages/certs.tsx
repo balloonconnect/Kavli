@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Async, Badge, Button, Card, Empty, Icon, Modal, PageTitle, fmtDate, fmtDT, useLoad } from '../components/ui';
-import { get, post, msg } from '../api';
+import { get, msg } from '../api';
 import { PREVIEW } from '../preview';
 import { useToast } from '../components/toast';
 import { PublicLayout } from './public';

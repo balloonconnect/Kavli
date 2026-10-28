@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Async, Badge, Button, Card, Empty, Field, Icon, Modal, PageTitle, Stat, fmtDT, useLoad } from '../components/ui';
 import { get, post, put, del, msg } from '../api';
 import { useToast } from '../components/toast';
-import { useAuth } from '../auth';
 
 const SUBJ: [string, string][] = [['maths', 'Mathematics'], ['science', 'Science'], ['english', 'English'], ['social', 'Social Science'], ['tamil', 'Tamil']];
 const resTone = (s: string): any => (s === 'passed' ? 'success' : s === 'not_passed' ? 'danger' : s === 'pending_review' ? 'warning' : 'neutral');
@@ -69,7 +68,7 @@ export function TeacherTests() {
 }
 
 export function TestBuilder() {
-  const { id } = useParams(); const nav = useNavigate(); const toast = useToast(); const { profile } = useAuth();
+  const { id } = useParams(); const nav = useNavigate(); const toast = useToast();
   const now = new Date(); const wk = new Date(now.getTime() + 7 * 864e5);
   const [f, setF] = useState<any>({ title: '', classLevel: 8, subjectId: 'maths', academicYear: '2026–2027', topics: '', opensAt: toLocalInput(now.toISOString()), closesAt: toLocalInput(wk.toISOString()), durationMin: 45, language: 'both', instructions: '', passPct: 40, maxAttempts: 1, scoreRule: 'highest', showReview: 1, awardsCertificate: true, allowChangeAnswers: true, autoSubmit: true });
   const [picked, setPicked] = useState<Record<string, number>>({}); const [busy, setBusy] = useState(false); const [locked, setLocked] = useState(false); const [pub, setPub] = useState(false);

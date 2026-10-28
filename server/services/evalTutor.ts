@@ -1,5 +1,5 @@
 import { DB } from '../db';
-import { initialState, Plan } from './teach';
+import { initialState } from './teach';
 import { LlmClient, llmPlanner, llmStreamPlanner } from './llmEngine';
 import type { EvalItem } from './evalRetrieval';
 

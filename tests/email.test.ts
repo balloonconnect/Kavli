@@ -1,9 +1,9 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import request from 'supertest';
 import { SMTPServer } from 'smtp-server';
 import { simpleParser } from 'mailparser';
-import { client, DEMO, profileBody, setup } from './helpers';
+import { client, DEMO, setup } from './helpers';
 import { q } from '../server/db';
 import { type Mail, type Mailer, mailerFromEnv, resendMailer, smtpMailer, setMailer } from '../server/services/mailer';
 import { consumeToken, createToken, peekToken } from '../server/services/emailTokens';

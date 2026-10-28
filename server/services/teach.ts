@@ -11,7 +11,7 @@ import { gradeAnswer } from './grading';
 import { solveLinearFromText, Solution, fstr } from './solver';
 import { topPassages, tokens } from './retrieval';
 import { VKey, Visual, canSimplify, describeVisual, detectKey, labelMeaning } from '../../shared/visuals';
-import { Bi, Lang, chapterSample, lessonPassages, parseGiven, looksLikeAnswer, hintFor, textbookHits } from './tutor';
+import { Bi, Lang, chapterSample, lessonPassages, parseGiven, hintFor, textbookHits } from './tutor';
 
 export type Mode = 'teach' | 'explain' | 'hint' | 'practice' | 'revise';
 export const MODES: Mode[] = ['teach', 'explain', 'hint', 'practice', 'revise'];
@@ -68,7 +68,7 @@ export function makeCloze(en: string, ta: string, lang: Lang): Check | undefined
   return { kind: 'cloze', answer, blank: src.replace(answer, '_____') };
 }
 
-export function planFromSolution(sol: Solution, text: string): Plan {
+export function planFromSolution(sol: Solution, _text: string): Plan {
   const steps: TStep[] = sol.steps.map((s, i) => ({ n: i + 1, en: s.en, ta: s.ta, check: { kind: 'ack' as const } }));
   if (sol.x) steps[steps.length - 1].check = undefined;
   const answer = sol.x ? fstr(sol.x) : '';
@@ -117,7 +117,7 @@ function stepChunk(plan: Plan, i: number, open = false, total = plan.steps.lengt
   const s = plan.steps[i]; const b = bi(s.en, s.ta);
   return { type: 'chunk', kind: 'step', en: open ? `Step ${i + 1}: ${s.en}` : `Step ${i + 1} of ${total}: ${s.en}`, ta: open ? `படி ${i + 1}: ${s.ta}` : `படி ${i + 1} / ${total}: ${s.ta}`, say: sayOf(b), step: i, total: open ? undefined : total, math: equationsIn(s.en), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
 }
-function checkChunk(plan: Plan, i: number, lang: Lang): TurnEvent | null {
+function checkChunk(plan: Plan, i: number, _lang: Lang): TurnEvent | null {
   const c = plan.steps[i]?.check; const last = i === plan.steps.length - 1;
   if (!c && plan.solution && last) { const v = plan.solution.variable; return { type: 'chunk', kind: 'check', en: `Your turn: what is ${v}?`, ta: `இப்போது நீங்கள்: ${v} இன் மதிப்பு என்ன?`, say: bi(`Your turn. What is ${v}?`, `இப்போது நீங்கள். ${v} இன் மதிப்பு என்ன?`), step: i }; }
   if (!c) return null;

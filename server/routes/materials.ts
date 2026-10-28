@@ -2,7 +2,6 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { storage } from '../services/storage';
-import { join } from 'node:path';
 import { DB, q } from '../db';
 import { rateLimit, requireRole, uid } from '../security';
 import { iso } from '../clock';
@@ -10,8 +9,6 @@ import { J, parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { htmlToText, safeFetch } from '../services/ssrf';
 import { splitPassages, topPassages } from '../services/retrieval';
-import { createRequire } from 'node:module';
-const require_ = createRequire(import.meta.url);
 
 const MAX = 10 * 1024 * 1024;
 const sniff = (b: Buffer): 'png' | 'jpeg' | 'webp' | 'pdf' | null => {

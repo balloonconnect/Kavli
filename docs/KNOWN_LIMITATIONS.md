@@ -10,7 +10,7 @@
 - **Draft question generator** is maths-only; all generated questions need human review before publishing.
 - **Accessibility**: automated axe checks pass; no manual screen-reader audit yet.
 - **Uploads**: type/size/magic-byte checks, but no antivirus scanning. Files live on local disk or an S3-compatible bucket (`STORAGE_DRIVER`).
-- No ESLint config; no CI pipeline.
+- Lint (`npm run lint`, bug-finding rules only, no formatting) and a GitHub Actions pipeline (`.github/workflows/ci.yml`: lint, type-check, live build, tests on SQLite and PostgreSQL 16, Docker build + health check) exist. There is no deploy step, no coverage report, and no dependency or security scanning.
 - **Sign-up**: email confirmation is a reminder, not a gate: unconfirmed students can still sign in. Under-13 approval happens through the emailed guardian link (or the link code if no mail provider is set). Teacher and school-admin sign-ups are approved on the admin People screen (`/admin/people`), which also finds accounts, switches them off and helps people who are locked out (email link or one-time temporary password). Approval relies on the admin judging the details; nothing is verified automatically. The UI uses `/app`, not the `/student/...` route names from the master prompt.
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
 - **UI-preview mode** (`.env.production`) fakes the API in the browser; sign-ups there are kept for the tab only.

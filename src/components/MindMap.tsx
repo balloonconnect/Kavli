@@ -67,7 +67,6 @@ export function modeShow(m: MMap, mode: Mode): Set<string> {
   return show;
 }
 export const anchorFor = (id: string): { tab: 'explain' | 'examples'; el: string | null } => id.startsWith('sec-') ? { tab: 'explain', el: `lesson-${id.split('-').slice(0, 2).join('-')}` } : id.startsWith('vocab') ? { tab: 'explain', el: 'lesson-vocab' } : id.startsWith('goal') || id === 'goals' ? { tab: 'explain', el: null } : { tab: 'examples', el: null };
-const txt = (n: MNode, lang: Lang, detail = false) => (lang === 'ta' ? (detail ? n.detail_ta ?? n.ta : n.ta) : (detail ? n.detail_en ?? n.en : n.en));
 
 export function MindMapView({ lessonId, subjectId, onOpenLesson }: { lessonId: string; subjectId?: string; onOpenLesson: (a: { tab: 'explain' | 'examples'; el: string | null }) => void }) {
   const { s } = useMindMap(lessonId);
@@ -172,7 +171,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
               {lay.list.map(b => eff.has(b.n.id) ? null : b.kids.map(k => { const c = lay.boxes.get(k)!; const x1 = b.x + W, y1 = b.y + b.h / 2, x2 = c.x, y2 = c.y + c.h / 2; return <path key={`${b.n.id}-${k}`} d={`M${x1} ${y1} C${x1 + 32} ${y1} ${x2 - 32} ${y2} ${x2} ${y2}`} fill="none" stroke={c.color[1] === '#ffffff' ? '#4f46e5' : c.color[1]} strokeWidth={2} opacity={0.7} />; }))}
               {lay.list.map(b => {
                 const root = b.n.parent === null, isSel = sel === b.n.id, isMatch = matchIds.has(b.n.id), done = state.understood.includes(b.n.id), rv = state.revision.includes(b.n.id); const label = `${b.n.en}${lang !== 'en' ? ` / ${b.n.ta}` : ''}`;
-                let y = 20 + (KIND_LABEL[b.n.kind] ? 14 : 0);
+                const y = 20 + (KIND_LABEL[b.n.kind] ? 14 : 0);
                 return (
                   <g key={b.n.id} transform={`translate(${b.x} ${b.y})`}>
                     <g role="button" tabIndex={0} aria-label={`${label}${done ? ', understood' : ''}${rv ? ', marked for revision' : ''}`} aria-pressed={isSel} className="mm-node" onClick={() => select(b.n.id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(b.n.id); } }}>

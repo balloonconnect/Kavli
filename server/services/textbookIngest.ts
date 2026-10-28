@@ -1,5 +1,4 @@
 import { DB, q } from '../db';
-import { iso } from '../clock';
 import { JobQueue } from './jobs';
 import { getOcrEngine, ocrPages, textQuality } from './ocr';
 import { storage } from './storage';

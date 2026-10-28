@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Button, Card, Empty, Icon, Loading, PageTitle } from '../components/ui';
+import { Badge, Button, Card, Icon, Loading, PageTitle } from '../components/ui';
 import { useAuth } from '../auth';
 import { get, getCsrf, msg, post, api } from '../api';
 import { PREVIEW } from '../preview';
@@ -86,7 +86,7 @@ export function VoiceTutor() {
   const interrupt = useCallback((why: 'voice' | 'new') => {
     const was = R.current.status; speaker.cancel(); setSpeakingId(null); R.current.ac?.abort(); R.current.ac = null;
     if (why === 'voice' && (was === 'speaking' || was === 'thinking')) metric('interrupted', R.current.t0 ? performance.now() - R.current.t0 : 0);
-  }, [speaker]); // eslint-disable-line
+  }, [speaker]);
 
   const sendTurn = useCallback(async (body: { text?: string; action?: string }, via: 'voice' | 'text' = 'text', attempt = 0) => {
     const s = R.current.ses; if (!s) return; interrupt('new'); setErr(''); setInterim(''); setPaused(false);
@@ -140,7 +140,7 @@ export function VoiceTutor() {
       let s = resume; let turns: any[] = [];
       if (!s) s = (await post('/voice/sessions', { mode, lang, showBoth, subjectId: subject || undefined, lessonId: lesson || undefined, chapterId: !lesson && chapterId ? chapterId : undefined, saveTranscript: save })).session;
       else { const d = await get(`/voice/sessions/${s.id}`); s = d.session; turns = d.turns; setLang(s.lang); setMode(s.mode); setShowBoth(s.showBoth); }
-      { const sp = spRef.current; if (sp instanceof CloudSpeaker) sp.sessionId = s.id; } let tn = 0; R.current.ses = s; setSes(s); setItems(turns.map((t: any, i: number) => t.role === 'student' ? (tn++, { id: nid(), role: 'student' as const, kind: t.kind, en: t.content.text, ta: t.content.text }) : { turn: -tn, id: nid(), role: 'tutor' as const, kind: t.kind, en: t.content.en, ta: t.content.ta, step: t.step, math: t.content.math, sources: t.content.sources, refs: t.content.refs, visuals: t.content.visuals }));
+      { const sp = spRef.current; if (sp instanceof CloudSpeaker) sp.sessionId = s.id; } let tn = 0; R.current.ses = s; setSes(s); setItems(turns.map((t: any) => t.role === 'student' ? (tn++, { id: nid(), role: 'student' as const, kind: t.kind, en: t.content.text, ta: t.content.text }) : { turn: -tn, id: nid(), role: 'tutor' as const, kind: t.kind, en: t.content.en, ta: t.content.ta, step: t.step, math: t.content.math, sources: t.content.sources, refs: t.content.refs, visuals: t.content.visuals }));
       setSt('idle');
       if (!resume && (lesson || mode === 'practice')) sendTurn({ text: mode === 'practice' ? 'start' : '' , action: mode === 'practice' ? undefined : 'mode:' + mode }, 'text');
     } catch (e) { setSt('error'); setErr(msg(e)); }

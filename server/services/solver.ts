@@ -66,7 +66,7 @@ const hasParen = (s: string) => /[()]/.test(s);
 
 /** Find and solve a linear equation inside free text. Returns null when no solvable equation is present. */
 export function solveLinearFromText(text: string): Solution | null {
-  const m = text.match(/([0-9a-zA-Z.()+\-−–*×·\/÷\s]+=[0-9a-zA-Z.()+\-−–*×·\/÷\s]+)/);
+  const m = text.match(/([0-9a-zA-Z.()+\-−–*×·/÷\s]+=[0-9a-zA-Z.()+\-−–*×·/÷\s]+)/);
   if (!m) return null; let eq = m[1].trim();
   // trim leading words (e.g. "solve", "x is") that got captured as variables
   eq = eq.replace(/^[a-zA-Z]{2,}\s+/, '').trim();

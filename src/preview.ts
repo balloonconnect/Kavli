@@ -8,7 +8,6 @@ export const PREVIEW_LOGIN = { username: 'vikikalvi', password: 'demo@12345' };
 
 class PErr extends Error { constructor(public status: number, m: string) { super(m); } }
 const USER = { id: 'u-preview', email: 'vikikalvi@preview.local', display_name: 'Viki', role: 'student', school_id: null };
-const PROFILE = { full_name: 'Viki', preferred_name: 'Viki', class_level: 8, medium: 'English', voice_prefs: { rate: 1 } };
 const ACTIONS: Record<string, { en: string; ta: string }> = {
   simpler: { en: 'Explain simply', ta: 'எளிமையாக விளக்கு' }, steps: { en: 'Solve step by step', ta: 'படிப்படியாகத் தீர்' },
   hint: { en: 'Give a hint', ta: 'குறிப்பு கொடு' }, another: { en: 'Show another example', ta: 'இன்னொரு எடுத்துக்காட்டு' },

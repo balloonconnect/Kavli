@@ -2,7 +2,7 @@ import { Router, Request } from 'express';
 import { z } from 'zod';
 import { DB, q, tx } from '../db';
 import { audit, requireAuth, requireRole } from '../security';
-import { iso, clock } from '../clock';
+import { iso } from '../clock';
 import { J, canAccessStudent, parse, wrap } from '../http';
 import { HttpError, effectiveResult, finalizeIfReady, loadAttemptForStudent, maybeIssueCertificate, saveAnswers, settleIfExpired, startAttempt, submitAttempt, testQuestions, testStatus, topicPerformance, certRef } from '../services/tests';
 import { newToken, uid } from '../security';

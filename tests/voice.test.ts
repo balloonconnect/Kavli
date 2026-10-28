@@ -96,7 +96,7 @@ describe('voice tutor', () => {
     const p = await login(DEMO.parent); expect((await p.c.post('/api/voice/sessions', {})).status).toBe(403);
   });
   it('a slow engine: duplicate turn → 409, busy queue → 503, and a disconnect mid-answer does not advance the lesson', async () => {
-    const slow = { name: 'slow', mock: true, async *turn(c: any, i: any) { yield { type: 'ack' }; await new Promise(r => setTimeout(r, 150)); yield { type: 'chunk', kind: 'info', en: 'a', ta: 'அ', say: { en: 'a', ta: 'அ' } }; await new Promise(r => setTimeout(r, 150)); c.state.idx++; yield { type: 'done', state: c.state, meta: { grounded: 'none' } }; } };
+    const slow = { name: 'slow', mock: true, async *turn(c: any) { yield { type: 'ack' }; await new Promise(r => setTimeout(r, 150)); yield { type: 'chunk', kind: 'info', en: 'a', ta: 'அ', say: { en: 'a', ta: 'அ' } }; await new Promise(r => setTimeout(r, 150)); c.state.idx++; yield { type: 'done', state: c.state, meta: { grounded: 'none' } }; } };
     ctx = await setup({ voiceEngine: slow, voiceMax: 1, voiceQueueMs: 20 });
     const a = await login(DEMO.student), b = await login(DEMO.arun); const sa = await mk(a, {}), sb = await mk(b, {});
     const [x, y, z] = await Promise.all([turn(a, sa.id, { text: 'one' }), turn(a, sa.id, { text: 'two' }), new Promise<any>(r => setTimeout(async () => r(await turn(b, sb.id, { text: 'three' })), 40))]);

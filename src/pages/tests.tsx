@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Async, Badge, Button, Card, Empty, Icon, Loading, Modal, PageTitle, Progress, ScoreRing, fmtDT, fmtDate, useLoad, ErrorState } from '../components/ui';
 import { Bi } from '../components/lang';
@@ -63,7 +63,7 @@ export function TakeTest() {
   useEffect(() => { const b = (e: BeforeUnloadEvent) => { if (dirty.current.size) { e.preventDefault(); e.returnValue = ''; } }; window.addEventListener('beforeunload', b); return () => window.removeEventListener('beforeunload', b); }, []);
   const finish = useCallback(async (auto = false) => { if (submitting.current) return; submitting.current = true; setBusy(true);
     try { await post(`/attempts/${id}/submit`, { items: items() }); if (auto) toast('Time is up — your answers were submitted.'); nav(`/app/result/${id}`, { replace: true }); }
-    catch (e) { submitting.current = false; setBusy(false); toast(msg(e), 'err'); } }, [id, nav, toast]); // eslint-disable-line
+    catch (e) { submitting.current = false; setBusy(false); toast(msg(e), 'err'); } }, [id, nav, toast]);
   useEffect(() => { if (!att) return; const dl = new Date(att.deadline_at).getTime(); let said5 = false, said1 = false;
     const t = setInterval(() => { const r = dl - (Date.now() + offset.current); setLeft(r); if (att.rules.duration_min) { if (r <= 300000 && !said5) { said5 = true; setWarn('5 minutes left'); } if (r <= 60000 && !said1) { said1 = true; setWarn('1 minute left'); } } if (r <= 0) { clearInterval(t); finish(true); } }, 500); return () => clearInterval(t); }, [att, finish]);
   if (err) return <ErrorState text={err} retry={() => location.reload()} />;
@@ -97,7 +97,7 @@ export function TakeTest() {
 }
 
 export function Result() {
-  const { id } = useParams(); const s = useLoad(() => get(`/attempts/${id}/result`), [id]); const nav = useNavigate();
+  const { id } = useParams(); const s = useLoad(() => get(`/attempts/${id}/result`), [id]);
   return <Async s={s}>{({ result: r }) => { const pend = r.status === 'pending_review'; const pass = r.status === 'passed';
     return <div className="col"><PageTitle title={r.testTitle} sub={`${r.subject_en} · Class ${r.classLevel} · Attempt ${r.attemptNo} · ${fmtDT(r.attemptedAt)}`} />
       <Card className="resulthero"><ScoreRing pct={r.pct} color={pend ? 'var(--warning)' : pass ? 'var(--success)' : 'var(--danger)'} label={`${r.marks}/${r.total}`} sub={`${r.pct}%`} />

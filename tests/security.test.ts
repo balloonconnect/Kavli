@@ -8,7 +8,6 @@ let ctx: Awaited<ReturnType<typeof setup>>;
 beforeEach(async () => { ctx = await setup(); });
 const login = async (email: string) => { const c = client(ctx.app); expect((await c.login(email)).status).toBe(200); return c; };
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4c60000000049454e44ae426082', 'hex');
-const upload = (c: ReturnType<typeof client>, buf: Buffer, name: string, kind: string) => c.agent.post('/api/materials/upload').set('x-csrf-token', (c as any).csrf ?? '').field('kind', kind).attach('file', buf, name);
 
 describe('server-side permissions and privacy', () => {
   it('requires sign-in for protected endpoints', async () => {

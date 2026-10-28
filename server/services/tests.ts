@@ -105,10 +105,9 @@ export async function submitAttempt(db: DB, attemptId: string, studentId: string
     // Atomic claim: when a manual submit and the timer's auto-submit race, exactly one wins (the other waits on the row lock, then sees 0 rows).
     if ((await q.run(db, "UPDATE attempts SET status='pending_review' WHERE id=? AND status='in_progress'", attemptId)).changes === 0) return { attemptId, already: true };
     const qs = await testQuestions(db, a.test_id); const ans = new Map((await q.all<any>(db, 'SELECT * FROM answers WHERE attempt_id=?', attemptId)).map(r => [r.question_id, J(r.answer)]));
-    let marks = 0;
     for (const qu of qs) {
       const out = gradeAnswer(qu.type, J(qu.answer), ans.get(qu.question_id), qu.marks);
-      if (out.kind === 'auto') { marks += out.marks; await q.run(db, 'INSERT INTO gradings VALUES (?,?,?,?,1,NULL,NULL,?)', attemptId, qu.question_id, out.marks, qu.marks, iso()); }
+      if (out.kind === 'auto') { await q.run(db, 'INSERT INTO gradings VALUES (?,?,?,?,1,NULL,NULL,?)', attemptId, qu.question_id, out.marks, qu.marks, iso()); }
     }
     const submitted = a.deadline_at && iso() > a.deadline_at ? a.deadline_at : iso();
     await q.run(db, "UPDATE attempts SET submitted_at=?, status='pending_review' WHERE id=?", submitted, attemptId);

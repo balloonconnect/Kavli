@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { DB, q, tx } from '../db';
+import { DB, q } from '../db';
 import { requireRole, uid } from '../security';
 import { clock, iso } from '../clock';
 import { J, parse, wrap, canAccessStudent } from '../http';

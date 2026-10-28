@@ -73,7 +73,7 @@ export function buildMindMap(lesson: { id: string; title_en: string; title_ta: s
       (e.steps_en ?? []).slice(0, 5).forEach((st: string, j: number) => add({ id: `ex-${i}-${j}`, parent: `ex-${i}`, kind: FORMULA.test(st) ? 'formula' : 'fact', rev: false, en: clip(st, 70), ta: clip(e.steps_ta?.[j] ?? st, 80) }));
     });
   }
-  if (c.realLife?.en) add({ id: 'real', parent: 'root', kind: 'branch', level: 'detailed', rev: false, en: 'In real life', ta: 'நிஜ வாழ்வில்' }), add({ id: 'real-0', parent: 'real', kind: 'example', rev: false, en: clip(c.realLife.en, 90), ta: clip(c.realLife.ta ?? c.realLife.en, 100), detail_en: clip(c.realLife.en, 400), detail_ta: clip(c.realLife.ta ?? c.realLife.en, 400) });
+  if (c.realLife?.en) { add({ id: 'real', parent: 'root', kind: 'branch', level: 'detailed', rev: false, en: 'In real life', ta: 'நிஜ வாழ்வில்' }); add({ id: 'real-0', parent: 'real', kind: 'example', rev: false, en: clip(c.realLife.en, 90), ta: clip(c.realLife.ta ?? c.realLife.en, 100), detail_en: clip(c.realLife.en, 400), detail_ta: clip(c.realLife.ta ?? c.realLife.en, 400) }); }
   if (c.mistakes?.length) {
     add({ id: 'mist', parent: 'root', kind: 'branch', level: 'detailed', rev: true, en: 'Common mistakes', ta: 'பொதுவான தவறுகள்' });
     c.mistakes.slice(0, 4).forEach((m: any, i: number) => add({ id: `mist-${i}`, parent: 'mist', kind: 'mistake', rev: true, en: clip(m.en, 80), ta: clip(m.ta, 90), detail_en: clip(m.en, 300), detail_ta: clip(m.ta, 300) }));

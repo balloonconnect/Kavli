@@ -24,7 +24,7 @@ export function parseContents(text: string): { title: string; printed: number }[
     // drop month names that sit after the number
     const words = line.split(' '); while (words.length > 2 && MONTHS.test(words[words.length - 1])) words.pop(); line = words.join(' ');
     // the last number, then at most two stray tokens (a month, a unit name, OCR specks)
-    const m = line.match(/^(.*[\p{L}\p{M}\)”’"'])\s+(\d{1,3})(?:\s+\S{1,14}){0,2}$/u); if (!m) continue;
+    const m = line.match(/^(.*[\p{L}\p{M})”’"'])\s+(\d{1,3})(?:\s+\S{1,14}){0,2}$/u); if (!m) continue;
     const title = m[1].replace(/^\d{1,2}[.)]?\s+(?=\p{L})/u, '').trim(); const printed = Number(m[2]);
     if (title.length < 3 || !/\p{L}/u.test(title) || printed < 1) continue;
     out.push({ title, printed });
