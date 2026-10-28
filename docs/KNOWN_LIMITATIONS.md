@@ -32,7 +32,7 @@
 
 ## Added in the production-hardening pass
 - Diagrams are original drawings made for this project and have **not** been reviewed by a teacher. They are labelled as such in the app.
-- Production bootstrap (`SEED_DEMO=0`) creates only the subject list and the real textbook lessons. Teachers must add tests and practice questions; Practice and Revise report that none exist until then.
+- Production bootstrap (`SEED_DEMO=0`) creates only the subject list, the real textbook lessons and the built-in practice questions. The built-in practice questions are included; teachers must add weekly tests.
 - The first admin is created with `scripts/create-admin.ts`. There is no password-reset email flow.
 - The Docker image was written but **not built** in the authoring environment (no Docker daemon). The production-only dependency install and the non-preview front-end build were run separately and work.
 - The textbook PDF itself and its extracted text are not in the repository; test fixtures use sentences written for the tests.

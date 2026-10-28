@@ -128,6 +128,10 @@ practiceQs.push(
 /** Production start (SEED_DEMO=0): the reference data every account needs — the subject list and the real textbook lessons — but no demo users, school or sample content. */
 export async function bootstrapProduction(db: DB) {
   if (!(await q.get(db, 'SELECT 1 FROM subjects LIMIT 1'))) await tx(db, async () => { for (const [id, en, ta] of subjects) await q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta); });
+  // Practice questions (Class 8 maths equations, Tamil, etc.) are generic study material, not tied to the demo school, so a live site can use Practice and Revise from day one.
+  if (!(await q.get(db, "SELECT 1 FROM questions WHERE origin='practice' LIMIT 1"))) await tx(db, async () => {
+    for (const x of practiceQs) await q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', null);
+  });
   await upsertTextbookLessons(db);
 }
 

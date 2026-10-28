@@ -41,6 +41,15 @@ const STATUS: Record<string, { tone: 'success' | 'warning' | 'info' | 'danger'; 
   ready: { tone: 'success', label: 'Ready' }, processing: { tone: 'info', label: 'Reading pages…' }, needs_ocr: { tone: 'warning', label: 'Needs OCR' }, failed: { tone: 'danger', label: 'Failed' },
 };
 
+/** Admin: what this server is running with, so a live set-up can be checked at a glance. */
+function SystemStatus() {
+  const s = useLoad(() => get('/admin/system'));
+  return <Async s={s}>{d => <Card className="col"><h2>Live set-up check</h2>
+    <p className="muted small">{d.ready ? 'Everything needed for a live site is in place.' : d.production ? 'Some things are not set up for a live site yet.' : 'Development mode: warnings below only matter for a live site.'}</p>
+    {d.checks.map((c: any) => <div key={c.key} className="row wrap listrow"><div className="grow"><b>{c.label}</b><div className="muted small">{c.detail}</div>{!c.ok && c.advice && <div className="muted small">{c.advice}</div>}</div><Badge tone={c.ok ? 'success' : 'warning'}>{c.ok ? 'OK' : 'To do'}</Badge></div>)}
+    <p className="muted small">Content: {d.content.lessons} lessons · {d.content.practiceQuestions} practice questions · {d.content.books} class book(s), {d.content.bookPages} pages read{d.content.booksReading ? ` (${d.content.booksReading} still reading)` : ''}.</p></Card>}</Async>;
+}
+
 /** Admin: upload and remove class books. Teachers get the same page read-only. */
 export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
   const s = useLoad(() => get('/textbooks')); const toast = useToast(); const [busy, setBusy] = useState(false);
@@ -51,6 +60,7 @@ export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
     setBusy(true); try { const r = await post('/textbooks', fd); toast(r.textbook.status === 'ready' ? 'Book added.' : r.textbook.status === 'processing' ? 'Book added. Its pages are being read now; this can take several minutes.' : 'Book added, but the chatbot cannot read it yet (scanned pages).', r.textbook.status === 'needs_ocr' ? 'err' : 'ok'); setFile(null); setF({ ...f, title: '' }); s.reload(); } catch (x) { toast(msg(x), 'err'); } finally { setBusy(false); }
   };
   return <div className="col"><PageTitle title="Class books" sub={canEdit ? "Upload a textbook PDF for one class. Students of that class (and only that class) can open it, and the tutor answers from it." : "Books added by the platform admin. Students see only their own class’s books. Teachers can read them but cannot add or remove books."} />
+    {canEdit && <SystemStatus />}
     {canEdit && <Card><form className="col" onSubmit={submit}>
       <div className="grid g2"><Field label="Book title" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} required minLength={2} maxLength={120} placeholder="Class 8 Mathematics — Term 1" />
         <div className="field"><label htmlFor="bk-c">Class</label><select id="bk-c" value={f.classLevel} onChange={e => setF({ ...f, classLevel: e.target.value })}>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <option key={c}>{c}</option>)}</select></div>

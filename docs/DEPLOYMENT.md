@@ -48,7 +48,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 2. **Upload the books** (Admin → Class books). A Tamil-medium or scanned book opens at once and shows *"Reading N pages with OCR"*; the tutor can use pages as they finish. Measured on the Class 8 Tamil book (192 pages): about 2.4 s per page, 4–8 minutes in total, depending on CPU. Leave the server running; if it restarts, unfinished books resume.
 3. **Check one book by hand**: open a few pages in the reader and ask the tutor a question that book answers. OCR is good but not perfect (spot-checking is the only quality control).
 4. **Create the school, teachers and classes**, or let staff register and approve them.
-5. **Load practice questions.** A fresh production database has none, so Practice and Revise modes will say so until a teacher adds questions.
+5. **Check the live set-up card.** Admin → Class books now starts with a *Live set-up check* (database, storage, OCR, tutor, voice, demo accounts, https) and counts of lessons, practice questions and books. Fix every *To do* before announcing. A production start already includes the built-in practice questions; teachers add more.
 
 ## 5. Go-live checklist
 
@@ -80,7 +80,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (154 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (156 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
