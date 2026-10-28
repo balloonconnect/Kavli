@@ -27,6 +27,5 @@ export function Guard({ roles, children, allowIncompleteProfile }: { roles: Role
   if (loading) return <Loading text="Loading…" />;
   if (!user) return <Navigate to="/signin" state={{ from: loc.pathname }} replace />;
   if (!roles.includes(user.role)) return <Navigate to={homeFor(user.role)} replace />;
-  if (user.role === 'student' && needsProfile && !allowIncompleteProfile) return <Navigate to="/profile" replace />;
   return <>{children}</>;
 }

@@ -1,5 +1,7 @@
 # Implementation status
 
+> **Front end trimmed:** only public pages, sign-in, dashboard and AI tutor are reachable in the UI now. Rows below marked Verified refer to the server and to the earlier full UI; features other than sign-in, dashboard and tutor currently have no screens.
+
 Legend: **Verified** = covered by automated tests or exercised in a real browser. **Implemented** = built but not independently verified. **Not done** = absent.
 
 | Area | Status | Evidence / note |

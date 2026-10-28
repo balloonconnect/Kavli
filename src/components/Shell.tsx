@@ -9,16 +9,8 @@ export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typ
 const SHORT: Record<string, string> = { '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
-  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
-    T('/app/practice', 'Practice', 'பயிற்சி', 'target'), T('/app/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/app/progress', 'Progress', 'முன்னேற்றம்', 'chart'), T('/app/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award'),
-    T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
-  parent: [T('/parent', 'My children', 'என் குழந்தைகள்', 'users', true), T('/parent/settings', 'Account', 'கணக்கு', 'settings')],
-  teacher: [T('/teacher', 'Overview', 'மேலோட்டம்', 'home', true), T('/teacher/classes', 'Classes', 'வகுப்புகள்', 'users'), T('/teacher/questions', 'Question bank', 'கேள்வி வங்கி', 'layers'), T('/teacher/tests', 'Weekly tests', 'வாராந்திரத் தேர்வுகள்', 'test'),
-    T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/homework', 'Homework', 'வீட்டுப்பாடம்', 'file'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
-  school_admin: [T('/school', 'Overview', 'மேலோட்டம்', 'home', true), T('/school/people', 'People', 'நபர்கள்', 'users'), T('/school/classes', 'Classes', 'வகுப்புகள்', 'layers'), T('/teacher/tests', 'Weekly tests', 'வாராந்திரத் தேர்வுகள்', 'test'),
-    T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
-  admin: [T('/admin', 'Overview', 'மேலோட்டம்', 'home', true), T('/admin/users', 'Users & roles', 'பயனர்கள்', 'users'), T('/admin/schools', 'Schools', 'பள்ளிகள்', 'layers'), T('/admin/curriculum', 'Curriculum', 'பாடத்திட்டம்', 'book'),
-    T('/admin/ai', 'AI & usage', 'AI பயன்பாடு', 'chat'), T('/admin/audit', 'Audit log', 'தணிக்கை', 'shield'), T('/admin/settings', 'Settings & security', 'அமைப்புகள்', 'settings'), T('/teacher/tests', 'Weekly tests', 'தேர்வுகள்', 'test'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
+  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat')],
+  parent: [], teacher: [], school_admin: [], admin: [],
 };
 const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin' };
 
@@ -60,7 +52,6 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="main">
         <header className="topbar">
           <Link to="/" className="logo mlogo" aria-label="Kalvi Mitra home"><span className="m"><Icon name="book" size={18} /></span></Link>
-          {user.role === 'student' && <form className="searchform" role="search" onSubmit={e => { e.preventDefault(); nav(`/app/learn?q=${encodeURIComponent(q)}`); }}><Icon name="search" size={16} /><input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search lessons…" aria-label="Search lessons" /></form>}
           <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
           <Bell />
         </header>

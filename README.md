@@ -9,6 +9,9 @@ school admins and platform admins have their own screens.
 > gaps in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md). This is not an official
 > Tamil Nadu Government product; bundled curriculum content is sample content.
 
+## Current scope (trimmed UI)
+The web app currently exposes only: public pages, **/signin**, a **dashboard** and the **AI tutor** (student account). Sign-up, profile, lessons, tests, certificates and the parent/teacher/school/admin screens were removed from the front end (still in git history, commit a4ede4c). The server API and tests for those features remain, but they have no UI now. Public pages still describe the full product and should be edited to match.
+
 ## Quick start
 Requires Node 22+ (uses built-in `node:sqlite`).
 ```bash
@@ -28,7 +31,7 @@ Open http://localhost:5173.
 | `npm test` | vitest (API, grading, timing, certificates, SSRF, materials) |
 
 ## Demo accounts (development only, password `demo@12345`)
-Usernames `vikikalvi` (student), `vikikalvi-parent`, `vikikalvi-teacher`, `vikikalvi-school`, `vikikalvi-admin`; or the matching `…@demo.kavli.local` emails (also `arun`, `divya`, `karthik`).
+Username `vikikalvi` (student). Other role usernames exist on the server but the UI rejects non-student accounts (also `arun`, `divya`, `karthik`).
 Set `SEED_DEMO=0` in production so none of these are created.
 
 ## Architecture
