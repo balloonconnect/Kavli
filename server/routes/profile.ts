@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { DB, q, tx } from '../db';
-import { unlinkSync } from 'node:fs';
+import { storage } from '../services/storage';
 import { audit, requireRole, uid } from '../security';
 import { iso } from '../clock';
 import { parse, wrap } from '../http';
@@ -43,7 +43,7 @@ export function profileRoutes(db: DB) {
     const id = req.user!.id; await audit(db, id, 'user.delete_self', 'user', id);
     const files = (await q.all<any>(db, 'SELECT file_path FROM materials WHERE user_id=? AND file_path IS NOT NULL', id));
     await tx(db, async () => { await q.run(db, 'DELETE FROM certificates WHERE student_id=?', id); await q.run(db, 'DELETE FROM attempts WHERE student_id=?', id); await q.run(db, 'DELETE FROM users WHERE id=?', id); });
-    for (const f of files) { try { unlinkSync(f.file_path); } catch { /* already gone */ } }
+    for (const f of files) await storage().delete(f.file_path).catch(() => { /* best effort; the DB rows are already gone */ });
     res.json({ ok: true });
   }));
   return r;

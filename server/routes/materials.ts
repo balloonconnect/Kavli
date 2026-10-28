@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, existsSync } from 'node:fs';
+import { storage } from '../services/storage';
 import { join } from 'node:path';
 import { DB, q } from '../db';
 import { rateLimit, requireRole, uid } from '../security';
@@ -13,7 +13,6 @@ import { splitPassages, topPassages } from '../services/retrieval';
 import { createRequire } from 'node:module';
 const require_ = createRequire(import.meta.url);
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? 'data/uploads';
 const MAX = 10 * 1024 * 1024;
 const sniff = (b: Buffer): 'png' | 'jpeg' | 'webp' | 'pdf' | null => {
   if (b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
@@ -33,7 +32,7 @@ export function materialRoutes(db: DB) {
   const r = Router(); const S = requireRole('student'); const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX, files: 1 } });
   const own = async (id: string, userId: string) => { const m = (await q.get<any>(db, 'SELECT * FROM materials WHERE id=? AND user_id=?', id, userId)); if (!m) throw new HttpError(404, 'Material not found.'); return m; };
   const view = (m: any) => ({ id: m.id, kind: m.kind, name: m.name, mime: m.mime, size: m.size, source_url: m.source_url, status: m.status, note: m.note, created_at: m.created_at, pageCount: J(m.pages).length, hasText: !!m.text, preview: m.text ? m.text.slice(0, 600) : null });
-  const saveFile = (buf: Buffer, ext: string) => { mkdirSync(UPLOAD_DIR, { recursive: true }); const p = join(UPLOAD_DIR, `${uid()}.${ext}`); writeFileSync(p, buf, { mode: 0o600 }); return p; };
+  const saveFile = async (buf: Buffer, ext: string, mime?: string) => { const key = storage().newKey('uploads', ext); await storage().put(key, buf, mime); return key; };
   const guard = async (userId: string) => { const p = (await q.get<any>(db, 'SELECT guardian_approved FROM student_profiles WHERE user_id=?', userId)); const u13 = (await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${userId}`))?.value === '1'; if (u13 && !p?.guardian_approved) throw new HttpError(403, 'A parent or guardian needs to approve your account before you can upload material.'); };
 
   r.get('/', S, wrap(async (req, res) => res.json({ materials: (await q.all<any>(db, 'SELECT * FROM materials WHERE user_id=? ORDER BY created_at DESC', req.user!.id)).map(view), capabilities: { ocr: !!process.env.ANTHROPIC_API_KEY, ocrNote: process.env.ANTHROPIC_API_KEY ? 'Photo text reading uses the configured AI vision service.' : 'Automatic photo text reading (OCR) is not configured in this environment. Type or paste the question text instead.', pdfText: true, pdfOcr: false, link: true } })));
@@ -43,7 +42,7 @@ export function materialRoutes(db: DB) {
     if (kind === 'image' && !(type === 'png' || type === 'jpeg' || type === 'webp')) throw new HttpError(415, 'Please choose a JPG, PNG or WebP photo.');
     if (kind === 'pdf' && type !== 'pdf') throw new HttpError(415, 'Please choose a PDF file.');
     const name = (f.originalname || (kind === 'pdf' ? 'document.pdf' : 'photo')).replace(/[^\w.\- ()஀-௿]/g, '_').slice(0, 100); const id = uid();
-    const path = saveFile(f.buffer, type === 'jpeg' ? 'jpg' : type!);
+    const path = await saveFile(f.buffer, type === 'jpeg' ? 'jpg' : type!, f.mimetype);
     let text: string | null = null, pages: any[] = [], status = 'ready', note: string | null = null;
     if (kind === 'pdf') {
       try { pages = await extractPdf(f.buffer); text = pages.map(p => p.text).join('\n'); }
@@ -61,7 +60,7 @@ export function materialRoutes(db: DB) {
     res.status(201).json({ material: view((await q.get(db, 'SELECT * FROM materials WHERE id=?', id))!) });
   }));
   r.get('/:id', S, wrap(async (req, res) => { const m = await own(req.params.id, req.user!.id); res.json({ material: view(m), pages: J(m.pages).map((p: any) => ({ page: p.page, text: p.text.slice(0, 1500) })), text: m.text?.slice(0, 20000) ?? null }); }));
-  r.get('/:id/file', S, wrap(async (req, res) => { const m = await own(req.params.id, req.user!.id); if (!m.file_path || !existsSync(m.file_path)) throw new HttpError(404, 'File not found.'); res.setHeader('Content-Type', m.mime ?? 'application/octet-stream'); res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.send(readFileSync(m.file_path)); }));
+  r.get('/:id/file', S, wrap(async (req, res) => { const m = await own(req.params.id, req.user!.id); if (!m.file_path || !(await storage().exists(m.file_path))) throw new HttpError(404, 'File not found.'); res.setHeader('Content-Type', m.mime ?? 'application/octet-stream'); res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.send(await storage().get(m.file_path)); }));
   r.put('/:id/text', S, wrap(async (req, res) => {
     const b = parse(z.object({ text: z.string().trim().min(5, 'Enter the question or text from your photo').max(8000) }), req.body); const m = await own(req.params.id, req.user!.id);
     if (m.kind !== 'image') throw new HttpError(400, 'Only photos need confirmed text.');
@@ -70,13 +69,13 @@ export function materialRoutes(db: DB) {
   r.post('/:id/ocr', S, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
     const m = await own(req.params.id, req.user!.id); const key = process.env.ANTHROPIC_API_KEY;
     if (m.kind !== 'image') throw new HttpError(400, 'OCR applies to photos.'); if (!key) throw new HttpError(501, 'Photo text reading (OCR) is not configured in this environment. Type the text instead.');
-    const buf = readFileSync(m.file_path); const type = sniff(buf)!;
+    const buf = await storage().get(m.file_path); const type = sniff(buf)!;
     const rsp = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5-5', max_tokens: 1000, messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: `image/${type}`, data: buf.toString('base64') } }, { type: 'text', text: 'Transcribe the text/question in this school photo exactly. Reply with the text only. If unsure about a word, put it in [?brackets?].' }] }] }), signal: AbortSignal.timeout(30000) });
     if (!rsp.ok) throw new HttpError(502, 'Could not read the photo right now. Please type the text instead.');
     const data: any = await rsp.json(); const text = String(data.content?.[0]?.text ?? '').trim();
     await q.run(db, "UPDATE materials SET text=?, status='needs_confirmation', note='Please check the text below — uncertain words are marked [?like this?].' WHERE id=?", text, m.id); res.json({ material: view((await q.get(db, 'SELECT * FROM materials WHERE id=?', m.id))!), text });
   }));
-  r.delete('/:id', S, wrap(async (req, res) => { const m = await own(req.params.id, req.user!.id); if (m.file_path) { try { unlinkSync(m.file_path); } catch { /* already removed */ } } await q.run(db, 'DELETE FROM materials WHERE id=?', m.id); res.json({ ok: true }); }));
+  r.delete('/:id', S, wrap(async (req, res) => { const m = await own(req.params.id, req.user!.id); if (m.file_path) await storage().delete(m.file_path); await q.run(db, 'DELETE FROM materials WHERE id=?', m.id); res.json({ ok: true }); }));
   const passagesOf = (m: any) => { const pages = J(m.pages) as { page: number; text: string }[]; return pages.length ? pages.flatMap(pg => splitPassages(pg.text, pg.page, m.name)) : splitPassages(m.text ?? '', undefined, m.name); };
   r.post('/:id/notes', S, wrap(async (req, res) => {
     const m = await own(req.params.id, req.user!.id); if (!m.text) throw new HttpError(409, 'This material has no readable text yet.');

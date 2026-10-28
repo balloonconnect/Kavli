@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { mkdirSync, writeFileSync, unlinkSync, existsSync, createReadStream } from 'node:fs';
+import { storage } from '../services/storage';
 import { join } from 'node:path';
 import { DB, q } from '../db';
 import { rateLimit, requireAuth, requireRole, uid } from '../security';
@@ -10,7 +10,6 @@ import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { textbookHits } from '../services/tutor';
 
-const DIR = process.env.TEXTBOOK_DIR ?? 'data/textbooks';
 const MAX = 60 * 1024 * 1024;
 const STAFF = ['teacher', 'school_admin', 'admin'];
 async function extractAll(buf: Buffer) {
@@ -47,7 +46,7 @@ export function textbookRoutes(db: DB) {
     const withText = pages.filter(p => p.text.length > 20);
     if (status === 'ready' && withText.length < Math.max(1, Math.floor(pages.length / 4))) { status = 'needs_ocr'; note = 'Most pages are scanned images with no readable text. Students can open this book, but the chatbot cannot answer from it until OCR is added.'; }
     if (status === 'failed') throw new HttpError(422, note!);
-    mkdirSync(DIR, { recursive: true }); const id = uid(); const path = join(DIR, `${id}.pdf`); writeFileSync(path, f.buffer, { mode: 0o600 });
+    const id = uid(); const path = storage().newKey('textbooks', 'pdf'); await storage().put(path, f.buffer, 'application/pdf');
     await q.run(db, 'INSERT INTO textbooks(id,title,class_level,subject_id,medium,file_path,size,page_count,status,note,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', id, b.title, b.classLevel, subject, b.medium, path, f.size, pages.length, status, note, req.user!.id, iso());
     for (const p of withText) await q.run(db, 'INSERT INTO textbook_pages(textbook_id,page,text) VALUES (?,?,?)', id, p.page, p.text.slice(0, 20000));
     res.status(201).json({ textbook: view(await get(id)) });
@@ -72,13 +71,13 @@ export function textbookRoutes(db: DB) {
     res.json({ page: n, text: p?.text ?? '', pageCount: b.page_count });
   }));
   r.get('/:id/file', requireAuth, wrap(async (req, res) => {
-    const b = await get(req.params.id); if (!(await allowed(req, b)) || !existsSync(b.file_path)) throw new HttpError(404, 'Book not found.');
+    const b = await get(req.params.id); if (!(await allowed(req, b)) || !(await storage().exists(b.file_path))) throw new HttpError(404, 'Book not found.');
     res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `inline; filename="${b.id}.pdf"`);
     res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Content-Security-Policy', "frame-ancestors 'self'"); res.setHeader('Cache-Control', 'private, max-age=300');
-    createReadStream(b.file_path).pipe(res);
+    (await storage().stream(b.file_path)).pipe(res);
   }));
   r.delete('/:id', admin, wrap(async (req, res) => {
-    const b = await get(req.params.id); try { unlinkSync(b.file_path); } catch { /* already gone */ }
+    const b = await get(req.params.id); await storage().delete(b.file_path);
     await q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
   }));
   return r;
