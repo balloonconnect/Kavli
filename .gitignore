@@ -8,3 +8,4 @@ uploads/
 .env
 .env.local
 coverage/
+dist-preview-bak/
