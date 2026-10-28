@@ -3,6 +3,7 @@ import { openDb } from '../server/db';
 import { seed, DEMO_PASSWORD } from '../server/seed';
 import { createApp } from '../server/app';
 import { clock } from '../server/clock';
+import { setOcrEngine } from '../server/services/ocr';
 
 process.env.DISABLE_RATE_LIMIT = '1';
 let dbN = 0;
@@ -16,7 +17,7 @@ async function target(): Promise<string> {
   const u = new URL(base); u.pathname = '/' + name; return u.toString();
 }
 export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
-  clock.reset();
+  clock.reset(); setOcrEngine(null); // tests choose their OCR engine explicitly; never depend on what is installed
   const db = await openDb(await target()); await seed(db); const app = createApp(db, { serveStatic: false, ...o });
   return { db, app };
 }

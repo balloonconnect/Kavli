@@ -58,7 +58,7 @@ const NO = /^(no|nope|not really|i don.t|dont|i do not|don.t understand|confused
 function praise(n: number): Bi { return [bi('Correct — well done!', 'சரியான விடை — பாராட்டுகள்!'), bi('Yes, that is right. Nice work!', 'ஆம், சரிதான். அருமை!'), bi('Exactly right!', 'மிகச் சரி!')][n % 3]; }
 
 /** Hide one meaningful word of a sentence so the student can recall it. */
-function makeCloze(en: string, ta: string, lang: Lang): Check | undefined {
+export function makeCloze(en: string, ta: string, lang: Lang): Check | undefined {
   const useTa = lang === 'ta'; const src = useTa ? ta : en;
   const words = (src.match(useTa ? /[஀-௿]{4,}/g : /[A-Za-z]{6,}/g) ?? []).filter(w => !/^(example|because|between|following)$/i.test(w));
   if (!words.length) return undefined;
@@ -66,7 +66,7 @@ function makeCloze(en: string, ta: string, lang: Lang): Check | undefined {
   return { kind: 'cloze', answer, blank: src.replace(answer, '_____') };
 }
 
-function planFromSolution(sol: Solution, text: string): Plan {
+export function planFromSolution(sol: Solution, text: string): Plan {
   const steps: TStep[] = sol.steps.map((s, i) => ({ n: i + 1, en: s.en, ta: s.ta, check: { kind: 'ack' as const } }));
   if (sol.x) steps[steps.length - 1].check = undefined;
   const answer = sol.x ? fstr(sol.x) : '';
@@ -180,7 +180,9 @@ function hintChunks(ctx: Ctx, st: State): TurnEvent[] {
   return [{ type: 'chunk', kind: 'hint', en: 'Hint: re-read this step slowly and tell me the one key idea in your own words.', ta: 'குறிப்பு: இந்தப் படியை மெதுவாக மீண்டும் படித்து, முக்கிய கருத்தை உங்கள் சொந்த வார்த்தைகளில் சொல்லுங்கள்.', say: bi('Hint. Read this step slowly and tell me the key idea in your own words.', 'குறிப்பு. இந்தப் படியை மெதுவாகப் படித்து முக்கிய கருத்தைச் சொல்லுங்கள்.') }];
 }
 
-async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> {
+/** Builds the lesson plan for a question. The rule engine uses `buildPlan`; the LLM engine plugs in a model-written plan with this as its fallback. */
+export type Planner = (db: DB, ctx: Ctx, text: string) => Promise<Plan | null>;
+async function* ruleTurn(ctx: Ctx, input: TurnInput, planFor: Planner = buildPlan): AsyncGenerator<TurnEvent> {
   const st = ctx.state; const text = input.text.trim(); const action = input.action ?? '';
   yield { type: 'ack' };
   const fin = (grounded?: string, completed = false): TurnEvent => ({ type: 'done', state: st, meta: { grounded: grounded ?? st.plan?.grounded ?? 'none', completed } });
@@ -237,7 +239,7 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
   // Starting something new
   if (mode === 'practice' || mode === 'revise') {
     if (mode === 'revise') {
-      const plan = await buildPlan(ctx.db, ctx, text); st.plan = plan;
+      const plan = await planFor(ctx.db, ctx, text); st.plan = plan;
       if (!plan) { const m = text && !isGeneric(text) ? NO_SOURCE : ASK; yield { type: 'chunk', kind: text && !isGeneric(text) ? 'notice' : 'info', en: m.en, ta: m.ta, say: m, grounded: 'none' }; yield fin('none'); return; }
       const bullets = plan.steps.map((s, i) => `${i + 1}. ${s.en.split(/(?<=[.:])\s/)[0]}`).join('\n'); const bt = plan.steps.map((s, i) => `${i + 1}. ${s.ta.split(/(?<=[.:।])\s/)[0]}`).join('\n');
       yield { type: 'chunk', kind: 'summary', en: `Quick revision — ${plan.topic.en}:\n${bullets}`, ta: `விரைவுத் திருப்புதல் — ${plan.topic.ta}:\n${bt}`, say: bi(`Quick revision of ${plan.topic.en}. Here are the key points, then a short quiz.`, `${plan.topic.ta} பற்றிய விரைவுத் திருப்புதல். முக்கியக் குறிப்புகள், பிறகு ஒரு சிறு வினாடி வினா.`), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
@@ -247,12 +249,12 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
     yield* emit(await askQuestion(ctx, st)); yield fin('bank', st.done); return;
   }
   if (mode === 'hint') {
-    if (text) { st.plan = (await buildPlan(ctx.db, ctx, text)); st.hintLevel = 0; st.idx = 0; }
+    if (text) { st.plan = (await planFor(ctx.db, ctx, text)); st.hintLevel = 0; st.idx = 0; }
     if (!st.plan) { yield { type: 'chunk', kind: 'notice', en: text ? NO_SOURCE.en : 'Tell me the question you want a hint for — for example an equation like 3x + 5 = 20.', ta: text ? NO_SOURCE.ta : 'எந்தக் கேள்விக்குக் குறிப்பு வேண்டும் என்று சொல்லுங்கள் — எடுத்துக்காட்டாக 3x + 5 = 20.', say: text ? NO_SOURCE : bi('Tell me the question you want a hint for.', 'எந்தக் கேள்விக்குக் குறிப்பு வேண்டும் என்று சொல்லுங்கள்.'), grounded: 'none' }; yield fin('none'); return; }
     yield* emit(hintChunks(ctx, st)); yield fin(); return;
   }
   // teach / explain
-  const plan = text ? (await buildPlan(ctx.db, ctx, text)) : (st.plan ?? (await buildPlan(ctx.db, ctx, ''))); st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null;
+  const plan = text ? (await planFor(ctx.db, ctx, text)) : (st.plan ?? (await planFor(ctx.db, ctx, ''))); st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null;
   if (!plan) { st.awaiting = null; const m = text && !isGeneric(text) ? NO_SOURCE : ASK; yield { type: 'chunk', kind: text && !isGeneric(text) ? 'notice' : 'info', en: m.en, ta: m.ta, say: m, grounded: 'none' }; yield fin('none'); return; }
   yield { type: 'chunk', kind: 'info', en: `${plan.grounded === 'solver' ? 'Let us work through this' : `From ${plan.grounded === 'lesson' ? 'your class lesson' : 'your class book'}`}: ${plan.topic.en}`, ta: `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : plan.grounded === 'lesson' ? 'உங்கள் வகுப்புப் பாடத்திலிருந்து' : 'உங்கள் வகுப்புப் புத்தகத்திலிருந்து'}: ${plan.topic.ta}`, say: sayOf(bi(`${plan.grounded === 'solver' ? 'Let us work through this' : 'From your class material'}: ${plan.topic.en}`, `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : 'உங்கள் வகுப்புப் பொருளிலிருந்து'}: ${plan.topic.ta}`)), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
   if (mode === 'explain') {
@@ -262,4 +264,6 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
   yield stepChunk(plan, 0); const ck = checkChunk(plan, 0, ctx.lang); if (ck) { yield ck; st.awaiting = 'check'; } else st.awaiting = 'continue';
   yield fin(plan.grounded);
 }
-export const ruleEngine: TeachEngine = { name: 'rule-engine', mock: true, turn: ruleTurn };
+export const ruleEngine: TeachEngine = { name: 'rule-engine', mock: true, turn: (ctx, input) => ruleTurn(ctx, input) };
+/** Same teaching loop (checks, hints, quiz, visuals, replay) with a different way of writing the lesson plan. */
+export const engineWith = (name: string, mock: boolean, planFor: Planner): TeachEngine => ({ name, mock, turn: (ctx, input) => ruleTurn(ctx, input, planFor) });

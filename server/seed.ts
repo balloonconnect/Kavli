@@ -125,6 +125,12 @@ practiceQs.push(
   { id: 'p-t1', s: 'tamil', c: 8, ch: 1, t: 'mcq', en: 'Which is a noun (பெயர்ச்சொல்)?', ta: 'பெயர்ச்சொல் எது?', o: ['ஓடினான்', 'மரம்', 'விரைவாக', 'அழகாக'], a: 1, m: 1, ex: 'மரம் (tree) names a thing.', ext: 'மரம் ஒரு பொருளின் பெயர்.', topic: 'Nouns', origin: 'practice' },
 );
 
+/** Production start (SEED_DEMO=0): the reference data every account needs — the subject list and the real textbook lessons — but no demo users, school or sample content. */
+export async function bootstrapProduction(db: DB) {
+  if (!(await q.get(db, 'SELECT 1 FROM subjects LIMIT 1'))) await tx(db, async () => { for (const [id, en, ta] of subjects) await q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta); });
+  await upsertTextbookLessons(db);
+}
+
 export async function seed(db: DB) {
   // textbook lessons are real content: they are also loaded into existing databases (see server/index.ts)
   if ((await q.get(db, 'SELECT 1 FROM users LIMIT 1'))) return;

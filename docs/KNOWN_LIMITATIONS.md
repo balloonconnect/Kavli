@@ -1,15 +1,15 @@
 # Known limitations
 
-- **Tutor** is a rule-based, clearly labelled "development tutor" unless `ANTHROPIC_API_KEY` is configured. The real-model path is implemented but was not exercised against the live API here.
-- **OCR**: photo text reading needs a configured key; scanned-PDF OCR is not implemented. Students can type the text instead.
+- **Tutor** is the rule-based, clearly labelled "development tutor" unless a model is configured (`ANTHROPIC_API_KEY`, or `LLM_PROVIDER=openai` + `LLM_BASE_URL`). The model path (`server/services/llmEngine.ts`) is tested against a mock server that follows the documented request/response shapes; **it has not been run against a live model**, so answer quality and Tamil fluency are unmeasured. The model writes only the lesson steps, cites retrieved sources, and falls back to the rule-based lesson on any problem. The model waits for the whole plan (no token streaming yet), so the first spoken step is delayed by the model's response time (several seconds).
+- **OCR**: scanned or badly-encoded **textbook** PDFs are read with Tesseract (Tamil + English) in a background job; this needs `tesseract` and `poppler` installed (the Docker image has them). Tesseract's Tamil output is good but not perfect: expect occasional wrong letters and header debris, and it cannot read tables or diagrams. Photo text reading for **student uploads** still needs a configured model key. Student-uploaded scanned PDFs are not OCR'd.
 - **Curriculum**: sample content only (published for Class 8; placeholders elsewhere). Not official Samacheer Kalvi text; needs review by qualified educators.
-- **Database**: SQLite via experimental `node:sqlite`; no Postgres, single instance.
+- **Database**: PostgreSQL (`DATABASE_URL`) for production and SQLite (`node:sqlite`, experimental) for development; the whole test suite runs on both. Single app instance only (in-memory rate limiter; OCR queue runs in-process). No schema migrations yet: tables are created if missing, and later schema changes will need migration scripts.
 - **No email/SMS**, password reset, or guardian identity verification beyond a consent record.
 - **Test integrity** in a browser is limited (no proctoring); server timing and autosave are authoritative.
-- **Voice** input/output depends on the browser's Speech APIs and is hidden when unsupported.
+- **Voice** input (speech-to-text) always uses the browser's Speech API and is hidden when unsupported; Tamil recognition quality varies by browser and phone. Voice output uses Azure AI Speech when configured (tested against a mock of its REST API, not the live service), otherwise the browser voice.
 - **Draft question generator** is maths-only; all generated questions need human review before publishing.
 - **Accessibility**: automated axe checks pass; no manual screen-reader audit yet.
-- **Uploads**: type/size/magic-byte checks, but no antivirus scanning.
+- **Uploads**: type/size/magic-byte checks, but no antivirus scanning. Files live on local disk or an S3-compatible bucket (`STORAGE_DRIVER`).
 - No ESLint config; no CI pipeline.
 - **Sign-up**: email verification and guardian-approval emails are not sent (no email service). Under-13 approval happens only through the student's guardian link code. Staff approval has an API but no admin screen yet. The UI uses `/app`, not the `/student/...` route names from the master prompt.
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
@@ -19,7 +19,7 @@
 ## Class 8 textbook import (English, Tamil, Mathematics)
 
 - **English (imported, partial):** 6 lessons from the Class 8 English textbook (Unit 1 and Unit 2: prose, poem, supplementary) are in `server/curriculum/class8-english.json`. The text we received from the Drive connector stops partway through Unit 3, so the rest of the book (Units 3–7 and the play) is **not** imported. Each lesson is a short excerpt with its source and starting page, shown in English only. Run `scripts/import-textbook.ts` again with a fuller extraction to add the rest.
-- **Tamil (not imported):** the extracted text is corrupted (the PDF's font mapping is broken, e.g. "தமிழ்நாடு" comes out as "தமிழ்்நநாடு"). It needs OCR of the original PDF with Tamil language data (`tam.traineddata`), which needs the PDF file itself.
+- **Tamil, Class 8 (imported as a searchable class book, not as lessons):** the PDF's text layer is corrupted on essentially every page (measured: 4.6–10 malformed sequences per 100 Tamil characters, against 0–1.5 for OCR output). The importer detects that and OCRs the pages; all 192 pages were read (about 7 minutes). It is a Central-board-style edition, so page numbers and wording may differ from the Samacheer Kalvi print the students hold. It is available to the tutor for retrieval and to students in the reader; it has **not** been split into chapters or turned into step-by-step lessons. Retrieval was spot-checked with a handful of questions (most found a clearly relevant page; a grammar-definition question did not), not measured against labelled answers.
 - **Mathematics, Tamil medium (not imported):** the PDF has no text layer at all (scanned pages), so it also needs OCR of the original file.
 - Files over 10 MB cannot be downloaded through the Drive connector and Drive is not reachable from the build environment, so the three PDFs (67 MB, 17 MB, 40 MB) must be attached to the chat or placed in the project folder.
 - Textbook lessons are excerpts for learning and tutor grounding. They are not a replacement for the printed textbook. Check Tamil Nadu Textbook Corporation terms before publishing more than short excerpts.
@@ -28,4 +28,11 @@
 - Side-by-side bilingual view relies on the existing "both languages" mode; no separate per-message toggle was added. The preview tutor remains canned.
 - axe accessibility scan not run.
 
-- Class books: scanned/image-only PDFs can be opened by students but the chatbot cannot answer from them (no OCR). One PDF is one "book"; no chapter splitting. Hosting official textbooks requires the right to share them. The UI-preview (Vercel) build has no backend, so the book screens show an empty list there. The Anthropic-API tutor path does not yet attach book page links (only the built-in tutor does).
+- Class books: scanned or garbled PDFs are OCR'd in the background (see above); until OCR finishes the tutor can use only the pages already read. One PDF is one "book"; no chapter splitting. Retrieval is keyword-based with simple Tamil word-ending handling, not semantic search, so a question phrased with different words than the book may miss the right page. Hosting official textbooks requires the right to share them. The UI-preview (Vercel) build has no backend, so the book screens show an empty list there. The Anthropic-API tutor path does not yet attach book page links (only the built-in tutor does).
+
+## Added in the production-hardening pass
+- Diagrams are original drawings made for this project and have **not** been reviewed by a teacher. They are labelled as such in the app.
+- Production bootstrap (`SEED_DEMO=0`) creates only the subject list and the real textbook lessons. Teachers must add tests and practice questions; Practice and Revise report that none exist until then.
+- The first admin is created with `scripts/create-admin.ts`. There is no password-reset email flow.
+- The Docker image was written but **not built** in the authoring environment (no Docker daemon). The production-only dependency install and the non-preview front-end build were run separately and work.
+- The textbook PDF itself and its extracted text are not in the repository; test fixtures use sentences written for the tests.

@@ -115,3 +115,18 @@ describe('PDF materials', () => {
     expect(up.status).toBe(201); expect(up.body.material.status).toBe('needs_ocr'); expect(up.body.material.hasText).toBe(false);
   });
 });
+
+describe('Tamil retrieval', () => {
+  it('finds a passage through inflected word forms, not only exact words', async () => {
+    const { topPassages, stem } = await import('../server/services/retrieval');
+    expect(stem('ஆறுகளில்')).toBe('ஆறு'); expect(stem('ஆறுகளை')).toBe('ஆறு'); expect(stem('ஆறு')).toBe('ஆறு');
+    const ps = [
+      { text: 'நதிகள் கடலுக்கு நீரைக் கொண்டு செல்கின்றன. மழைக்காலத்தில் ஆறுகளில் வெள்ளம் பெருகும் என்பதால் அணைகள் கட்டப்பட்டன.', page: 20, source: 'Tamil 8' },
+      { text: 'விவசாயிகள் வயல்களுக்கு நீர் பாய்ச்சுகிறார்கள். கிணறுகளிலிருந்து நீர் இறைக்க ஏற்றம் பயன்படுத்தப்பட்டது.', page: 21, source: 'Tamil 8' },
+      { text: 'The volcano erupts every forty years and forms volcanic glass when lava cools quickly without crystals.', page: 5, source: 'Science' },
+    ];
+    const hit = topPassages('ஆறு வெள்ளம் பற்றி என்ன?', ps, 2); expect(hit[0]?.page).toBe(20);
+    expect(topPassages('கிணறுகள் பற்றி', ps, 1)[0]?.page).toBe(21);
+    expect(topPassages('volcano glass', ps, 1)[0]?.page).toBe(5);
+  });
+});

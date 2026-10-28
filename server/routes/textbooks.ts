@@ -9,15 +9,11 @@ import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { textbookHits } from '../services/tutor';
+import { extractAll, ocrQueue, putPages, runOcr, triage } from '../services/textbookIngest';
+import { getOcrEngine } from '../services/ocr';
 
 const MAX = 60 * 1024 * 1024;
 const STAFF = ['teacher', 'school_admin', 'admin'];
-async function extractAll(buf: Buffer) {
-  const { PDFParse } = await import('pdf-parse');
-  const parser = new PDFParse({ data: new Uint8Array(buf) });
-  try { const r = await parser.getText(); return r.pages.map((p: any) => ({ page: p.num as number, text: String(p.text).replace(/\s+/g, ' ').trim() })); }
-  finally { await parser.destroy().catch(() => {}); }
-}
 /** Class books. The platform admin uploads a PDF with its class; students only ever see, open and are answered from books of their own class. */
 export function textbookRoutes(db: DB) {
   const r = Router(); const admin = requireRole('admin' as any); // only the platform admin can add or remove books; teachers read only
@@ -30,7 +26,7 @@ export function textbookRoutes(db: DB) {
   r.get('/', requireAuth, wrap(async (req, res) => {
     const u = req.user!; let rows: any[];
     if (STAFF.includes(u.role)) rows = (await q.all<any>(db, 'SELECT * FROM textbooks ORDER BY class_level, subject_id, title'));
-    else if (u.role === 'student') { const c = await studentClass(u.id); rows = c ? (await q.all<any>(db, "SELECT * FROM textbooks WHERE class_level=? AND status IN ('ready','needs_ocr') ORDER BY subject_id, title", c)) : []; }
+    else if (u.role === 'student') { const c = await studentClass(u.id); rows = c ? (await q.all<any>(db, "SELECT * FROM textbooks WHERE class_level=? AND status IN ('ready','needs_ocr','processing') ORDER BY subject_id, title", c)) : []; }
     else rows = [];
     res.json({ textbooks: rows.map(view) });
   }));
@@ -43,12 +39,16 @@ export function textbookRoutes(db: DB) {
     if (b.subjectId) { if (!(await q.get(db, 'SELECT id FROM subjects WHERE id=?', b.subjectId))) throw new HttpError(400, 'Unknown subject.'); subject = b.subjectId; }
     let pages: { page: number; text: string }[] = []; let status = 'ready', note: string | null = null;
     try { pages = await extractAll(f.buffer); } catch { status = 'failed'; note = 'This PDF could not be read. It may be damaged or password protected.'; }
-    const withText = pages.filter(p => p.text.length > 20);
-    if (status === 'ready' && withText.length < Math.max(1, Math.floor(pages.length / 4))) { status = 'needs_ocr'; note = 'Most pages are scanned images with no readable text. Students can open this book, but the chatbot cannot answer from it until OCR is added.'; }
     if (status === 'failed') throw new HttpError(422, note!);
+    // Use the PDF's own text only where it is trustworthy; scanned or badly-encoded pages (common in older Tamil books) go to OCR.
+    const { good, bad } = triage(pages, b.medium); const engine = bad.length ? await getOcrEngine() : null;
+    if (bad.length && engine) { status = 'processing'; note = `Reading ${bad.length} page${bad.length > 1 ? 's' : ''} with OCR. The book opens now; the tutor can use it as the pages finish.`; }
+    else if (bad.length && good.length < Math.max(1, Math.floor(pages.length / 4))) { status = 'needs_ocr'; note = 'Most pages are scanned images or use an unreadable text encoding, and OCR is not available on this server. Students can open this book, but the tutor cannot answer from it yet.'; }
+    else if (bad.length) note = `${bad.length} page${bad.length > 1 ? 's' : ''} have no readable text (images or unusual encoding) and are skipped by the tutor.`;
     const id = uid(); const path = storage().newKey('textbooks', 'pdf'); await storage().put(path, f.buffer, 'application/pdf');
     await q.run(db, 'INSERT INTO textbooks(id,title,class_level,subject_id,medium,file_path,size,page_count,status,note,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', id, b.title, b.classLevel, subject, b.medium, path, f.size, pages.length, status, note, req.user!.id, iso());
-    for (const p of withText) await q.run(db, 'INSERT INTO textbook_pages(textbook_id,page,text) VALUES (?,?,?)', id, p.page, p.text.slice(0, 20000));
+    await putPages(db, id, good);
+    if (status === 'processing') ocrQueue.add(() => runOcr(db, id, bad));
     res.status(201).json({ textbook: view(await get(id)) });
   }));
 
@@ -75,6 +75,15 @@ export function textbookRoutes(db: DB) {
     res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `inline; filename="${b.id}.pdf"`);
     res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Content-Security-Policy', "frame-ancestors 'self'"); res.setHeader('Cache-Control', 'private, max-age=300');
     (await storage().stream(b.file_path)).pipe(res);
+  }));
+  /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed). */
+  r.post('/:id/ocr', admin, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
+    const b = await get(req.params.id); if (b.status === 'processing') throw new HttpError(409, 'This book is already being read.');
+    if (!(await getOcrEngine())) throw new HttpError(501, 'OCR is not available on this server.');
+    const have = new Set((await q.all<any>(db, 'SELECT page FROM textbook_pages WHERE textbook_id=?', b.id)).map(r => r.page as number));
+    const todo = Array.from({ length: b.page_count }, (_, i) => i + 1).filter(n => !have.has(n)); if (!todo.length) throw new HttpError(409, 'Every page already has text.');
+    await q.run(db, "UPDATE textbooks SET status='processing', note=? WHERE id=?", `Reading ${todo.length} pages with OCR.`, b.id); ocrQueue.add(() => runOcr(db, b.id, todo));
+    res.status(202).json({ textbook: view(await get(b.id)) });
   }));
   r.delete('/:id', admin, wrap(async (req, res) => {
     const b = await get(req.params.id); await storage().delete(b.file_path);

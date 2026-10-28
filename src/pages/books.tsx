@@ -32,6 +32,15 @@ export function BookViewer() {
       <div className="row wrap"><Button tone="secondary" to={`/app/tutor?q=${encodeURIComponent(`Explain page ${page} of ${b.title}`)}`}>Ask the tutor about this page</Button></div></Card></>}</Async></div>;
 }
 
+/** While any book is still being read (OCR), refresh the list every few seconds so progress shows. */
+function KeepFresh({ active, reload }: { active: boolean; reload: () => void }) {
+  useEffect(() => { if (!active) return; const t = setInterval(reload, 5000); return () => clearInterval(t); }, [active, reload]);
+  return null;
+}
+const STATUS: Record<string, { tone: 'success' | 'warning' | 'info' | 'danger'; label: string }> = {
+  ready: { tone: 'success', label: 'Ready' }, processing: { tone: 'info', label: 'Reading pages…' }, needs_ocr: { tone: 'warning', label: 'Needs OCR' }, failed: { tone: 'danger', label: 'Failed' },
+};
+
 /** Admin: upload and remove class books. Teachers get the same page read-only. */
 export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
   const s = useLoad(() => get('/textbooks')); const toast = useToast(); const [busy, setBusy] = useState(false);
@@ -39,7 +48,7 @@ export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!file) return toast('Choose a PDF first.', 'err');
     const fd = new FormData(); fd.set('title', f.title); fd.set('classLevel', f.classLevel); if (f.subjectId) fd.set('subjectId', f.subjectId); fd.set('medium', f.medium); fd.set('file', file);
-    setBusy(true); try { const r = await post('/textbooks', fd); toast(r.textbook.status === 'ready' ? 'Book added.' : 'Book added, but the chatbot cannot read it yet (scanned pages).', r.textbook.status === 'ready' ? 'ok' : 'err'); setFile(null); setF({ ...f, title: '' }); s.reload(); } catch (x) { toast(msg(x), 'err'); } finally { setBusy(false); }
+    setBusy(true); try { const r = await post('/textbooks', fd); toast(r.textbook.status === 'ready' ? 'Book added.' : r.textbook.status === 'processing' ? 'Book added. Its pages are being read now; this can take several minutes.' : 'Book added, but the chatbot cannot read it yet (scanned pages).', r.textbook.status === 'needs_ocr' ? 'err' : 'ok'); setFile(null); setF({ ...f, title: '' }); s.reload(); } catch (x) { toast(msg(x), 'err'); } finally { setBusy(false); }
   };
   return <div className="col"><PageTitle title="Class books" sub={canEdit ? "Upload a textbook PDF for one class. Students of that class (and only that class) can open it, and the tutor answers from it." : "Books added by the platform admin. Students see only their own class’s books. Teachers can read them but cannot add or remove books."} />
     {canEdit && <Card><form className="col" onSubmit={submit}>
@@ -49,8 +58,9 @@ export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
         <div className="field"><label htmlFor="bk-m">Medium</label><select id="bk-m" value={f.medium} onChange={e => setF({ ...f, medium: e.target.value })}><option>English</option><option>Tamil</option></select></div></div>
       <div className="field"><label htmlFor="bk-f">PDF file (up to 60 MB)</label><input id="bk-f" type="file" accept="application/pdf" onChange={e => setFile(e.target.files?.[0] ?? null)} required /></div>
       <div className="row"><Button type="submit" disabled={busy}>{busy ? 'Reading the PDF…' : 'Upload book'}</Button></div>
-      <p className="muted small">Only upload books you are allowed to share with students. Scanned books with no text can be opened by students, but the chatbot cannot answer from them until OCR is available.</p></form></Card>}
-    <Async s={s}>{d => !d.textbooks.length ? <Empty title="No books yet" text="Uploaded books appear here." /> : <Card className="col"><h2>{canEdit ? 'Uploaded books' : 'Class books'}</h2>{d.textbooks.map((b: any) => <div key={b.id} className="row wrap listrow"><div className="grow"><b>{b.title}</b><div className="muted small">Class {b.class_level} · {subjName(b.subject_id)} · {b.medium} · {b.page_count} pages</div>{b.note && <div className="muted small">{b.note}</div>}</div><Badge tone={b.status === 'ready' ? 'success' : 'warning'}>{b.status === 'ready' ? 'Ready' : 'Needs OCR'}</Badge>
+      <p className="muted small">Only upload books you are allowed to share with students. Scanned books, and old Tamil books whose text is garbled, are read page by page in the background (about 2–3 seconds a page). Students can open the book straight away; the tutor can use pages as they are finished.</p></form></Card>}
+    <Async s={s}>{d => !d.textbooks.length ? <Empty title="No books yet" text="Uploaded books appear here." /> : <Card className="col"><KeepFresh active={d.textbooks.some((b: any) => b.status === 'processing')} reload={s.reload} /><h2>{canEdit ? 'Uploaded books' : 'Class books'}</h2>{d.textbooks.map((b: any) => <div key={b.id} className="row wrap listrow"><div className="grow"><b>{b.title}</b><div className="muted small">Class {b.class_level} · {subjName(b.subject_id)} · {b.medium} · {b.page_count} pages</div>{b.note && <div className="muted small">{b.note}</div>}</div><Badge tone={(STATUS[b.status] ?? STATUS.needs_ocr).tone}>{(STATUS[b.status] ?? STATUS.needs_ocr).label}</Badge>
+      {canEdit && b.status === 'needs_ocr' && <Button tone="secondary" onClick={async () => { try { await post(`/textbooks/${b.id}/ocr`, {}); toast('Reading the pages now.', 'ok'); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Read pages (OCR)</Button>}
       {canEdit && <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button>}</div>)}</Card>}</Async></div>;
 }
 

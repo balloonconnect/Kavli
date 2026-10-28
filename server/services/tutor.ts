@@ -85,7 +85,7 @@ export function looksTanglish(t: string) { if (/[\u0B80-\u0BFF]/.test(t)) return
 
 /** Passages from the uploaded books of the student's own class only (and the open lesson's subject when known). */
 export async function textbookHits(db: DB, classLevel: number, subjectId: string | null | undefined, text: string, k = 2) {
-  const books = (await q.all<any>(db, "SELECT id,title,subject_id FROM textbooks WHERE class_level=? AND status='ready'", classLevel)).filter(b => !subjectId || !b.subject_id || b.subject_id === subjectId);
+  const books = (await q.all<any>(db, "SELECT id,title,subject_id FROM textbooks WHERE class_level=? AND status IN ('ready','processing')", classLevel)).filter(b => !subjectId || !b.subject_id || b.subject_id === subjectId);
   const ps: (Passage & { bookId: string })[] = [];
   for (const b of books) for (const pg of (await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=?', b.id))) for (const x of splitPassages(pg.text, pg.page, b.title)) ps.push({ ...x, bookId: b.id });
   return topPassages(text, ps, k).map(h => h as Passage & { bookId: string });
