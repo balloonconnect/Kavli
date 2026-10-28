@@ -48,7 +48,7 @@ export function Tutor() {
   }, [cur, lang, loadList, toast]);
   useEffect(() => { (async () => {
     try { const d = await loadList(); const lesson = sp.get('lesson'), material = sp.get('material'), action = sp.get('action'), qtext = (sp.get('q') ?? '').slice(0, 300), ql = sp.get('lang'), lo = ql === 'ta' || ql === 'en' ? ql : undefined;
-      if (lesson || material) { const c = await create({ lessonId: lesson ?? undefined, materialId: material ?? undefined }); if (action || qtext) await send(qtext, action ?? undefined, c, lo); }
+      if (lesson || material || qtext) { const c = await create({ lessonId: lesson ?? undefined, materialId: material ?? undefined }); if (action || qtext) await send(qtext, action ?? undefined, c, lo); }
       else if (d.conversations[0]) await open(d.conversations[0].id); else await create();
     } catch (e) { toast(msg(e), 'err'); } finally { setLoading(false); } })(); return () => { stopSpeaking(); stop.current(); }; }, []); // eslint-disable-line
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [msgs.length, busy]);

@@ -117,6 +117,8 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
     save({ ...state, [which]: has ? state[which].filter(x => x !== id) : [...state[which], id], [other]: state[other].filter(x => x !== id) } as State); };
 
   const node = sel ? by.get(sel) : null; const hiddenMatches = matches.filter(m => !modeShow(map, mode).has(m.id)).length;
+  const branch = (() => { let c = node; while (c && c.parent && c.parent !== 'root') c = by.get(c.parent) ?? null; return c && c.parent === 'root' ? c : null; })();
+  const askBranch = branch ? `/app/tutor?lesson=${lessonId}&q=${encodeURIComponent(`Ask me 3 practice questions, one at a time, about the branch "${branch.en}": ${(branch.detail_en ?? branch.en)}`.slice(0, 290))}` : null;
   const ask = (phrase: string, l?: 'ta' | 'en') => `/app/tutor?lesson=${lessonId}&q=${encodeURIComponent(`${phrase}: ${node ? (node.detail_en ?? node.en) : ''}`.slice(0, 290))}${l ? `&lang=${l}` : ''}`;
 
   const exportPng = async (print = false) => {
@@ -206,6 +208,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
               <Link className="btn secondary" to={ask('Give an example of')}>Give an example</Link>
               <Link className="btn secondary" to={ask('Explain step by step')}>Step by step</Link>
               <Link className="btn secondary" to={ask('Ask me a practice question about')}>Practice question</Link>
+              {askBranch && <Link className="btn secondary" to={askBranch}>Practise this branch</Link>}
             </div>
             <div className="row wrap"><Button tone="ghost" onClick={() => onOpenLesson(anchorFor(node.id))}>Open in lesson →</Button>{subjectId && <Button tone="ghost" to={`/app/practice?subject=${subjectId}`}>Practice this subject</Button>}</div>
           </div>}

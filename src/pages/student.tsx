@@ -15,30 +15,49 @@ export function Dashboard() {
   if (user && user.role !== 'student') return <Holding role={user.role} name={user.display_name} />;
   return <StudentDashboard />;
 }
+function AskKavli() {
+  const nav = useNavigate(); const [t, setT] = useState('');
+  return <Card className="col"><h2>Ask Kavli AI</h2><p className="muted small">Ask in Tamil, English or both. The tutor says when an answer comes from your lessons.</p>
+    <form className="row" style={{ gap: 8 }} onSubmit={e => { e.preventDefault(); const q = t.trim(); nav(q ? `/app/tutor?q=${encodeURIComponent(q.slice(0, 290))}` : '/app/tutor'); }}>
+      <div className="field grow"><label className="sr" htmlFor="ask-q">Your question</label><input id="ask-q" value={t} onChange={e => setT(e.target.value)} maxLength={290} placeholder="e.g. What is a variable? / மாறி என்றால் என்ன?" /></div>
+      <Button type="submit">Ask</Button></form>
+    <div className="row wrap"><Link to="/app/tutor" className="link">Open full tutor</Link><Link to="/app/material" className="link">Ask about my own material</Link></div></Card>;
+}
+function RecentMaps({ continueId }: { continueId?: string }) {
+  const s = useLoad(() => get('/mindmaps/recent'), []);
+  return <Card className="col"><h2>Mind maps</h2>
+    {s.loading ? <p className="muted small" role="status">Loading…</p> : s.error ? <p className="muted small">Your recent mind maps could not be loaded. <button className="link" onClick={s.reload}>Try again</button></p>
+      : !s.data?.recent.length ? <><p className="muted">You have not opened a mind map yet. Open any lesson and choose the Mind Map tab to see it as a map.</p>{continueId && <Button tone="secondary" to={`/app/learn/${continueId}?tab=map`}>Try a mind map</Button>}</>
+      : s.data.recent.slice(0, 4).map((m: any) => <div className="row wrap listrow" key={m.lessonId}><div className="grow"><b><Bi en={m.title_en} ta={m.title_ta} block /></b><div className="muted small">{m.understood} understood · {m.revision} to revise</div></div><Button tone="secondary" to={`/app/learn/${m.lessonId}?tab=map`}>Open</Button></div>)}
+  </Card>;
+}
 function StudentDashboard() {
   const s = useLoad(() => get('/dashboard'));
   return <Async s={s}>{d => {
     const h = new Date().toLocaleString('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }); const hr = Number(h);
     const hello = hr < 12 ? ['Good morning', 'காலை வணக்கம்'] : hr < 17 ? ['Good afternoon', 'மதிய வணக்கம்'] : ['Good evening', 'மாலை வணக்கம்'];
+    const cl = d.continueLesson;
     return (
     <div className="col" style={{ gap: 20 }}>
       <PageTitle title={<><Bi en={`${hello[0]}, ${d.profile.name}`} ta={`${hello[1]}, ${d.profile.name}`} block /></>} sub={`Class ${d.profile.class_level} · ${d.profile.medium} medium · ${d.profile.academic_year} · Ref ${d.profile.ref_no}`} />
-      <div className="grid g4 stat">
-        <Stat icon="test" bg="var(--primary-soft)" fg="var(--primary)" value={String(d.toComplete)} label="Tests to complete" />
-        <Stat icon="chart" bg="var(--success-soft)" fg="var(--success)" value={d.passRate === null ? '—' : `${d.passRate}%`} label="Pass rate" note={d.passRate === null ? 'No finished tests yet' : `${d.passRateBasis} finished test(s)`} />
-        <Stat icon="award" bg="var(--gold-soft)" fg="var(--gold)" value={String(d.certificates)} label="Certificates" />
-        <Stat icon="bookmark" bg="var(--accent-soft)" fg="var(--accent)" value={String(d.bookmarks.length)} label="Saved items" />
-      </div>
       <div className="grid g2 split">
+        <AskKavli />
         <Card className="col"><h2>Continue learning</h2>
-          {d.continueLesson ? <><div className="row"><IconBox name={SUBJ_ICON[d.continueLesson.subject_id] ?? 'book'} bg="var(--primary-soft)" fg="var(--primary)" /><div className="grow"><b><Bi en={d.continueLesson.title_en} ta={d.continueLesson.title_ta} block /></b><span className="muted small">{d.continueLesson.minutes} min</span></div></div>
-            <Button to={`/app/learn/${d.continueLesson.id}`}>Open lesson</Button></> : <Empty title="All caught up" text="You have finished every lesson in your subjects." action={<Button to="/app/learn">Browse lessons</Button>} />}
+          {cl ? <><div className="row"><IconBox name={SUBJ_ICON[cl.subject_id] ?? 'book'} bg="var(--primary-soft)" fg="var(--primary)" /><div className="grow"><b><Bi en={cl.title_en} ta={cl.title_ta} block /></b><span className="muted small">{cl.minutes} min</span></div></div>
+            <div className="row wrap"><Button to={`/app/learn/${cl.id}`}>Open lesson</Button><Button tone="secondary" to={`/app/learn/${cl.id}?tab=map`}>Open mind map</Button></div></> : <Empty title="All caught up" text="You have finished every lesson in your subjects." action={<Button to="/app/learn">Browse lessons</Button>} />}
           {d.recommendedPractice && <div className="notice info"><Icon name="target" /><div><b>Recommended practice:</b> {d.recommendedPractice.topic}<div className="muted small">{d.recommendedPractice.reason}</div></div></div>}
           {d.recommendedPractice && <Button tone="secondary" to="/app/practice">Go to practice</Button>}
         </Card>
+      </div>
+      <nav aria-label="Learning tools" className="grid g4 quick">
+        {([['layers', 'Lessons & mind maps', 'Learn in Tamil or English', '/app/learn', 'var(--primary-soft)', 'var(--primary)'], ['target', 'Practice', 'Hints and explanations', '/app/practice', 'var(--accent-soft)', 'var(--accent)'], ['test', 'Weekly tests', d.toComplete ? `${d.toComplete} to complete` : 'None open now', '/app/tests', 'var(--warning-soft)', 'var(--warning)'], ['chart', 'My progress', d.passRate === null ? 'No finished tests yet' : `${d.passRate}% pass rate`, '/app/progress', 'var(--success-soft)', 'var(--success)']] as const).map(([i, t, sub, to, bg, fg]) => (
+          <Link key={t} to={to} className="quicklink"><IconBox name={i} bg={bg} fg={fg} /><span><b>{t}</b><span className="muted small" style={{ display: 'block' }}>{sub}</span></span></Link>))}
+      </nav>
+      <div className="grid g2 split">
+        <RecentMaps continueId={cl?.id} />
         <Card className="col"><h2>Today’s goals</h2>
           {d.goals.map((g: any) => <div className="row" key={g.id}><span className={`tick ${g.done ? 'on' : ''}`} aria-hidden>{g.done ? '✓' : ''}</span><span className={g.done ? 'muted' : 'semi'}><Bi en={g.label_en} ta={g.label_ta} /></span><span className="sr">{g.done ? 'Done' : 'Not done yet'}</span></div>)}
-          <div className="row wrap"><Button tone="ghost" to="/app/tutor">Ask the AI tutor</Button><Button tone="ghost" to="/app/practice">Practice</Button></div>
+          <div className="row wrap"><Link to="/app/certificates" className="link">{d.certificates} certificate{d.certificates === 1 ? '' : 's'}</Link><Link to="/app/bookmarks" className="link">{d.bookmarks.length} saved item{d.bookmarks.length === 1 ? '' : 's'}</Link></div>
         </Card>
       </div>
       <Card className="col"><div className="row"><h2 className="grow">Your subjects</h2><Link to="/app/learn" className="link">All lessons</Link></div>

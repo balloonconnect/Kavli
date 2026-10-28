@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Guard } from './auth';
 import { Shell } from './components/Shell';
-import { PublicLayout, Landing, Features, HowItWorks, Privacy, Terms, ChildSafety, Help, NotFound, SignIn } from './pages/public';
+import { PublicLayout, Landing, Features, HowItWorks, Privacy, Terms, ChildSafety, Help, NotFound, SignIn, ForgotPassword } from './pages/public';
 import { SignUp } from './pages/signup';
 import { Dashboard, Learn, Lesson, Bookmarks, Homework, Progress_, Practice } from './pages/student';
 import { ProfilePage, Settings } from './pages/profile';
@@ -21,7 +21,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={P(<Landing />)} /><Route path="/features" element={P(<Features />)} /><Route path="/how-it-works" element={P(<HowItWorks />)} />
       <Route path="/privacy" element={P(<Privacy />)} /><Route path="/terms" element={P(<Terms />)} /><Route path="/child-safety" element={P(<ChildSafety />)} /><Route path="/help" element={P(<Help />)} />
-      <Route path="/signin" element={P(<SignIn />)} /><Route path="/login" element={<Navigate to="/signin" replace />} /><Route path="/signup" element={P(<SignUp />)} />
+      <Route path="/signin" element={P(<SignIn />)} /><Route path="/forgot-password" element={P(<ForgotPassword />)} /><Route path="/login" element={<Navigate to="/signin" replace />} /><Route path="/signup" element={P(<SignUp />)} />
       <Route path="/app" element={S(ALL, <Dashboard />)} />
       <Route path="/app/tutor" element={S(['student'], <Tutor />)} />
       <Route path="/app/learn" element={S(['student'], <Learn />)} /><Route path="/app/learn/:id" element={S(['student'], <Lesson />)} />

@@ -27,6 +27,7 @@ const Reg = z.object({
   if (b.role === 'teacher') { need((b.staff?.subjects?.length ?? 0) > 0, ['staff', 'subjects'], 'Choose at least one subject'); need((b.staff?.classes?.length ?? 0) > 0, ['staff', 'classes'], 'Choose at least one class'); }
   if (b.role === 'school_admin') need(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.staff?.institutionEmail ?? ''), ['staff', 'institutionEmail'], 'Enter your institution email');
 });
+let _dummy: Promise<string> | null = null; const dummyHash = () => (_dummy ??= hashPassword('not-a-real-password'));
 const Login = z.object({ email: z.string().trim().toLowerCase().min(1).max(254), password: z.string().min(1).max(128) });
 
 export function authRoutes(db: DB) {
@@ -63,7 +64,8 @@ export function authRoutes(db: DB) {
     const b = parse(Login, req.body);
     const ident = process.env.SEED_DEMO === '0' ? b.email : (DEMO_USERNAMES[b.email] ?? b.email);
     const u = q.get<any>(db, 'SELECT * FROM users WHERE email=?', ident);
-    const ok = u && !u.disabled && await verifyPassword(b.password, u.password_hash);
+    // always run one password hash, even for unknown accounts, so response time does not reveal which emails exist
+    const ok = u ? !u.disabled && await verifyPassword(b.password, u.password_hash) : (await verifyPassword(b.password, await dummyHash()), false);
     if (!ok) { audit(db, u?.id ?? null, 'auth.login_failed', 'user', u?.id); throw new HttpError(401, 'Email or password is incorrect.'); }
     const s = createSession(db, u.id); setCookie(res, s.token); audit(db, u.id, 'auth.login', 'user', u.id);
     res.json({ user: { id: u.id, email: u.email, display_name: u.display_name, role: u.role }, csrf: s.csrf });
