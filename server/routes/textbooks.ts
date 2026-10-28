@@ -18,9 +18,9 @@ async function extractAll(buf: Buffer) {
   try { const r = await parser.getText(); return r.pages.map((p: any) => ({ page: p.num as number, text: String(p.text).replace(/\s+/g, ' ').trim() })); }
   finally { await parser.destroy().catch(() => {}); }
 }
-/** Class books. Staff upload a PDF with its class; students only ever see, open and are answered from books of their own class. */
+/** Class books. The platform admin uploads a PDF with its class; students only ever see, open and are answered from books of their own class. */
 export function textbookRoutes(db: DB) {
-  const r = Router(); const staff = requireRole('teacher', 'school_admin', 'admin' as any);
+  const r = Router(); const admin = requireRole('admin' as any); // only the platform admin can add or remove books; teachers read only
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX, files: 1 } });
   const studentClass = (userId: string) => q.get<any>(db, 'SELECT class_level FROM student_profiles WHERE user_id=?', userId)?.class_level as number | undefined;
   const allowed = (req: any, b: any) => { if (STAFF.includes(req.user.role)) return true; if (req.user.role === 'student') return studentClass(req.user.id) === b.class_level; return false; };
@@ -35,7 +35,7 @@ export function textbookRoutes(db: DB) {
     res.json({ textbooks: rows.map(view) });
   }));
 
-  r.post('/', staff, rateLimit(10, 600000, req => req.user!.id), upload.single('file'), wrap(async (req, res) => {
+  r.post('/', admin, rateLimit(10, 600000, req => req.user!.id), upload.single('file'), wrap(async (req, res) => {
     const b = parse(z.object({ title: z.string().trim().min(2).max(120), classLevel: z.coerce.number().int().min(1).max(12), subjectId: z.string().trim().max(40).optional(), medium: z.enum(['English', 'Tamil']).default('English') }), req.body);
     const f = req.file; if (!f) throw new HttpError(400, 'Choose a PDF file first.');
     if (f.buffer.subarray(0, 5).toString() !== '%PDF-') throw new HttpError(415, 'Please choose a PDF file.');
@@ -64,7 +64,7 @@ export function textbookRoutes(db: DB) {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Content-Security-Policy', "frame-ancestors 'self'"); res.setHeader('Cache-Control', 'private, max-age=300');
     createReadStream(b.file_path).pipe(res);
   }));
-  r.delete('/:id', staff, wrap(async (req, res) => {
+  r.delete('/:id', admin, wrap(async (req, res) => {
     const b = get(req.params.id); try { unlinkSync(b.file_path); } catch { /* already gone */ }
     q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
   }));

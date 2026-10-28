@@ -55,8 +55,8 @@ Verified by tests (68 passing) and a 375 px browser check of the preview build (
 - Security tests (`tests/security.test.ts`): auth required; cross-student access to conversations, materials, attempts and certificates denied; no answers leaked during an attempt; upload content-sniffing; idempotent server-side scoring and no forged score; no certificate for failed attempts; built bundle contains no API keys.
 
 ## Class books (upload → class-scoped chatbot → open at cited page)
-- Teachers (and school_admin/admin via API) upload a PDF with class, subject and medium at `/teacher/books`. The server stores the PDF (`TEXTBOOK_DIR`, default `data/textbooks`) and per-page text.
+- Only the platform admin uploads/removes a PDF (class, subject, medium) at `/admin/books`; teachers get a read-only list at `/teacher/books` and the upload/delete API returns 403 for them. The server stores the PDF (`TEXTBOOK_DIR`, default `data/textbooks`) and per-page text.
 - Students see/open only books of their own class (`/app/books`, `/app/textbook/:id?page=N`); other classes' books return 404 on list, file and page endpoints.
 - The dev tutor answers from the student's class books (after the open lesson), shows "Open book, page N" links, and never searches other classes' books.
-- Verified: `tests/textbooks.test.ts` (4) and a real-browser run (teacher upload → student question → click "Open book, page 2" → viewer at page 2, no console errors, no overflow at 375 px). Total 72 tests pass.
+- Verified: `tests/textbooks.test.ts` (4) and a real-browser run (teacher upload → student question → click "Open book, page 2" (opens in a new tab) → viewer at page 2, no console errors, no overflow at 375 px). Total 72 tests pass.
 - Not verified: the browser's inline PDF rendering (headless Chromium does not show a PDF viewer; a text-of-page panel and an "open in new tab" link are the fallback).

@@ -14,14 +14,15 @@ const P8 = ['Introduction to the volcano unit. Students will study volcanoes and
 const P10 = ['Quantum flibbertigibbet theory describes the wobbling of the grand unified marmalade field in advanced physics.'];
 
 describe('class books', () => {
-  it('only staff can upload; only PDFs are accepted', async () => {
+  it('only the platform admin can upload; only PDFs are accepted', async () => {
     const s = await login(DEMO.student); expect((await addBook(s, 'x', 8, P8)).status).toBe(403);
-    const t = await login(DEMO.teacher);
+    const tt = await login(DEMO.teacher); expect((await addBook(tt, 'x', 8, P8)).status).toBe(403);
+    const t = await login(DEMO.admin);
     const bad = await t.c.agent.post('/api/textbooks').set('x-csrf-token', t.csrf).field('title', 'Bad book').field('classLevel', '8').attach('file', Buffer.from('<html>no</html>'), 'b.pdf'); expect(bad.status).toBe(415);
     const ok = await addBook(t, 'Class 8 Science', 8, P8); expect(ok.status).toBe(201); expect(ok.body.textbook.page_count).toBe(2); expect(ok.body.textbook.status).toBe('ready');
   });
   it('a student sees, opens and reads pages of their own class book only', async () => {
-    const t = await login(DEMO.teacher); const b8 = (await addBook(t, 'Class 8 Science', 8, P8)).body.textbook.id; const b10 = (await addBook(t, 'Class 10 Physics', 10, P10)).body.textbook.id;
+    const t = await login(DEMO.admin); const b8 = (await addBook(t, 'Class 8 Science', 8, P8)).body.textbook.id; const b10 = (await addBook(t, 'Class 10 Physics', 10, P10)).body.textbook.id;
     const s = await login(DEMO.student); const list = (await s.c.get('/api/textbooks')).body.textbooks;
     expect(list.map((b: any) => b.id)).toEqual([b8]);
     expect((await s.c.get(`/api/textbooks/${b8}/pages/2`)).body.text).toMatch(/Zephyrian/);
@@ -30,7 +31,7 @@ describe('class books', () => {
     expect((await s.c.del(`/api/textbooks/${b8}`)).status).toBe(403);
   });
   it('the chatbot answers from the student\'s class book and cites the page; other classes\' books are never used', async () => {
-    const t = await login(DEMO.teacher); const b8 = (await addBook(t, 'Class 8 Science', 8, P8)).body.textbook.id; await addBook(t, 'Class 10 Physics', 10, P10);
+    const t = await login(DEMO.admin); const b8 = (await addBook(t, 'Class 8 Science', 8, P8)).body.textbook.id; await addBook(t, 'Class 10 Physics', 10, P10);
     const s = await login(DEMO.student); const conv = (await s.c.post('/api/tutor/conversations', {})).body; const cid = conv.conversation?.id ?? conv.id;
     const a = (await s.c.post(`/api/tutor/conversations/${cid}/messages`, { text: 'How often does the Zephyrian obsidian volcano erupt?' })).body.messages[1];
     expect(a.content.en).toMatch(/forty years/); expect(a.meta.refs[0]).toMatchObject({ bookId: b8, page: 2 }); expect(a.meta.sources.join()).toMatch(/page 2/);
@@ -38,7 +39,13 @@ describe('class books', () => {
     expect(JSON.stringify(o)).not.toMatch(/flibbertigibbet theory|grand unified/); expect(o.meta.refs ?? []).toHaveLength(0);
   });
   it('a scanned (no-text) book is stored but marked as needing OCR, and is not used for answers', async () => {
-    const t = await login(DEMO.teacher); const r = await addBook(t, 'Scanned', 8, ['', '', '']); expect(r.status).toBe(201); expect(r.body.textbook.status).toBe('needs_ocr');
+    const t = await login(DEMO.admin); const r = await addBook(t, 'Scanned', 8, ['', '', '']); expect(r.status).toBe(201); expect(r.body.textbook.status).toBe('needs_ocr');
     const s = await login(DEMO.student); expect((await s.c.get('/api/textbooks')).body.textbooks).toHaveLength(1); const cv = (await s.c.post('/api/tutor/conversations', {})).body; expect(JSON.stringify((await s.c.post(`/api/tutor/conversations/${cv.conversation?.id ?? cv.id}/messages`, { text: 'scanned pages content' })).body)).not.toMatch(/From your class book/);
   });
 });
+
+describe('teacher read-only', () => { it('a teacher can list books but cannot delete them', async () => {
+  const a = await login(DEMO.admin); const id = (await addBook(a, 'Class 8 Science', 8, P8)).body.textbook.id;
+  const t = await login(DEMO.teacher); expect((await t.c.get('/api/textbooks')).body.textbooks).toHaveLength(1);
+  expect((await t.c.agent.delete(`/api/textbooks/${id}`).set('x-csrf-token', t.csrf)).status).toBe(403);
+  expect((await a.c.agent.delete(`/api/textbooks/${id}`).set('x-csrf-token', a.csrf)).status).toBe(200); }); });

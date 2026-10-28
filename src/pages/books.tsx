@@ -32,8 +32,8 @@ export function BookViewer() {
       <div className="row wrap"><Button tone="secondary" to={`/app/tutor?q=${encodeURIComponent(`Explain page ${page} of ${b.title}`)}`}>Ask the tutor about this page</Button></div></Card></>}</Async></div>;
 }
 
-/** Teacher / admin: upload a class book. */
-export function BookAdmin() {
+/** Admin: upload and remove class books. Teachers get the same page read-only. */
+export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
   const s = useLoad(() => get('/textbooks')); const toast = useToast(); const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ title: '', classLevel: '8', subjectId: '', medium: 'English' }); const [file, setFile] = useState<File | null>(null);
   const submit = async (e: React.FormEvent) => {
@@ -41,15 +41,15 @@ export function BookAdmin() {
     const fd = new FormData(); fd.set('title', f.title); fd.set('classLevel', f.classLevel); if (f.subjectId) fd.set('subjectId', f.subjectId); fd.set('medium', f.medium); fd.set('file', file);
     setBusy(true); try { const r = await post('/textbooks', fd); toast(r.textbook.status === 'ready' ? 'Book added.' : 'Book added, but the chatbot cannot read it yet (scanned pages).', r.textbook.status === 'ready' ? 'ok' : 'err'); setFile(null); setF({ ...f, title: '' }); s.reload(); } catch (x) { toast(msg(x), 'err'); } finally { setBusy(false); }
   };
-  return <div className="col"><PageTitle title="Class books" sub="Upload a textbook PDF for one class. Students of that class (and only that class) can open it, and the tutor answers from it." />
-    <Card><form className="col" onSubmit={submit}>
+  return <div className="col"><PageTitle title="Class books" sub={canEdit ? "Upload a textbook PDF for one class. Students of that class (and only that class) can open it, and the tutor answers from it." : "Books added by the platform admin. Students see only their own class’s books. Teachers can read them but cannot add or remove books."} />
+    {canEdit && <Card><form className="col" onSubmit={submit}>
       <div className="grid g2"><Field label="Book title" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} required minLength={2} maxLength={120} placeholder="Class 8 Mathematics — Term 1" />
         <div className="field"><label htmlFor="bk-c">Class</label><select id="bk-c" value={f.classLevel} onChange={e => setF({ ...f, classLevel: e.target.value })}>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <option key={c}>{c}</option>)}</select></div>
         <div className="field"><label htmlFor="bk-s">Subject</label><select id="bk-s" value={f.subjectId} onChange={e => setF({ ...f, subjectId: e.target.value })}>{SUBJ.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></div>
         <div className="field"><label htmlFor="bk-m">Medium</label><select id="bk-m" value={f.medium} onChange={e => setF({ ...f, medium: e.target.value })}><option>English</option><option>Tamil</option></select></div></div>
       <div className="field"><label htmlFor="bk-f">PDF file (up to 60 MB)</label><input id="bk-f" type="file" accept="application/pdf" onChange={e => setFile(e.target.files?.[0] ?? null)} required /></div>
       <div className="row"><Button type="submit" disabled={busy}>{busy ? 'Reading the PDF…' : 'Upload book'}</Button></div>
-      <p className="muted small">Only upload books you are allowed to share with students. Scanned books with no text can be opened by students, but the chatbot cannot answer from them until OCR is available.</p></form></Card>
-    <Async s={s}>{d => !d.textbooks.length ? <Empty title="No books yet" text="Uploaded books appear here." /> : <Card className="col"><h2>Uploaded books</h2>{d.textbooks.map((b: any) => <div key={b.id} className="row wrap listrow"><div className="grow"><b>{b.title}</b><div className="muted small">Class {b.class_level} · {subjName(b.subject_id)} · {b.medium} · {b.page_count} pages</div>{b.note && <div className="muted small">{b.note}</div>}</div><Badge tone={b.status === 'ready' ? 'success' : 'warning'}>{b.status === 'ready' ? 'Ready' : 'Needs OCR'}</Badge>
-      <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button></div>)}</Card>}</Async></div>;
+      <p className="muted small">Only upload books you are allowed to share with students. Scanned books with no text can be opened by students, but the chatbot cannot answer from them until OCR is available.</p></form></Card>}
+    <Async s={s}>{d => !d.textbooks.length ? <Empty title="No books yet" text="Uploaded books appear here." /> : <Card className="col"><h2>{canEdit ? 'Uploaded books' : 'Class books'}</h2>{d.textbooks.map((b: any) => <div key={b.id} className="row wrap listrow"><div className="grow"><b>{b.title}</b><div className="muted small">Class {b.class_level} · {subjName(b.subject_id)} · {b.medium} · {b.page_count} pages</div>{b.note && <div className="muted small">{b.note}</div>}</div><Badge tone={b.status === 'ready' ? 'success' : 'warning'}>{b.status === 'ready' ? 'Ready' : 'Needs OCR'}</Badge>
+      {canEdit && <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button>}</div>)}</Card>}</Async></div>;
 }
