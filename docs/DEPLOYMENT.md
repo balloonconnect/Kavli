@@ -80,13 +80,13 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (163 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (177 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
 
 **Not verified, because it needs your accounts or network:**
-- Calls to the real Anthropic / OpenAI-compatible API (tested against a mock server that follows their documented request and response shapes).
+- Calls to the real Anthropic / OpenAI-compatible API, including their streaming (SSE) formats (tested against a mock server that follows their documented request and response shapes).
 - Calls to real Azure AI Speech (mock server; voice names are Azure's published defaults and must be confirmed in your region).
 - A real S3/R2 bucket (tested with the AWS SDK against a mock S3 server).
 - The Docker image build (no Docker daemon was available); its two risky parts, the production-only install and the non-preview front-end build, were run separately and work.

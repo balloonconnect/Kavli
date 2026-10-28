@@ -106,9 +106,10 @@ const ASK: Bi = bi('What would you like to learn? Ask a question — for example
 const NO_SOURCE: Bi = bi('I could not find verified Samacheer Kalvi material for that in your class lessons or class books, so I will not guess. Pick a lesson, ask about a term from it, or type an equation such as 2(x − 3) = 10.',
   'உங்கள் வகுப்புப் பாடங்களிலோ புத்தகங்களிலோ அதற்கான சரிபார்க்கப்பட்ட சமச்சீர்க் கல்விப் பொருள் கிடைக்கவில்லை; எனவே யூகிக்க மாட்டேன். ஒரு பாடத்தைத் தேர்ந்தெடுங்கள், பாடத்திலுள்ள சொல்லைக் கேளுங்கள், அல்லது 2(x − 3) = 10 போன்ற சமன்பாட்டை எழுதுங்கள்.');
 
-function stepChunk(plan: Plan, i: number): TurnEvent {
+/** `open` = the plan is still being written, so the number of steps is not known yet ("Step 1", not "Step 1 of 4"). */
+function stepChunk(plan: Plan, i: number, open = false, total = plan.steps.length): TurnEvent {
   const s = plan.steps[i]; const b = bi(s.en, s.ta);
-  return { type: 'chunk', kind: 'step', en: `Step ${i + 1} of ${plan.steps.length}: ${s.en}`, ta: `படி ${i + 1} / ${plan.steps.length}: ${s.ta}`, say: sayOf(b), step: i, total: plan.steps.length, math: equationsIn(s.en), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
+  return { type: 'chunk', kind: 'step', en: open ? `Step ${i + 1}: ${s.en}` : `Step ${i + 1} of ${total}: ${s.en}`, ta: open ? `படி ${i + 1}: ${s.ta}` : `படி ${i + 1} / ${total}: ${s.ta}`, say: sayOf(b), step: i, total: open ? undefined : total, math: equationsIn(s.en), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
 }
 function checkChunk(plan: Plan, i: number, lang: Lang): TurnEvent | null {
   const c = plan.steps[i]?.check; const last = i === plan.steps.length - 1;
@@ -182,7 +183,39 @@ function hintChunks(ctx: Ctx, st: State): TurnEvent[] {
 
 /** Builds the lesson plan for a question. The rule engine uses `buildPlan`; the LLM engine plugs in a model-written plan with this as its fallback. */
 export type Planner = (db: DB, ctx: Ctx, text: string) => Promise<Plan | null>;
-async function* ruleTurn(ctx: Ctx, input: TurnInput, planFor: Planner = buildPlan): AsyncGenerator<TurnEvent> {
+/** A plan that arrives piece by piece: a topic, then steps (each already checked), with the sources cited so far. */
+export type PlanEvent = { type: 'head'; topic: Bi; total?: number } | { type: 'step'; step: TStep; sources: string[]; refs: Plan['refs']; grounded: Plan['grounded'] };
+/** Returns null when this question should be planned the normal way (no streaming applies). */
+export type StreamPlanner = (db: DB, ctx: Ctx, text: string) => Promise<AsyncGenerator<PlanEvent> | null>;
+function introChunk(plan: Plan): TurnEvent {
+  return { type: 'chunk', kind: 'info', en: `${plan.grounded === 'solver' ? 'Let us work through this' : `From ${plan.grounded === 'lesson' ? 'your class lesson' : 'your class book'}`}: ${plan.topic.en}`, ta: `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : plan.grounded === 'lesson' ? 'உங்கள் வகுப்புப் பாடத்திலிருந்து' : 'உங்கள் வகுப்புப் புத்தகத்திலிருந்து'}: ${plan.topic.ta}`, say: sayOf(bi(`${plan.grounded === 'solver' ? 'Let us work through this' : 'From your class material'}: ${plan.topic.en}`, `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : 'உங்கள் வகுப்புப் பொருளிலிருந்து'}: ${plan.topic.ta}`)), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
+}
+/**
+ * Teach/explain from a plan that is still being written. The intro and step 1 are sent the moment step 1 has been checked, so the student hears
+ * them while the model writes the rest; the turn finishes (and the saved state is complete) once the plan is. Returns false, having sent
+ * nothing, when no step arrived — the caller then plans the normal way.
+ */
+async function* streamLesson(ctx: Ctx, st: State, mode: Mode, events: AsyncGenerator<PlanEvent>): AsyncGenerator<TurnEvent, boolean> {
+  let plan: Plan | null = null; let topic: Bi | null = null; let known: number | undefined;
+  try {
+    for await (const ev of events) {
+      if (ev.type === 'head') { topic = ev.topic; known = ev.total; continue; }
+      if (!plan) {
+        plan = { topic: topic ?? bi('This topic', 'இந்தத் தலைப்பு'), grounded: ev.grounded, sources: ev.sources, refs: ev.refs, steps: [] };
+        st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null; st.awaiting = null;
+        yield introChunk(plan);
+      }
+      plan.grounded = ev.grounded; plan.sources = ev.sources; plan.refs = ev.refs; plan.steps.push({ ...ev.step, n: plan.steps.length + 1 });
+      const at = plan.steps.length - 1;
+      if (mode === 'explain') yield stepChunk(plan, at, known === undefined, known);
+      else if (at === 0) { yield stepChunk(plan, 0, known === undefined, known); const ck = checkChunk(plan, 0, ctx.lang); if (ck) { yield ck; st.awaiting = 'check'; } else st.awaiting = 'continue'; }
+    }
+  } catch { /* keep whatever steps were already checked and sent */ }
+  if (!plan) { st.plan = null; return false; }
+  if (mode === 'explain') { st.awaiting = null; st.done = true; yield summaryChunk(plan); yield { type: 'done', state: st, meta: { grounded: plan.grounded, completed: true } }; return true; }
+  yield { type: 'done', state: st, meta: { grounded: plan.grounded, completed: false } }; return true;
+}
+async function* ruleTurn(ctx: Ctx, input: TurnInput, planFor: Planner = buildPlan, streamFor?: StreamPlanner): AsyncGenerator<TurnEvent> {
   const st = ctx.state; const text = input.text.trim(); const action = input.action ?? '';
   yield { type: 'ack' };
   const fin = (grounded?: string, completed = false): TurnEvent => ({ type: 'done', state: st, meta: { grounded: grounded ?? st.plan?.grounded ?? 'none', completed } });
@@ -254,9 +287,13 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput, planFor: Planner = buildPla
     yield* emit(hintChunks(ctx, st)); yield fin(); return;
   }
   // teach / explain
+  if (streamFor && text && (mode === 'teach' || mode === 'explain')) {
+    const events = await streamFor(ctx.db, ctx, text);
+    if (events) { if (yield* streamLesson(ctx, st, mode, events)) return; planFor = buildPlan; } // a stream that gave nothing is not retried: use the built-in lesson
+  }
   const plan = text ? (await planFor(ctx.db, ctx, text)) : (st.plan ?? (await planFor(ctx.db, ctx, ''))); st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null;
   if (!plan) { st.awaiting = null; const m = text && !isGeneric(text) ? NO_SOURCE : ASK; yield { type: 'chunk', kind: text && !isGeneric(text) ? 'notice' : 'info', en: m.en, ta: m.ta, say: m, grounded: 'none' }; yield fin('none'); return; }
-  yield { type: 'chunk', kind: 'info', en: `${plan.grounded === 'solver' ? 'Let us work through this' : `From ${plan.grounded === 'lesson' ? 'your class lesson' : 'your class book'}`}: ${plan.topic.en}`, ta: `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : plan.grounded === 'lesson' ? 'உங்கள் வகுப்புப் பாடத்திலிருந்து' : 'உங்கள் வகுப்புப் புத்தகத்திலிருந்து'}: ${plan.topic.ta}`, say: sayOf(bi(`${plan.grounded === 'solver' ? 'Let us work through this' : 'From your class material'}: ${plan.topic.en}`, `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : 'உங்கள் வகுப்புப் பொருளிலிருந்து'}: ${plan.topic.ta}`)), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
+  yield introChunk(plan);
   if (mode === 'explain') {
     for (let i = 0; i < plan.steps.length; i++) yield stepChunk(plan, i);
     st.awaiting = null; st.done = true; yield summaryChunk(plan); yield fin(plan.grounded, true); return;
@@ -266,4 +303,4 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput, planFor: Planner = buildPla
 }
 export const ruleEngine: TeachEngine = { name: 'rule-engine', mock: true, turn: (ctx, input) => ruleTurn(ctx, input) };
 /** Same teaching loop (checks, hints, quiz, visuals, replay) with a different way of writing the lesson plan. */
-export const engineWith = (name: string, mock: boolean, planFor: Planner): TeachEngine => ({ name, mock, turn: (ctx, input) => ruleTurn(ctx, input, planFor) });
+export const engineWith = (name: string, mock: boolean, planFor: Planner, streamFor?: StreamPlanner): TeachEngine => ({ name, mock, turn: (ctx, input) => ruleTurn(ctx, input, planFor, streamFor) });
