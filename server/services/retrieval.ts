@@ -47,7 +47,7 @@ const bm25 = (tf: number, len: number, avg: number, w = RETRIEVAL_WEIGHTS) => (t
  * small OCR errors). A passage is returned only with real evidence: a question word (or most of its letters) found in a rare place, or two
  * different question words — one common word such as "about" or "child" is not enough.
  */
-export function topPassages(question: string, passages: Passage[], k = 3) {
+export function topPassages(question: string, passages: Passage[], k = 3, o: { rareFraction?: number } = {}) {
   const qWords = [...new Set(content(question))]; if (!qWords.length || !passages.length) return [];
   const qTerms = [...new Set(qWords.map(term))].filter(t => [...t].length > 1);
   const qTa = qWords.filter(w => isTa(w) && [...stem(w)].length >= 3);
@@ -65,7 +65,8 @@ export function topPassages(question: string, passages: Passage[], k = 3) {
   const coverage = (d: (typeof docs)[number], w: string) => { const gs = grams(stem(w)); return gs.length ? gs.filter(g => d.gtf.has(g)).length / gs.length : 0; };
   const covered = qTa.map(w => docs.map(d => coverage(d, w) >= W.coverage));
   const coverN = covered.map(c => c.filter(Boolean).length);
-  const rare = Math.max(2, Math.floor(N * 0.08));
+  // "rare" = in at most 8% of the passages (inside one chosen chapter the topic word is common by design, so callers pass a larger fraction)
+  const rare = Math.max(2, Math.floor(N * (o.rareFraction ?? 0.08)));
   // how much of the question's weight (rare words weigh more; words found nowhere weigh the most) a passage accounts for
   const qWeight = (t: string) => idf(N, df.get(t) ?? 0); const totalWeight = qTerms.reduce((a, t) => a + qWeight(t), 0) || 1;
   const scored = docs.map((d, di) => {

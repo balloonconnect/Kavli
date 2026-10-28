@@ -48,7 +48,7 @@ export function VoiceTutor() {
   const [cfg, setCfg] = useState<any>(null);
   // setup
   const [mode, setMode] = useState<Mode>('teach'); const [lang, setLang] = useState<Lang>((profile?.ai_lang as Lang) ?? 'both'); const [showBoth, setShowBoth] = useState(true);
-  const [subject, setSubject] = useState(''); const [lesson, setLesson] = useState(''); const [save, setSave] = useState(true); const [lessons, setLessons] = useState<any[]>([]);
+  const [subject, setSubject] = useState(''); const [lesson, setLesson] = useState(''); const [books, setBooks] = useState<any[]>([]); const [chapters, setChapters] = useState<any[]>([]); const [bookId, setBookId] = useState(''); const [chapterId, setChapterId] = useState(''); const [save, setSave] = useState(true); const [lessons, setLessons] = useState<any[]>([]);
   // session
   const [ses, setSes] = useState<any>(null); const [items, setItems] = useState<Item[]>([]); const [status, setStatus] = useState<Status>('idle'); const [err, setErr] = useState('');
   const [voiceOn, setVoiceOn] = useState(false); const [mic, setMic] = useState<'unknown' | 'ok' | 'denied' | 'unsupported'>(canListen ? 'unknown' : 'unsupported');
@@ -63,10 +63,12 @@ export function VoiceTutor() {
 
   // load config, previous sessions, lesson list
   useEffect(() => { (async () => {
-    try { if (PREVIEW) { setCfg({ engine: { mock: true }, notes: 'UI preview demo: a small in-browser tutor that only walks through linear equations such as 3x + 5 = 20.' }); return; } const [c, l, cur] = await Promise.all([get('/voice/config'), get('/voice/sessions'), get('/curriculum')]); setCfg(c); if (c.tts?.enabled && !(spRef.current instanceof CloudSpeaker)) { const sp: CloudSpeaker = new CloudSpeaker((t, l, sg) => ttsFetch(sp.sessionId, t, l, sg), c.tts.cacheMb); spRef.current = sp; } setPrior(l.sessions.filter((s: any) => s.status === 'active')); setCurr(cur); }
+    try { if (PREVIEW) { setCfg({ engine: { mock: true }, notes: 'UI preview demo: a small in-browser tutor that only walks through linear equations such as 3x + 5 = 20.' }); return; } const [c, l, cur] = await Promise.all([get('/voice/config'), get('/voice/sessions'), get('/curriculum')]); setCfg(c); if (c.tts?.enabled && !(spRef.current instanceof CloudSpeaker)) { const sp: CloudSpeaker = new CloudSpeaker((t, l, sg) => ttsFetch(sp.sessionId, t, l, sg), c.tts.cacheMb); spRef.current = sp; } setPrior(l.sessions.filter((s: any) => s.status === 'active')); setCurr(cur);
+      try { const tb = await get('/textbooks'); setBooks((tb.textbooks ?? []).filter((b: any) => b.status !== 'needs_ocr')); const qp = new URLSearchParams(window.location.search); if (qp.get('book') && qp.get('chapter')) { setBookId(qp.get('book')!); setChapterId(qp.get('chapter')!); } } catch { /* books are optional */ } }
     catch (e) { setErr(msg(e)); } finally { setLoading(false); }
   })(); return () => { spRef.current.release(); R.current.ac?.abort(); R.current.rec?.stop(); }; }, []); // eslint-disable-line
   useEffect(() => { if (!curr) return; setLessons(curr.subjects.filter((s: any) => !subject || s.id === subject).flatMap((s: any) => s.lessons.map((l: any) => ({ id: l.id, t: l.title_en, s: s.id })))); setLesson(''); }, [curr, subject]);
+  useEffect(() => { if (!bookId) { setChapters([]); return; } let off = false; get(`/textbooks/${bookId}/chapters`).then(r => { if (!off) { setChapters(r.chapters ?? []); setChapterId(c => ((r.chapters ?? []).some((x: any) => x.id === c) ? c : '')); } }).catch(() => { if (!off) setChapters([]); }); return () => { off = true; }; }, [bookId]);
   useEffect(() => { setMicLang(lang === 'ta' ? 'ta' : 'en'); }, [lang]);
   useEffect(() => { speaker.rate = rate; }, [rate, speaker]); useEffect(() => { speaker.muted = muted; if (muted) speaker.cancel(); }, [muted, speaker]);
   const endRef = useRef<HTMLDivElement>(null); useEffect(() => { endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [items.length]);
@@ -136,7 +138,7 @@ export function VoiceTutor() {
     setErr(''); setSt('connecting');
     try {
       let s = resume; let turns: any[] = [];
-      if (!s) s = (await post('/voice/sessions', { mode, lang, showBoth, subjectId: subject || undefined, lessonId: lesson || undefined, saveTranscript: save })).session;
+      if (!s) s = (await post('/voice/sessions', { mode, lang, showBoth, subjectId: subject || undefined, lessonId: lesson || undefined, chapterId: !lesson && chapterId ? chapterId : undefined, saveTranscript: save })).session;
       else { const d = await get(`/voice/sessions/${s.id}`); s = d.session; turns = d.turns; setLang(s.lang); setMode(s.mode); setShowBoth(s.showBoth); }
       { const sp = spRef.current; if (sp instanceof CloudSpeaker) sp.sessionId = s.id; } let tn = 0; R.current.ses = s; setSes(s); setItems(turns.map((t: any, i: number) => t.role === 'student' ? (tn++, { id: nid(), role: 'student' as const, kind: t.kind, en: t.content.text, ta: t.content.text }) : { turn: -tn, id: nid(), role: 'tutor' as const, kind: t.kind, en: t.content.en, ta: t.content.ta, step: t.step, math: t.content.math, sources: t.content.sources, refs: t.content.refs, visuals: t.content.visuals }));
       setSt('idle');
@@ -175,7 +177,9 @@ export function VoiceTutor() {
               <div className="field"><label htmlFor="vt-class">Class</label><input id="vt-class" value={`Class ${profile?.class_level ?? 8}`} readOnly /></div>
               <div className="field"><label htmlFor="vt-lang">Language</label><select id="vt-lang" value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="ta">தமிழ்</option><option value="en">English</option><option value="both">தமிழ் + English</option></select></div>
               <div className="field"><label htmlFor="vt-sub">Subject</label><select id="vt-sub" value={subject} onChange={e => setSubject(e.target.value)}>{SUBJ.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></div>
-              <div className="field"><label htmlFor="vt-les">Chapter / lesson</label><select id="vt-les" value={lesson} onChange={e => setLesson(e.target.value)}><option value="">Not chosen — I will ask a question</option>{lessons.map(l => <option key={l.id} value={l.id}>{l.t}</option>)}</select></div>
+              <div className="field"><label htmlFor="vt-les">Chapter / lesson</label><select id="vt-les" value={lesson} onChange={e => { setLesson(e.target.value); if (e.target.value) setChapterId(''); }}><option value="">Not chosen — I will ask a question</option>{lessons.map(l => <option key={l.id} value={l.id}>{l.t}</option>)}</select></div>
+              {!!books.length && <div className="field"><label htmlFor="vt-bk">Or a chapter of my class book</label><select id="vt-bk" value={bookId} onChange={e => { setBookId(e.target.value); setChapterId(''); if (e.target.value) setLesson(''); }}><option value="">No book chosen</option>{books.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>}
+              {!!bookId && <div className="field"><label htmlFor="vt-ch">Book chapter</label><select id="vt-ch" value={chapterId} onChange={e => { setChapterId(e.target.value); if (e.target.value) setLesson(''); }} disabled={!chapters.length}><option value="">{chapters.length ? 'Whole book — I will ask a question' : 'This book has no chapter list'}</option>{chapters.map(c => <option key={c.id} value={c.id}>{c.title} (pages {c.startPage}–{c.endPage})</option>)}</select></div>}
             </div>
             <div className="field"><span className="lbl">How should we learn?</span><div className="chips" role="group" aria-label="Teaching mode">{MODES.map(([k, en, ta]) => <button key={k} className={`pill ${mode === k ? 'on' : ''}`} aria-pressed={mode === k} onClick={() => setMode(k)}>{en} <span className="ta" lang="ta">· {ta}</span></button>)}</div></div>
             <label className="check"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} /> Save the transcript so I can continue later</label>

@@ -1,7 +1,7 @@
 import { DB } from '../db';
 import { Ctx, Plan, PlanEvent, Planner, StreamPlanner, TeachEngine, TStep, buildPlan, engineWith, makeCloze, planFromSolution } from './teach';
-import { Bi, lessonPassages, textbookHits } from './tutor';
-import { isGeneric } from './teach';
+import { Bi, chapterSample, lessonPassages, textbookHits } from './tutor';
+import { isGeneric, scopeOf } from './teach';
 import { solveLinearFromText } from './solver';
 import { topPassages } from './retrieval';
 
@@ -61,7 +61,7 @@ export function anthropicClient(o: { apiKey: string; model: string; baseUrl?: st
     },
     async *stream({ system, user, maxTokens, signal }) {
       const r = await postStream(`${base}/v1/messages`, { 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01' }, { model: o.model, max_tokens: maxTokens, system, stream: true, messages: [{ role: 'user', content: user }] }, signal);
-      if (!isSse(r)) { const d = await r.json(); yield String((d.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')); return; } // the provider ignored stream:true
+      if (!isSse(r)) { const d: any = await r.json(); yield String((d.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')); return; } // the provider ignored stream:true
       for await (const data of sseData(r.body!)) {
         let j: any; try { j = JSON.parse(data); } catch { continue; }
         if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta' && j.delta.text) yield String(j.delta.text);
@@ -82,7 +82,7 @@ export function openaiClient(o: { apiKey?: string; model: string; baseUrl: strin
     },
     async *stream({ system, user, maxTokens, signal }) {
       const r = await postStream(`${base}/chat/completions`, o.apiKey ? { authorization: `Bearer ${o.apiKey}` } : {}, { model: o.model, max_tokens: maxTokens, stream: true, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }, signal);
-      if (!isSse(r)) { const d = await r.json(); yield String(d.choices?.[0]?.message?.content ?? ''); return; }
+      if (!isSse(r)) { const d: any = await r.json(); yield String(d.choices?.[0]?.message?.content ?? ''); return; }
       for await (const data of sseData(r.body!)) {
         if (data === '[DONE]') return; let j: any; try { j = JSON.parse(data); } catch { continue; }
         const t = j.choices?.[0]?.delta?.content; if (t) yield String(t);
@@ -102,6 +102,12 @@ const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
 
 /** The sources the model may use: the student's lesson first, then class-book pages — never anything else. */
 export async function gatherSources(db: DB, ctx: Ctx, text: string): Promise<Src[]> {
+  const scope = scopeOf(ctx);
+  if (scope && !ctx.lessonId) { // the student chose a chapter: sources come from that chapter's pages only
+    const generic = !text.trim() || isGeneric(text);
+    const hits = generic ? await chapterSample(db, ctx.classLevel, scope, 6) : await textbookHits(db, ctx.classLevel, ctx.subjectId, text, 5, scope);
+    return hits.map((h, i) => ({ id: i + 1, label: `${h.source}, page ${h.page}`, text: clip(h.text, 900), lesson: false, bookId: h.bookId, page: h.page }));
+  }
   const out: Omit<Src, 'id'>[] = [];
   const lp = await lessonPassages(db, ctx.classLevel, ctx.subjectId);
   const own = ctx.lessonId ? lp.filter(p => p.lessonId === ctx.lessonId) : [];

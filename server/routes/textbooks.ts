@@ -9,7 +9,7 @@ import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { textbookHits } from '../services/tutor';
-import { extractAll, ocrQueue, putPages, runOcr, triage } from '../services/textbookIngest';
+import { detectAndStoreChapters, extractAll, listChapters, ocrQueue, putPages, replaceChapters, runOcr, triage } from '../services/textbookIngest';
 import { getOcrEngine } from '../services/ocr';
 
 const MAX = 60 * 1024 * 1024;
@@ -48,7 +48,7 @@ export function textbookRoutes(db: DB) {
     const id = uid(); const path = storage().newKey('textbooks', 'pdf'); await storage().put(path, f.buffer, 'application/pdf');
     await q.run(db, 'INSERT INTO textbooks(id,title,class_level,subject_id,medium,file_path,size,page_count,status,note,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', id, b.title, b.classLevel, subject, b.medium, path, f.size, pages.length, status, note, req.user!.id, iso());
     await putPages(db, id, good);
-    if (status === 'processing') ocrQueue.add(() => runOcr(db, id, bad));
+    if (status === 'processing') ocrQueue.add(() => runOcr(db, id, bad)); else await detectAndStoreChapters(db, id);
     res.status(201).json({ textbook: view(await get(id)) });
   }));
 
@@ -76,6 +76,20 @@ export function textbookRoutes(db: DB) {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Content-Security-Policy', "frame-ancestors 'self'"); res.setHeader('Cache-Control', 'private, max-age=300');
     (await storage().stream(b.file_path)).pipe(res);
   }));
+  /** Chapters (lessons) of a book, from its printed contents page; used for the chapter picker and to keep the tutor inside one chapter. */
+  r.get('/:id/chapters', requireAuth, wrap(async (req, res) => { const b = await get(req.params.id); if (!(await allowed(req, b))) throw new HttpError(404, 'Book not found.'); res.json({ chapters: await listChapters(db, b.id) }); }));
+  r.post('/:id/chapters/detect', admin, rateLimit(20, 600000, req => req.user!.id), wrap(async (req, res) => {
+    const b = await get(req.params.id); const n = await detectAndStoreChapters(db, b.id, true);
+    if (!n) throw new HttpError(422, 'No contents page could be read in this book, so no chapters were found. You can add them by hand.');
+    res.json({ chapters: await listChapters(db, b.id) });
+  }));
+  r.put('/:id/chapters', admin, wrap(async (req, res) => {
+    const b = await get(req.params.id);
+    const body = parse(z.object({ chapters: z.array(z.object({ title: z.string().trim().min(1).max(160), startPage: z.number().int().min(1), endPage: z.number().int().min(1) })).max(300) }), req.body);
+    let prevEnd = 0; // chapters must sit inside the book, in order, without overlapping
+    for (const c of body.chapters) { if (c.endPage < c.startPage || c.endPage > b.page_count || c.startPage <= prevEnd) throw new HttpError(400, `“${c.title}” has page numbers that do not fit the book (1–${b.page_count}) or overlap the chapter before it.`); prevEnd = c.endPage; }
+    await replaceChapters(db, b.id, body.chapters, 'admin'); res.json({ chapters: await listChapters(db, b.id) });
+  }));
   /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed). */
   r.post('/:id/ocr', admin, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
     const b = await get(req.params.id); if (b.status === 'processing') throw new HttpError(409, 'This book is already being read.');
@@ -87,7 +101,7 @@ export function textbookRoutes(db: DB) {
   }));
   r.delete('/:id', admin, wrap(async (req, res) => {
     const b = await get(req.params.id); await storage().delete(b.file_path);
-    await q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
+    await q.run(db, 'DELETE FROM textbook_chapters WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
   }));
   return r;
 }

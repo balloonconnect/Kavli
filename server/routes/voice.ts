@@ -67,11 +67,17 @@ export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { ma
 
   r.get('/sessions', S, wrap(async (req, res) => res.json({ sessions: (await q.all<any>(db, 'SELECT * FROM voice_sessions WHERE user_id=? ORDER BY updated_at DESC LIMIT 20', req.user!.id)).map(view) })));
   r.post('/sessions', S, wrap(async (req, res) => {
-    const b = parse(z.object({ mode: z.enum(MODES as [string, ...string[]]).default('teach'), lang: LANG.optional(), showBoth: z.boolean().optional(), subjectId: z.string().max(40).nullish(), lessonId: z.string().max(80).nullish(), saveTranscript: z.boolean().default(true) }), req.body ?? {});
+    const b = parse(z.object({ mode: z.enum(MODES as [string, ...string[]]).default('teach'), lang: LANG.optional(), showBoth: z.boolean().optional(), subjectId: z.string().max(40).nullish(), lessonId: z.string().max(80).nullish(), chapterId: z.string().max(80).nullish(), saveTranscript: z.boolean().default(true) }), req.body ?? {});
     const p = await guardian(req.user!.id); let subject = b.subjectId ?? null, topic: string | null = null;
     if (b.lessonId) { const l = (await q.get<any>(db, 'SELECT subject_id,title_en,class_level FROM lessons WHERE id=?', b.lessonId)); if (!l || l.class_level !== p.class_level) throw new HttpError(404, 'Lesson not found for your class.'); subject = l.subject_id; topic = l.title_en; }
+    const state = initialState(b.mode as any);
+    if (b.chapterId && !b.lessonId) { // a chapter of the student's own class book: the tutor stays inside its pages
+      const c = await q.get<any>(db, "SELECT c.id,c.title,c.start_page,c.end_page,c.textbook_id,t.subject_id FROM textbook_chapters c JOIN textbooks t ON t.id=c.textbook_id WHERE c.id=? AND t.class_level=? AND t.status IN ('ready','processing')", b.chapterId, p.class_level);
+      if (!c) throw new HttpError(404, 'Chapter not found for your class.');
+      state.chapter = { id: c.id, bookId: c.textbook_id, title: c.title, start: c.start_page, end: c.end_page }; topic = c.title; subject = subject ?? c.subject_id ?? null;
+    }
     const id = uid(), now = iso(), lang = b.lang ?? p.ai_lang;
-    await q.run(db, 'INSERT INTO voice_sessions(id,user_id,mode,lang,show_both,subject_id,lesson_id,topic,state,save_transcript,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', id, req.user!.id, b.mode, lang, (b.showBoth ?? lang === 'both') ? 1 : 0, subject, b.lessonId ?? null, topic, JSON.stringify(initialState(b.mode as any)), b.saveTranscript ? 1 : 0, 'active', now, now);
+    await q.run(db, 'INSERT INTO voice_sessions(id,user_id,mode,lang,show_both,subject_id,lesson_id,topic,state,save_transcript,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', id, req.user!.id, b.mode, lang, (b.showBoth ?? lang === 'both') ? 1 : 0, subject, b.lessonId ?? null, topic, JSON.stringify(state), b.saveTranscript ? 1 : 0, 'active', now, now);
     res.status(201).json({ session: view((await q.get(db, 'SELECT * FROM voice_sessions WHERE id=?', id))) });
   }));
   r.get('/sessions/:id', S, wrap(async (req, res) => { const s = await own(req.params.id, req.user!.id); res.json({ session: view(s), turns: (await q.all<any>(db, 'SELECT role,kind,content,step,at FROM voice_turns WHERE session_id=? ORDER BY id', s.id)).map(t => ({ ...t, content: J(t.content) })) }); }));

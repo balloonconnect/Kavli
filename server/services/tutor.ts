@@ -84,11 +84,22 @@ const TANGLISH = new Set(['enna', 'epdi', 'eppadi', 'idhu', 'ithu', 'indha', 'in
 export function looksTanglish(t: string) { if (/[\u0B80-\u0BFF]/.test(t)) return false; const w = t.toLowerCase().match(/[a-z]+/g) ?? []; return w.filter(x => TANGLISH.has(x)).length >= 2; }
 
 /** Passages from the uploaded books of the student's own class only (and the open lesson's subject when known). */
-export async function textbookHits(db: DB, classLevel: number, subjectId: string | null | undefined, text: string, k = 2) {
-  const books = (await q.all<any>(db, "SELECT id,title,subject_id FROM textbooks WHERE class_level=? AND status IN ('ready','processing')", classLevel)).filter(b => !subjectId || !b.subject_id || b.subject_id === subjectId);
+/** Restricts the tutor to one chapter of one book (pages start–end, inclusive). */
+export type ChapterScope = { bookId: string; start: number; end: number };
+export async function textbookHits(db: DB, classLevel: number, subjectId: string | null | undefined, text: string, k = 2, scope?: ChapterScope | null) {
+  const books = (await q.all<any>(db, "SELECT id,title,subject_id FROM textbooks WHERE class_level=? AND status IN ('ready','processing')", classLevel)).filter(b => (!subjectId || !b.subject_id || b.subject_id === subjectId) && (!scope || b.id === scope.bookId));
   const ps: (Passage & { bookId: string })[] = [];
-  for (const b of books) for (const pg of (await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=?', b.id))) for (const x of splitPassages(pg.text, pg.page, b.title)) ps.push({ ...x, bookId: b.id });
-  return topPassages(text, ps, k).map(h => h as Passage & { bookId: string });
+  for (const b of books) for (const pg of (await q.all<any>(db, scope ? 'SELECT page,text FROM textbook_pages WHERE textbook_id=? AND page>=? AND page<=?' : 'SELECT page,text FROM textbook_pages WHERE textbook_id=?', ...(scope ? [b.id, scope.start, scope.end] : [b.id])))) for (const x of splitPassages(pg.text, pg.page, b.title)) ps.push({ ...x, bookId: b.id });
+  return topPassages(text, ps, k, scope ? { rareFraction: 0.5 } : {}).map(h => h as Passage & { bookId: string });
+}
+
+/** A few passages spread across a chapter, in book order: what "teach me this chapter" is taught from. Pages are sampled evenly so a long chapter is not summarised from its first page alone. */
+export async function chapterSample(db: DB, classLevel: number, scope: ChapterScope, n = 5) {
+  const book = await q.get<any>(db, "SELECT id,title FROM textbooks WHERE id=? AND class_level=? AND status IN ('ready','processing')", scope.bookId, classLevel); if (!book) return [];
+  const pages = await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=? AND page>=? AND page<=? ORDER BY page', book.id, scope.start, scope.end);
+  const perPage = pages.map(pg => ({ page: pg.page as number, ps: splitPassages(pg.text, pg.page, book.title).filter(x => x.text.length >= 80) })).filter(x => x.ps.length);
+  const pick = perPage.length <= n ? perPage : Array.from({ length: n }, (_, i) => perPage[Math.round((i * (perPage.length - 1)) / (n - 1))]);
+  return pick.map(x => ({ ...x.ps.reduce((a, b) => (b.text.length > a.text.length ? b : a)), bookId: book.id as string }));
 }
 
 export async function developmentTutor(db: DB, i: TutorInput): Promise<TutorReply> {

@@ -3,12 +3,15 @@ import { iso } from '../clock';
 import { JobQueue } from './jobs';
 import { getOcrEngine, ocrPages, textQuality } from './ocr';
 import { storage } from './storage';
+import { detectChapters } from './chapters';
+import { randomUUID } from 'node:crypto';
 
 export type PageText = { page: number; text: string };
+/** Page text with line breaks kept (a contents page is one entry per line; passages are split on lines too). */
 export async function extractAll(buf: Buffer): Promise<PageText[]> {
   const { PDFParse } = await import('pdf-parse');
   const parser = new PDFParse({ data: new Uint8Array(buf) });
-  try { const r = await parser.getText(); return r.pages.map((p: any) => ({ page: p.num as number, text: String(p.text).replace(/\s+/g, ' ').trim() })); }
+  try { const r = await parser.getText(); return r.pages.map((p: any) => ({ page: p.num as number, text: String(p.text).replace(/[ \t\f\v\u00a0]+/g, ' ').replace(/ ?\r?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n').trim() })); }
   finally { await parser.destroy().catch(() => {}); }
 }
 
@@ -44,6 +47,7 @@ export async function runOcr(db: DB, bookId: string, pageNos: number[]) {
   const skipped = r.failed.length;
   if (!have) return settle('needs_ocr', 'No readable text could be found in this PDF.');
   await settle('ready', skipped ? `${skipped} page${skipped > 1 ? 's' : ''} could not be read (OCR). The rest is ready.` : null);
+  await detectAndStoreChapters(db, bookId);
 }
 
 /** After a restart, books left half-read continue where they stopped (pages already saved are skipped). */
@@ -55,4 +59,28 @@ export async function resumeOcr(db: DB) {
     ocrQueue.add(() => runOcr(db, b.id, todo));
   }
   return books.length;
+}
+
+export type StoredChapter = { id: string; title: string; startPage: number; endPage: number; verified: boolean; source: string };
+export async function listChapters(db: DB, bookId: string): Promise<StoredChapter[]> {
+  return (await q.all<any>(db, 'SELECT id,title,start_page,end_page,verified,source FROM textbook_chapters WHERE textbook_id=? ORDER BY ord', bookId)).map(r => ({ id: r.id, title: r.title, startPage: r.start_page, endPage: r.end_page, verified: !!r.verified, source: r.source }));
+}
+/** Replaces a book's chapters. */
+export async function replaceChapters(db: DB, bookId: string, list: { title: string; startPage: number; endPage: number; verified?: boolean }[], source: 'auto' | 'admin') {
+  await db.exec('BEGIN');
+  try {
+    await q.run(db, 'DELETE FROM textbook_chapters WHERE textbook_id=?', bookId);
+    for (let i = 0; i < list.length; i++) { const c = list[i]; await q.run(db, 'INSERT INTO textbook_chapters(id,textbook_id,ord,title,start_page,end_page,verified,source) VALUES (?,?,?,?,?,?,?,?)', randomUUID(), bookId, i + 1, c.title.slice(0, 160), c.startPage, c.endPage, c.verified ? 1 : 0, source); }
+    await db.exec('COMMIT');
+  } catch (e) { await db.exec('ROLLBACK'); throw e; }
+}
+/** Reads the contents page and stores the chapters found. Chapters an admin has edited are left alone unless `force`. Never throws: a book without chapters is normal. */
+export async function detectAndStoreChapters(db: DB, bookId: string, force = false): Promise<number> {
+  try {
+    const book = await q.get<any>(db, 'SELECT page_count FROM textbooks WHERE id=?', bookId); if (!book) return 0;
+    if (!force && (await q.get<any>(db, "SELECT 1 x FROM textbook_chapters WHERE textbook_id=? AND source='admin'", bookId))) return 0;
+    const pages = await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=? ORDER BY page', bookId);
+    const found = detectChapters(pages, book.page_count); if (!found.length) return 0;
+    await replaceChapters(db, bookId, found, 'auto'); return found.length;
+  } catch { return 0; }
 }

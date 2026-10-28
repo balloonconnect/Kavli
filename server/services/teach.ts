@@ -11,7 +11,7 @@ import { gradeAnswer } from './grading';
 import { solveLinearFromText, Solution, fstr } from './solver';
 import { topPassages, tokens } from './retrieval';
 import { VKey, Visual, canSimplify, describeVisual, detectKey, labelMeaning } from '../../shared/visuals';
-import { Bi, Lang, lessonPassages, parseGiven, looksLikeAnswer, hintFor, textbookHits } from './tutor';
+import { Bi, Lang, chapterSample, lessonPassages, parseGiven, looksLikeAnswer, hintFor, textbookHits } from './tutor';
 
 export type Mode = 'teach' | 'explain' | 'hint' | 'practice' | 'revise';
 export const MODES: Mode[] = ['teach', 'explain', 'hint', 'practice', 'revise'];
@@ -23,6 +23,8 @@ export type State = {
   quiz: { qid: string; wrong: number; asked: string[]; correct: number; total: number; limit: number } | null; done: boolean;
   /** The diagram currently on screen, so follow-ups like “explain this diagram” know what the student means. */
   visual?: VKey;
+  /** Set when the student chose a chapter: the tutor then teaches and answers only from these pages. */
+  chapter?: { id: string; bookId: string; title: string; start: number; end: number };
 };
 export const initialState = (mode: Mode): State => ({ mode, plan: null, idx: 0, awaiting: null, wrong: 0, hintLevel: 0, quiz: null, done: false });
 export type Ctx = { db: DB; userId: string; sessionId?: string; classLevel: number; lang: Lang; subjectId: string | null; lessonId: string | null; state: State };
@@ -91,14 +93,18 @@ async function planFromLesson(db: DB, ctx: Ctx, text: string): Promise<Plan | nu
   return { topic: l ? bi(l.title_en, l.title_ta) : bi(text.slice(0, 60), text.slice(0, 60)), grounded: 'lesson', sources: sourcesAll, refs: [], steps };
 }
 
+export const scopeOf = (ctx: Ctx) => (ctx.state.chapter ? { bookId: ctx.state.chapter.bookId, start: ctx.state.chapter.start, end: ctx.state.chapter.end } : null);
 async function planFromTextbook(db: DB, ctx: Ctx, text: string): Promise<Plan | null> {
-  if (!text.trim() || isGeneric(text)) return null; const hits = await textbookHits(db, ctx.classLevel, ctx.subjectId, text, 4); if (!hits.length) return null;
+  const scope = scopeOf(ctx);
+  // "teach me this chapter": no subject matter named, so teach from pages spread across the chapter
+  const hits = scope && (!text.trim() || isGeneric(text)) ? await chapterSample(db, ctx.classLevel, scope, 4) : (!text.trim() || isGeneric(text) ? [] : await textbookHits(db, ctx.classLevel, ctx.subjectId, text, 4, scope)); if (!hits.length) return null;
   const steps: TStep[] = hits.map((h, i) => { const t = h.text; return { n: i + 1, en: t, ta: t, check: makeCloze(t, t, 'en') ?? { kind: 'ack' as const } }; });
-  return { topic: bi(text.slice(0, 60), text.slice(0, 60)), grounded: 'textbook', sources: [...new Set(hits.map(h => `${h.source}, page ${h.page}`))], refs: hits.map(h => ({ bookId: h.bookId, page: h.page as number })), steps };
+  return { topic: ctx.state.chapter && (!text.trim() || isGeneric(text)) ? bi(ctx.state.chapter.title, ctx.state.chapter.title) : bi(text.slice(0, 60), text.slice(0, 60)), grounded: 'textbook', sources: [...new Set(hits.map(h => `${h.source}, page ${h.page}`))], refs: hits.map(h => ({ bookId: h.bookId, page: h.page as number })), steps };
 }
 
 export async function buildPlan(db: DB, ctx: Ctx, text: string): Promise<Plan | null> {
   const sol = text.trim() ? solveLinearFromText(text) : null; if (sol && sol.x) return planFromSolution(sol, text);
+  if (ctx.state.chapter && !ctx.lessonId) return planFromTextbook(db, ctx, text); // a chosen chapter: teach from that chapter only, not from other lessons
   return (await planFromLesson(db, ctx, text)) ?? (await planFromTextbook(db, ctx, text));
 }
 
