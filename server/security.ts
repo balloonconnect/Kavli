@@ -50,8 +50,10 @@ export const requireRole = (...roles: Role[]) => (req: Request, res: Response, n
   next();
 };
 /** CSRF: state-changing requests need the per-session token in a header (cookie is also SameSite=Lax). */
+/** Endpoints that are authorised by a single-use emailed token (which is the secret), so a signed-in browser opening the link is not blocked. */
+const TOKEN_AUTH = /^\/api\/auth\/(?:forgot|reset|verify|guardian\/(?:lookup|decide))$/;
 export function csrfGuard(req: Request, res: Response, next: NextFunction) {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !req.user) return next();
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !req.user || TOKEN_AUTH.test(req.originalUrl.split('?')[0])) return next();
   if (req.headers['x-csrf-token'] !== req.csrf) return void res.status(403).json({ error: 'Security check failed. Please refresh and try again.' });
   next();
 }

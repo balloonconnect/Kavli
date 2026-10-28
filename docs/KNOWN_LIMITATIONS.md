@@ -4,14 +4,14 @@
 - **OCR**: scanned or badly-encoded **textbook** PDFs are read with Tesseract (Tamil + English) in a background job; this needs `tesseract` and `poppler` installed (the Docker image has them). Tesseract's Tamil output is good but not perfect: expect occasional wrong letters and header debris, and it cannot read tables or diagrams. Photo text reading for **student uploads** still needs a configured model key. Student-uploaded scanned PDFs are not OCR'd.
 - **Curriculum**: sample content only (published for Class 8; placeholders elsewhere). Not official Samacheer Kalvi text; needs review by qualified educators.
 - **Database**: PostgreSQL (`DATABASE_URL`) for production and SQLite (`node:sqlite`, experimental) for development; the whole test suite runs on both. Single app instance only (in-memory rate limiter; OCR queue runs in-process). No schema migrations yet: tables are created if missing, and later schema changes will need migration scripts.
-- **No email/SMS**, password reset, or guardian identity verification beyond a consent record.
+- **No SMS.** Email is built (reset, confirmation, guardian approval) but only tested against a mock Resend server and an in-process SMTP server, never a real provider. Guardian approval proves control of the guardian's mailbox, not who they are.
 - **Test integrity** in a browser is limited (no proctoring); server timing and autosave are authoritative.
 - **Voice** input (speech-to-text) always uses the browser's Speech API and is hidden when unsupported; Tamil recognition quality varies by browser and phone. Voice output uses Azure AI Speech when configured (tested against a mock of its REST API, not the live service), otherwise the browser voice.
 - **Draft question generator** is maths-only; all generated questions need human review before publishing.
 - **Accessibility**: automated axe checks pass; no manual screen-reader audit yet.
 - **Uploads**: type/size/magic-byte checks, but no antivirus scanning. Files live on local disk or an S3-compatible bucket (`STORAGE_DRIVER`).
 - No ESLint config; no CI pipeline.
-- **Sign-up**: email verification and guardian-approval emails are not sent (no email service). Under-13 approval happens only through the student's guardian link code. Staff approval has an API but no admin screen yet. The UI uses `/app`, not the `/student/...` route names from the master prompt.
+- **Sign-up**: email confirmation is a reminder, not a gate: unconfirmed students can still sign in. Under-13 approval happens through the emailed guardian link (or the link code if no mail provider is set). Staff approval has an API but no admin screen yet. The UI uses `/app`, not the `/student/...` route names from the master prompt.
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
 - **UI-preview mode** (`.env.production`) fakes the API in the browser; sign-ups there are kept for the tab only.
 - **UI-preview mode** replays one recorded run (sample student, canned passing test, canned practice set and material answers); it does not grade or persist anything. It exists only to review screens without a backend.
@@ -33,6 +33,6 @@
 ## Added in the production-hardening pass
 - Diagrams are original drawings made for this project and have **not** been reviewed by a teacher. They are labelled as such in the app.
 - Production bootstrap (`SEED_DEMO=0`) creates only the subject list, the real textbook lessons and the built-in practice questions. The built-in practice questions are included; teachers must add weekly tests.
-- The first admin is created with `scripts/create-admin.ts`. There is no password-reset email flow.
+- The first admin is created with `scripts/create-admin.ts`. Password reset works by email only when a mail provider is configured; without one, an admin must reset it.
 - The Docker image was written but **not built** in the authoring environment (no Docker daemon). The production-only dependency install and the non-preview front-end build were run separately and work.
 - The textbook PDF itself and its extracted text are not in the repository; test fixtures use sentences written for the tests.

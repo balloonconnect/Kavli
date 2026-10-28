@@ -19,6 +19,7 @@ The live app is **one container**. Vercel's serverless functions are not a good 
 | **S3-compatible bucket** | Textbook PDFs and student uploads | AWS S3 (ap-south-1), Cloudflare R2, or Supabase Storage. Keep it **private**; the server streams files after checking the student's class. |
 | **Tutor model key** | Real lessons written from the textbook | Anthropic (`ANTHROPIC_API_KEY`) or any OpenAI-compatible service (`LLM_BASE_URL`). Optional: without it the labelled rule-based tutor runs. |
 | **Azure AI Speech** key + region | AI voice (Tamil + English) | Resource in `centralindia` keeps latency low. Optional: without it the student's browser voice is used. |
+| **Email provider** | Password reset, email confirmation, guardian approval | Resend (`RESEND_API_KEY`) or any SMTP service. Verify your sending domain (SPF/DKIM) or mails land in spam. Optional: without it the app says email is off. |
 | **Domain + HTTPS** | Sign-in cookies, microphone access | Browsers only allow the microphone on HTTPS. Most hosts give TLS for free. |
 | **Textbook rights** | Hosting official books | Confirm with Tamil Nadu Textbook and Educational Services Corporation (TNTESCOP) that you may store and serve each book. Platform-admin uploads are your responsibility. |
 
@@ -28,7 +29,8 @@ The live app is **one container**. Vercel's serverless functions are not a good 
 2. **Bucket.** Create a private bucket and an access key limited to it (read, write, delete). Set `STORAGE_DRIVER=s3`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`; for R2/MinIO also `S3_ENDPOINT`. No bucket → files go to a local folder on a persistent disk (fine for one server, lost if the disk is).
 3. **Voice.** `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`. Defaults: `ta-IN-PallaviNeural`, `en-IN-NeerjaNeural`; change with `AZURE_SPEECH_VOICE_TA/_EN` after listening to the voices available in your region.
 4. **Model.** `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`), or `LLM_PROVIDER=openai` with `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
-5. **App settings:** `NODE_ENV=production`, `PUBLIC_URL=https://your-domain` (used in certificate QR links), `SEED_DEMO=0`. See `.env.example` for every variable.
+5. **Email.** `MAIL_FROM`, then `RESEND_API_KEY` or `SMTP_HOST/PORT/USER/PASS`. Links use `PUBLIC_URL`, so set it first. Send yourself a reset mail before announcing; the Live set-up check shows whether email is on.
+6. **App settings:** `NODE_ENV=production`, `PUBLIC_URL=https://your-domain` (used in certificate QR links), `SEED_DEMO=0`. See `.env.example` for every variable.
 
 ## 3. Build and run
 
@@ -59,7 +61,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 - [ ] Bucket is private; database is not reachable from the internet except from the app.
 - [ ] Rate limiting is in memory → **run one instance** (or add a shared limiter before scaling out).
 - [ ] Decide the privacy position and tell families: with a tutor model on, each question and the textbook passages used to answer it are sent to that provider; no names, emails or ids are sent. With Azure voice on, the tutor's reply text is sent to Azure to be spoken. Student speech is recognised by the browser's own speech service (Chrome sends audio to Google). Update the privacy notice to match.
-- [ ] Under-13 students: guardian approval is a recorded consent only (no email verification yet). Decide if that is enough for your school.
+- [ ] Under-13 students: guardian approval is an emailed single-use link (3 to 7 days), which proves control of that mailbox only. Decide if that is enough for your school.
 
 **Data**
 - [ ] Automated daily database backups switched on, and a restore tried once.
@@ -80,7 +82,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (193 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (213 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
@@ -88,6 +90,7 @@ Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end
 **Not verified, because it needs your accounts or network:**
 - Calls to the real Anthropic / OpenAI-compatible API, including their streaming (SSE) formats (tested against a mock server that follows their documented request and response shapes).
 - Calls to real Azure AI Speech (mock server; voice names are Azure's published defaults and must be confirmed in your region).
+- A real email provider (Resend is tested against a mock HTTP server; SMTP against an in-process server), including spam placement.
 - A real S3/R2 bucket (tested with the AWS SDK against a mock S3 server).
 - The Docker image build (no Docker daemon was available); its two risky parts, the production-only install and the non-preview front-end build, were run separately and work.
 - Managed Postgres with TLS (`DATABASE_SSL`), and load beyond the in-process tests.

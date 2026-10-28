@@ -103,7 +103,7 @@ export const Privacy = () => <Doc title="Privacy notice"><Card className="prose"
 export const Terms = () => <Doc title="Terms of use"><Card className="prose"><p>Kalvi Mitra is a study aid. It is not a replacement for teachers or textbooks. AI answers can be wrong — check important answers with your textbook or teacher.</p><p>Certificates issued here recognise achievement in this platform’s weekly tests. They are not official Tamil Nadu State Board certificates.</p><p>Do not share your password. Do not upload other people’s private information. We may suspend accounts that misuse the service.</p></Card></Doc>;
 export const ChildSafety = () => <Doc title="Child safety"><Card className="prose"><ul><li>Children under 13 need a parent or guardian to approve their account before using the AI tutor or uploads.</li><li>No advertising and no selling of data.</li><li>Tutor replies are limited to study help; you can report any reply with the flag button.</li><li>Parents can see their child’s progress and results, but not other families’ data.</li><li>If you ever feel unsafe or upset, talk to a trusted adult. In India you can call Childline on 1098.</li></ul></Card></Doc>;
 export function Help() {
-  const faq: [string, string][] = [['I forgot my password', 'Password reset by email is not available yet. See the Forgot password page for who can help.'], ['Why can’t I start a test?', 'A test can be started only between its opening and closing times, and only while you have attempts left.'], ['Why is my result “pending review”?', 'Written answers are marked by your teacher. Your result is final once they finish.'], ['Is the tutor a real AI?', 'It depends on how this service is configured. The tutor’s label tells you which one is answering.'], ['How do I verify a certificate?', 'Open Verify certificate and paste the reference number or scan the QR code.']];
+  const faq: [string, string][] = [['I forgot my password', 'Use the Forgot password page: if this service has email set up it sends you a reset link; if not, it lists who can help.'], ['Why can’t I start a test?', 'A test can be started only between its opening and closing times, and only while you have attempts left.'], ['Why is my result “pending review”?', 'Written answers are marked by your teacher. Your result is final once they finish.'], ['Is the tutor a real AI?', 'It depends on how this service is configured. The tutor’s label tells you which one is answering.'], ['How do I verify a certificate?', 'Open Verify certificate and paste the reference number or scan the QR code.']];
   return <div className="col"><h1>Help</h1>{faq.map(([q, a]) => <Card key={q}><h3>{q}</h3><p className="muted">{a}</p></Card>)}</div>;
 }
 export function NotFound() { return <div className="state"><h1>Page not found</h1><p>The page you are looking for does not exist.</p><Button to="/">Go home</Button></div>; }
@@ -149,18 +149,3 @@ export function SignIn() {
   );
 }
 
-export function ForgotPassword() {
-  useEffect(() => { document.title = 'Forgot password · Kalvi Mitra'; }, []);
-  return <div className="authwrap"><Card className="authcard">
-    <h1>Forgot your password?</h1>
-    <div className="notice warn"><Icon name="info" /><span>Resetting a password by email is not available yet, so we cannot send you a reset link.</span></div>
-    <h2 style={{ fontSize: 16 }}>Who can help</h2>
-    <ul className="col" style={{ margin: 0, paddingLeft: 18 }}>
-      <li><b>Students:</b> ask your teacher or school administrator, or your parent or guardian if they manage your account.</li>
-      <li><b>Parents and teachers:</b> ask your school administrator.</li>
-      <li><b>School administrators:</b> contact the platform administrator who invited you.</li>
-    </ul>
-    <p className="muted small">Never share your password with anyone, including people who say they are from Kalvi Mitra.</p>
-    <div className="row wrap"><Button to="/signin">Back to sign in</Button><Button tone="secondary" to="/signup">Create an account</Button></div>
-  </Card></div>;
-}

@@ -71,17 +71,20 @@ export function ProfilePage() {
 }
 
 export function Settings() {
-  const { logout, user } = useAuth(); const nav = useNavigate(); const toast = useToast();
+  const { logout, user, emailVerified } = useAuth(); const nav = useNavigate(); const toast = useToast(); const [mailOn, setMailOn] = useState(false);
+  useEffect(() => { get('/auth/config').then(c => setMailOn(!!c.email?.enabled)).catch(() => {}); }, []);
   const s = useLoad(() => get('/profile'));
   const [code, setCode] = useState(''); const [del1, setDel1] = useState(false); const [typed, setTyped] = useState('');
   return (
     <div className="col">
       <PageTitle title="Settings" sub="Your profile, privacy and account." />
       <ProfileForm mode="edit" />
+      {mailOn && !emailVerified && <div className="notice warn"><Icon name="info" /><span>Your email address is not confirmed yet.</span><Button tone="secondary" onClick={async () => { try { await post('/auth/send-verification'); toast('Confirmation link sent. Check your email.', 'ok'); } catch (e) { toast(msg(e), 'err'); } }}>Send confirmation link</Button></div>}
       <Card className="col"><h2>Parent / guardian</h2>
         <Async s={s}>{d => <>
           {d.under13 && !d.profile?.guardian_approved && <div className="notice warn"><Icon name="alert" />Your account needs a parent or guardian’s approval before you can use the AI tutor and uploads.</div>}
           {d.profile?.guardian_approved ? <p><Badge tone="success">Guardian linked</Badge></p> : null}
+          {mailOn && d.under13 && !d.profile?.guardian_approved && <div className="row wrap"><Button tone="secondary" onClick={async () => { try { await post('/auth/guardian/resend'); toast('We emailed your guardian again.', 'ok'); } catch (e) { toast(msg(e), 'err'); } }}>Email my guardian again</Button></div>}
           <p className="muted">Create a code and give it to your parent or guardian. They enter it in their Kalvi Mitra account to see your progress{d.under13 ? ' and approve your account' : ''}. Codes expire after 7 days.</p>
           <div className="row wrap"><Button tone="secondary" onClick={async () => { try { setCode((await post('/profile/guardian-code')).code); } catch (e) { toast(msg(e), 'err'); } }}>Create guardian code</Button>{code && <span className="codebox" aria-live="polite">{code}</span>}</div></>}</Async>
       </Card>

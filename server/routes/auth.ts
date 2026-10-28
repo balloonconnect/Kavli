@@ -6,6 +6,9 @@ import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { readableId, DEMO_USERNAMES } from '../seed';
+import { Mail, mailer, publicUrl } from '../services/mailer';
+import { guardianMail, resetMail, verifyMail, changedMail } from '../services/mailTemplates';
+import { consumeToken, createToken, peekToken } from '../services/emailTokens';
 
 const J = (v: string) => JSON.parse(v);
 const pw = z.string().min(8, 'Use at least 8 characters').max(128).refine(s => /[A-Za-z]/.test(s) && /\d/.test(s), 'Use letters and at least one number');
@@ -29,6 +32,14 @@ const Reg = z.object({
 });
 let _dummy: string | null = null; const dummyHash = async () => (_dummy ??= (await hashPassword('not-a-real-password')));
 const Login = z.object({ email: z.string().trim().toLowerCase().min(1).max(254), password: z.string().min(1).max(128) });
+
+/** Sends in the background: a slow or failing mail service never delays or breaks the request, and failures are logged without the address. */
+function sendMail(m: Mail, what: string) {
+  const mm = mailer(); if (!mm) return;
+  mm.send(m).catch(e => console.warn(`[mail] ${what} not sent: ${String(e?.message ?? e).slice(0, 120)}`));
+}
+const NO_MAIL = 'Email is not set up on this server, so we cannot send this email. Please ask your school administrator for help.';
+const upsertSetting = (db: DB, key: string, value: string) => q.run(db, 'INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', key, value);
 
 export function authRoutes(db: DB) {
   const r = Router(); const secure = process.env.NODE_ENV === 'production';
@@ -57,6 +68,13 @@ export function authRoutes(db: DB) {
       }
       if (privileged) await q.run(db, 'INSERT INTO settings VALUES (?,?)', `rolereq:${id}`, JSON.stringify({ requested: b.role, ...b.staff, status: 'pending', at: t }));
     });
+    // emails (best effort, in the background): confirm the address; and for an under-13 student, ask the guardian to approve
+    if (mailer()) void (async () => {
+      try {
+        sendMail(verifyMail(b.email, b.displayName, `${publicUrl()}/verify-email?token=${await createToken(db, id, 'verify', { email: b.email })}`), 'verification');
+        if (b.role === 'student' && b.under13 && b.guardianEmail) sendMail(guardianMail(b.guardianEmail, b.guardianName ?? 'Parent / Guardian', b.displayName, `${publicUrl()}/guardian-approval?token=${await createToken(db, id, 'guardian', { email: b.guardianEmail, name: b.guardianName ?? '' })}`), 'guardian approval');
+      } catch (e: any) { console.warn(`[mail] could not prepare sign-up emails: ${String(e?.message ?? e).slice(0, 100)}`); }
+    })();
     const s = await createSession(db, id); setCookie(res, s.token);
     res.status(201).json({ user: { id, email: b.email, display_name: b.displayName, role: dbRole }, csrf: s.csrf, needsProfile: b.role === 'student' && !b.student, requestedRole: b.role, pendingApproval: privileged });
   }));
@@ -74,7 +92,66 @@ export function authRoutes(db: DB) {
   r.get('/me', wrap(async (req, res) => {
     if (!req.user) return void res.json({ user: null });
     const u = req.user; const p = u.role === 'student' ? (await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', u.id)) : null;
-    res.json({ user: u, csrf: req.csrf, profile: p ? shapeProfile(p) : null, needsProfile: u.role === 'student' && !p?.completed_at });
+    const emailVerified = !!(await q.get(db, 'SELECT 1 x FROM settings WHERE key=?', `emailverified:${u.id}`));
+    res.json({ user: u, csrf: req.csrf, profile: p ? shapeProfile(p) : null, needsProfile: u.role === 'student' && !p?.completed_at, emailVerified });
+  }));
+
+  // ---- email: what this server can do, password reset, address verification, guardian approval ----
+  r.get('/config', wrap(async (_req, res) => { res.json({ email: { enabled: !!mailer() } }); }));
+
+  r.post('/forgot', rateLimit(5, 900000, req => `forgot:${req.ip}:${String(req.body?.email ?? '').toLowerCase()}`), wrap(async (req, res) => {
+    const { email } = parse(z.object({ email: z.string().trim().toLowerCase().email('Enter a valid email').max(254) }), req.body);
+    if (!mailer()) throw new HttpError(501, NO_MAIL);
+    const u = await q.get<any>(db, 'SELECT id,email,display_name,disabled,is_demo FROM users WHERE email=?', email);
+    if (u && !u.disabled && !u.is_demo) { sendMail(resetMail(u.email, u.display_name, `${publicUrl()}/reset-password?token=${await createToken(db, u.id, 'reset')}`), 'password reset'); await audit(db, u.id, 'auth.reset_requested', 'user', u.id); }
+    res.json({ ok: true }); // the same answer whether or not the address has an account
+  }));
+  r.post('/reset', rateLimit(10, 900000), wrap(async (req, res) => {
+    const b = parse(z.object({ token: z.string().max(100), password: pw }), req.body); // password is checked first: a weak password must not use up the link
+    const t = await consumeToken(db, b.token, 'reset'); if (!t) throw new HttpError(400, 'This link has expired or was already used. Please ask for a new one.');
+    const hash = await hashPassword(b.password);
+    await tx(db, async () => { await q.run(db, 'UPDATE users SET password_hash=? WHERE id=?', hash, t.userId); await q.run(db, 'DELETE FROM sessions WHERE user_id=?', t.userId); });
+    await audit(db, t.userId, 'auth.password_reset', 'user', t.userId);
+    const u = await q.get<any>(db, 'SELECT email,display_name FROM users WHERE id=?', t.userId); if (u) sendMail(changedMail(u.email, u.display_name), 'password-changed notice');
+    res.json({ ok: true });
+  }));
+
+  r.post('/send-verification', requireAuth, rateLimit(3, 3600000, req => `verify:${req.user?.id ?? req.ip}`), wrap(async (req, res) => {
+    const u = req.user!; if (!mailer()) throw new HttpError(501, NO_MAIL);
+    if (await q.get(db, 'SELECT 1 x FROM settings WHERE key=?', `emailverified:${u.id}`)) return void res.json({ ok: true, alreadyVerified: true });
+    sendMail(verifyMail(u.email, u.display_name, `${publicUrl()}/verify-email?token=${await createToken(db, u.id, 'verify', { email: u.email })}`), 'verification'); res.json({ ok: true });
+  }));
+  r.post('/verify', rateLimit(20, 900000), wrap(async (req, res) => {
+    const { token } = parse(z.object({ token: z.string().max(100) }), req.body);
+    const t = await consumeToken(db, token, 'verify'); if (!t) throw new HttpError(400, 'This link has expired or was already used. Sign in and ask for a new one.');
+    const u = await q.get<any>(db, 'SELECT email FROM users WHERE id=?', t.userId); if (!u || u.email !== t.payload.email) throw new HttpError(400, 'This link is for a different email address.');
+    await upsertSetting(db, `emailverified:${t.userId}`, iso()); await audit(db, t.userId, 'auth.email_verified', 'user', t.userId); res.json({ ok: true });
+  }));
+
+  /** The guardian opens the emailed link (no sign-in) to see who is asking and to approve or decline. */
+  r.post('/guardian/lookup', rateLimit(30, 900000), wrap(async (req, res) => {
+    const { token } = parse(z.object({ token: z.string().max(100) }), req.body); const t = await peekToken(db, token, 'guardian');
+    if (!t) throw new HttpError(400, 'This link has expired or was already used. Ask the student to send a new one from their account.');
+    const p = await q.get<any>(db, 'SELECT p.full_name, p.class_level, p.guardian_approved FROM student_profiles p WHERE p.user_id=?', t.userId); const u = await q.get<any>(db, 'SELECT display_name FROM users WHERE id=?', t.userId);
+    res.json({ studentName: p?.full_name ?? u?.display_name ?? 'the student', classLevel: p?.class_level ?? null, guardianName: t.payload.name ?? '', alreadyApproved: !!p?.guardian_approved });
+  }));
+  r.post('/guardian/decide', rateLimit(10, 900000), wrap(async (req, res) => {
+    const b = parse(z.object({ token: z.string().max(100), decision: z.enum(['approve', 'decline']), guardianName: z.string().trim().min(2, 'Enter your name').max(60) }), req.body);
+    const t = await consumeToken(db, b.token, 'guardian'); if (!t) throw new HttpError(400, 'This link has expired or was already used. Ask the student to send a new one from their account.');
+    const at = iso(); const approve = b.decision === 'approve';
+    await tx(db, async () => {
+      if (approve) await q.run(db, 'UPDATE student_profiles SET guardian_approved=1, updated_at=? WHERE user_id=?', at, t.userId);
+      await upsertSetting(db, `guardian_consent:${t.userId}`, JSON.stringify({ decision: b.decision, name: b.guardianName, email: t.payload.email, at, via: 'email-link' }));
+      await q.run(db, 'INSERT INTO notifications(id,user_id,title,body,created_at) VALUES (?,?,?,?,?)', uid(), t.userId, approve ? 'Your parent or guardian approved your account' : 'Your parent or guardian did not approve the account', approve ? 'You can now use the tutor.' : 'Please talk to them, or ask your school for help.', at);
+    });
+    await audit(db, t.userId, approve ? 'guardian.approved' : 'guardian.declined', 'user', t.userId, { by: t.payload.email });
+    res.json({ ok: true, decision: b.decision });
+  }));
+  r.post('/guardian/resend', requireAuth, rateLimit(2, 3600000, req => `gres:${req.user?.id ?? req.ip}`), wrap(async (req, res) => {
+    const u = req.user!; if (!mailer()) throw new HttpError(501, NO_MAIL);
+    const g = (await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `guardian:${u.id}`))?.value; const p = await q.get<any>(db, 'SELECT guardian_approved FROM student_profiles WHERE user_id=?', u.id);
+    if (u.role !== 'student' || !g) throw new HttpError(400, 'There is no guardian email on this account.'); if (p?.guardian_approved) return void res.json({ ok: true, alreadyApproved: true });
+    const gj = J(g); sendMail(guardianMail(gj.email, gj.name || 'Parent / Guardian', u.display_name, `${publicUrl()}/guardian-approval?token=${await createToken(db, u.id, 'guardian', { email: gj.email, name: gj.name ?? '' })}`), 'guardian approval'); res.json({ ok: true });
   }));
   return r;
 }
