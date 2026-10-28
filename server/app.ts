@@ -18,12 +18,12 @@ import { teacherRoutes } from './routes/teacher';
 import { adminRoutes, parentRoutes, schoolRoutes } from './routes/roles';
 import { selectProvider, TutorProvider } from './services/tutor';
 
-export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean; voiceEngine?: TeachEngine; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any } = {}) {
+export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean; voiceEngine?: TeachEngine; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
   const app = express();
   app.disable('x-powered-by'); app.set('trust proxy', 1);
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'same-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'");
     next();
   });
   app.use(express.json({ limit: '200kb' }));
@@ -35,7 +35,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   api.use('/auth', authRoutes(db));
   api.use('/profile', profileRoutes(db));
   api.use('/tutor', tutorRoutes(db, provider));
-  api.use('/voice', voiceRoutes(db, opts.voiceEngine, { maxConcurrency: opts.voiceMax, queueMs: opts.voiceQueueMs, visuals: opts.voiceVisuals }));
+  api.use('/voice', voiceRoutes(db, opts.voiceEngine, { maxConcurrency: opts.voiceMax, queueMs: opts.voiceQueueMs, visuals: opts.voiceVisuals, tts: opts.voiceTts }));
   api.use('/visuals', visualRoutes());
   api.use('/materials', materialRoutes(db));
   api.use('/textbooks', textbookRoutes(db));

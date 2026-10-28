@@ -9,7 +9,7 @@ export type Seg = { id: string; text: string; lang: SpeechLang };
 /** Speaks segments one after another. Supports pause, resume, mute, slower speech and instant interruption. */
 export class Speaker {
   private q: Seg[] = []; private busy = false; private gen = 0; rate = 1; muted = false;
-  onStart?: (id: string) => void; onIdle?: () => void; onFirstAudio?: () => void; onError?: (why: string) => void; private first = true;
+  onStart?: (id: string) => void; onIdle?: () => void; onFirstAudio?: () => void; onError?: (why: string, retry?: () => void) => void; onReplayMs?: (ms: number, fromCache: boolean) => void; readonly kind = 'browser' as const; private first = true; private replayT0 = 0; private paused = false;
   get speaking() { return this.busy || this.q.length > 0; }
   reset() { this.first = true; }
   enqueue(segs: Seg[]) { if (this.muted || !canSpeak) { segs.forEach(s => this.onStart?.(s.id)); return; } this.q.push(...segs); if (!this.busy) this.next(); }
@@ -18,13 +18,18 @@ export class Speaker {
     this.busy = true; const g = this.gen; const u = new SpeechSynthesisUtterance(seg.text); u.lang = seg.lang === 'ta' ? 'ta-IN' : 'en-IN'; u.rate = this.rate;
     const v = window.speechSynthesis.getVoices().find(x => x.lang.toLowerCase().startsWith(seg.lang)); if (v) u.voice = v;
     let started = false; const dog = setTimeout(() => { if (!started && g === this.gen) { this.onError?.('Speech did not start on this device. The text is still shown.'); this.busy = false; this.q = []; this.onIdle?.(); } }, 5000);
-    u.onstart = () => { started = true; clearTimeout(dog); if (g !== this.gen) return; this.onStart?.(seg.id); if (this.first) { this.first = false; this.onFirstAudio?.(); } };
+    u.onstart = () => { started = true; clearTimeout(dog); if (g !== this.gen) return; this.onStart?.(seg.id); if (this.replayT0) { const ms = Math.round(performance.now() - this.replayT0); this.replayT0 = 0; this.onReplayMs?.(ms, false); } if (this.first) { this.first = false; this.onFirstAudio?.(); } };
     const end = () => { clearTimeout(dog); if (g !== this.gen) return; this.next(); };
     u.onend = end; u.onerror = e => { clearTimeout(dog); if (g !== this.gen) return; if ((e as any).error && (e as any).error !== 'interrupted' && (e as any).error !== 'canceled') this.onError?.('Speech could not be played. The text is still shown.'); this.next(); };
     window.speechSynthesis.speak(u);
   }
   /** Stops now and forgets everything queued (used when the student interrupts). */
-  cancel() { this.gen++; this.q = []; this.busy = false; if (canSpeak) window.speechSynthesis.cancel(); }
+  cancel() { this.gen++; this.q = []; this.busy = false; this.replayT0 = 0; if (canSpeak) window.speechSynthesis.cancel(); }
+  /** Skips the sentence being spoken and carries on with the queue. */
+  skip() { this.gen++; this.busy = false; if (canSpeak) window.speechSynthesis.cancel(); this.next(); }
+  /** Speaks these segments now, before whatever is still queued. The browser cannot keep its own audio, so this re-speaks locally (no language model, no network). */
+  replay(segs: Seg[]) { if (this.muted || !canSpeak) { segs.forEach(s => this.onStart?.(s.id)); return; } this.gen++; this.busy = false; if (canSpeak) window.speechSynthesis.cancel(); this.replayT0 = performance.now(); this.q = [...segs, ...this.q]; this.next(); }
+  release() { this.cancel(); }
   pause() { if (canSpeak) window.speechSynthesis.pause(); } resume() { if (canSpeak) window.speechSynthesis.resume(); }
 }
 

@@ -5,7 +5,7 @@ import { createApp } from '../server/app';
 import { clock } from '../server/clock';
 
 process.env.DISABLE_RATE_LIMIT = '1';
-export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any } = {}) {
+export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
   clock.reset();
   const db = openDb(':memory:'); await seed(db); const app = createApp(db, { serveStatic: false, ...o });
   return { db, app };

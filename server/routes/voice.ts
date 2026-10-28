@@ -6,6 +6,7 @@ import { iso } from '../clock';
 import { J, parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { myProfile } from './student';
+import { AudioLru, TtsError, TtsProvider, ttsFromEnv } from '../services/tts';
 import { visualsFor, Visual } from '../../shared/visuals';
 import { initialState, MODES, ruleEngine, TeachEngine, TurnEvent, State } from '../services/teach';
 
@@ -30,10 +31,13 @@ const LANG = z.enum(['ta', 'en', 'both']);
  * this API holds the teaching state, the transcript (if the student allows it), usage limits and latency metrics.
  * `engine` is replaceable: any TeachEngine that yields the same events can sit behind the same UI.
  */
-export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { maxConcurrency?: number; queueMs?: number; visuals?: typeof visualsFor } = {}) {
+export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { maxConcurrency?: number; queueMs?: number; visuals?: typeof visualsFor; tts?: TtsProvider | null } = {}) {
   const r = Router(); const S = requireRole('student');
   const gate = new Gate(opts.maxConcurrency ?? Number(process.env.VOICE_MAX_CONCURRENCY ?? 8), opts.queueMs ?? Number(process.env.VOICE_QUEUE_MS ?? 8000));
   const inflight = new Set<string>();
+  const tts = opts.tts === undefined ? ttsFromEnv() : opts.tts; const ttsGate = new Gate(Number(process.env.TTS_MAX_CONCURRENCY ?? 4), opts.queueMs ?? Number(process.env.VOICE_QUEUE_MS ?? 8000)); const lru = new AudioLru();
+  const ttsBudget = () => Number(process.env.VOICE_TTS_DAILY_CHARS ?? 20000);
+  const ttsToday = (userId: string) => q.get<any>(db, "SELECT COALESCE(SUM(input_chars),0) n FROM ai_usage WHERE user_id=? AND kind='tts' AND substr(at,1,10)=?", userId, iso().slice(0, 10))!.n as number;
   const own = (id: string, userId: string) => { const s = q.get<any>(db, 'SELECT * FROM voice_sessions WHERE id=? AND user_id=?', id, userId); if (!s) throw new HttpError(404, 'Voice session not found.'); return s; };
   const view = (s: any) => ({ id: s.id, mode: s.mode, lang: s.lang, showBoth: !!s.show_both, subjectId: s.subject_id, lessonId: s.lesson_id, topic: s.topic, status: s.status, saveTranscript: !!s.save_transcript, state: J(s.state), createdAt: s.created_at, updatedAt: s.updated_at });
   const dailyLimit = () => Number(q.get<any>(db, "SELECT value FROM settings WHERE key='voice_daily_limit'")?.value ?? 150);
@@ -41,8 +45,23 @@ export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { ma
   const guardian = (userId: string) => { const p = myProfile(db, userId)!; if (q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${userId}`)?.value === '1' && !p.guardian_approved) throw new HttpError(403, 'A parent or guardian needs to approve your account before you can use the AI tutor. Ask them to link using your guardian code in Settings.'); return p; };
 
   r.get('/config', S, wrap(async (req, res) => res.json({
-    transport: 'browser', realtimeProvider: false, engine: { name: engine.name, mock: engine.mock }, modes: MODES, limits: { dailyTurns: dailyLimit(), usedToday: usedToday(req.user!.id), maxConcurrency: gate.max },
-    notes: 'Speech recognition and speech synthesis run in your browser. No audio is sent to Kalvi Mitra servers.' })));
+    transport: tts ? 'browser-stt+server-tts' : 'browser', realtimeProvider: false, tts: { enabled: !!tts, provider: tts?.name ?? null, cacheMb: Number(process.env.VOICE_AUDIO_CACHE_MB ?? 24), dailyChars: ttsBudget(), usedChars: ttsToday(req.user!.id) }, engine: { name: engine.name, mock: engine.mock }, modes: MODES, limits: { dailyTurns: dailyLimit(), usedToday: usedToday(req.user!.id), maxConcurrency: gate.max },
+    notes: tts ? 'Speech recognition runs in your browser; your voice is not sent to Kalvi Mitra. The tutor’s reply text (not your voice) is sent to our voice service to make the spoken audio.' : 'Speech recognition and speech synthesis run in your browser. No audio is sent to Kalvi Mitra servers.' })));
+
+  /** Server-side AI voice for one short tutor sentence. Audio is not stored; only a small in-memory cache avoids re-generating the same sentence. */
+  r.post('/tts', S, rateLimit(180, 60000, req => `tts:${req.user?.id ?? req.ip}`), wrap(async (req, res) => {
+    if (!tts) throw new HttpError(501, 'No AI voice service is configured. The tutor uses your browser’s voice.');
+    const b = parse(z.object({ sessionId: z.string().max(60), text: z.string().trim().min(1).max(500), lang: z.enum(['ta', 'en']) }), req.body); own(b.sessionId, req.user!.id);
+    const text = b.text.replace(/[\u0000-\u001f\u007f]/g, ' '); const k = AudioLru.key(text, b.lang); let hit = lru.get(k); const t0 = Date.now(); let cached = true;
+    if (!hit) {
+      if (ttsToday(req.user!.id) + text.length > ttsBudget()) throw new HttpError(429, 'You have used today’s AI voice allowance. The text lesson and your browser’s voice still work.');
+      const ac = new AbortController(); res.on('close', () => { if (!res.writableFinished) ac.abort(); }); const release = await ttsGate.acquire();
+      try { hit = await tts.synth(text, b.lang, ac.signal); cached = false; } catch (e: any) { q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, b.sessionId, 'tts_error', Date.now() - t0, iso()); if (e instanceof TtsError) throw new HttpError(e.status === 499 ? 499 : e.status === 504 ? 504 : 502, e.message); throw e; } finally { release(); }
+      lru.set(k, hit); q.run(db, 'INSERT INTO ai_usage(user_id,provider,kind,input_chars,output_chars,at) VALUES (?,?,?,?,?,?)', req.user!.id, tts.name, 'tts', text.length, hit.audio.length, iso());
+    }
+    q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, b.sessionId, cached ? 'tts_cached' : 'tts_generate', Date.now() - t0, iso());
+    res.setHeader('Content-Type', hit.mime); res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('X-Audio-Cache', cached ? 'server-hit' : 'miss'); res.send(hit.audio);
+  }));
   /** Placeholder for a hybrid real-time voice provider. Not implemented: needs a provider choice and server-side short-lived credentials. */
   r.post('/realtime-token', S, wrap(async () => { throw new HttpError(501, 'No real-time voice provider is configured. The tutor uses your browser’s speech recognition and speech synthesis.'); }));
 
@@ -117,7 +136,7 @@ export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { ma
   }));
 
   r.post('/sessions/:id/metrics', S, wrap(async (req, res) => {
-    const s = own(req.params.id, req.user!.id); const b = parse(z.object({ kind: z.enum(['stt', 'first_text', 'first_audio', 'full', 'interrupted', 'tts_error', 'reconnect']), ms: z.number().int().min(0).max(300000) }), req.body);
+    const s = own(req.params.id, req.user!.id); const b = parse(z.object({ kind: z.enum(['stt', 'first_text', 'first_audio', 'full', 'interrupted', 'tts_error', 'reconnect', 'replay_cached', 'replay_local', 'audio_retry']), ms: z.number().int().min(0).max(300000) }), req.body);
     q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, s.id, b.kind, b.ms, iso()); res.json({ ok: true });
   }));
   r.get('/progress', S, wrap(async (req, res) => {
