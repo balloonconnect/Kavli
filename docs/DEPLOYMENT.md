@@ -49,7 +49,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
    `ADMIN_EMAIL=you@org.in ADMIN_NAME="Your Name" npx tsx scripts/create-admin.ts` (run with the same `DATABASE_URL`). It prints a one-time password if you do not set `ADMIN_PASSWORD`. Sign in and change it.
 2. **Upload the books** (Admin → Class books). A Tamil-medium or scanned book opens at once and shows *"Reading N pages with OCR"*; the tutor can use pages as they finish. Measured on the Class 8 Tamil book (192 pages): about 2.4 s per page, 4–8 minutes in total, depending on CPU. Leave the server running; if it restarts, unfinished books resume.
 3. **Check the chapters.** Admin → Class books → *Find chapters* reads the contents page; open the book in the student view and look at the Chapters list. Wrong titles or page ranges can be corrected with `PUT /api/textbooks/:id/chapters`. Then **check one book by hand**: open a few pages in the reader and ask the tutor a question that book answers. OCR is good but not perfect (spot-checking is the only quality control).
-4. **Create the school, teachers and classes**, or let staff register and approve them.
+4. **Create the school, teachers and classes**, or let staff register and approve them on Admin → People. Check each request's school and email before approving: it gives access to students' work. The same screen resets a locked-out person's password.
 5. **Check the real tutor model.** With your key set and the Class 8 Tamil book imported, run `npx tsx scripts/check-tutor.ts --limit 10`. It asks the real model the labelled book questions and prints: usable cited lessons, right page cited, Tamil present, refusals for questions the book cannot answer, fallbacks, and time to first step / whole plan. Read a few answers in the app too. Do this before any student uses it.
 6. **Check the live set-up card.** Admin → Class books now starts with a *Live set-up check* (database, storage, OCR, tutor, voice, demo accounts, https) and counts of lessons, practice questions and books. Fix every *To do* before announcing. A production start already includes the built-in practice questions; teachers add more.
 
@@ -83,7 +83,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (216 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (224 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).

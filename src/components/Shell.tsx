@@ -6,7 +6,7 @@ import { useAuth, Role } from '../auth';
 import { get, post } from '../api';
 
 export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typeof Icon>[0]['name']; end?: boolean; short?: string };
-const SHORT: Record<string, string> = { '/teacher': 'Overview', '/teacher/homework': 'Homework', '/teacher/books': 'Books', '/app': 'Home', '/app/tutor': 'Tutor', '/app/voice': 'Voice', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
+const SHORT: Record<string, string> = { '/teacher': 'Overview', '/teacher/homework': 'Homework', '/teacher/books': 'Books', '/app': 'Home', '/app/tutor': 'Tutor', '/app/voice': 'Voice', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/people': 'People', '/admin/schools': 'Schools' };
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
   student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/voice', 'Voice Tutor', 'குரல் ஆசிரியர்', 'mic'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
@@ -14,7 +14,7 @@ export const NAV: Record<Role, NavItem[]> = {
     T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
   parent: [T('/parent', 'My children', 'என் குழந்தைகள்', 'users', true), T('/parent/settings', 'Account', 'கணக்கு', 'settings')],
   teacher: [T('/teacher', 'Overview', 'மேலோட்டம்', 'home', true), T('/teacher/classes', 'Classes', 'வகுப்புகள்', 'users'), T('/teacher/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/homework', 'Homework', 'வீட்டுப்பாடம்', 'file'), T('/teacher/questions', 'Question bank', 'கேள்வி வங்கி', 'layers'), T('/teacher/books', 'Class books', 'வகுப்புப் புத்தகங்கள்', 'book'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
-   school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true), T('/admin/books', 'Class books', 'வகுப்புப் புத்தகங்கள்', 'book')], admin: [T('/app', 'Home', 'முகப்பு', 'home', true), T('/admin/books', 'Class books', 'வகுப்புப் புத்தகங்கள்', 'book')], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
+   school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true), T('/admin/books', 'Class books', 'வகுப்புப் புத்தகங்கள்', 'book')], admin: [T('/app', 'Home', 'முகப்பு', 'home', true), T('/admin/people', 'People', 'நபர்கள்', 'users'), T('/admin/books', 'Class books', 'வகுப்புப் புத்தகங்கள்', 'book')], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
 };
 const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin', pending: 'Awaiting approval' };
 

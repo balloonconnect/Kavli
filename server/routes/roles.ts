@@ -2,7 +2,10 @@ import { systemStatus } from '../services/status';
 import { Router } from 'express';
 import { z } from 'zod';
 import { DB, q, tx } from '../db';
-import { audit, hashPassword, requireRole, uid } from '../security';
+import { audit, hashPassword, newToken, requireRole, uid } from '../security';
+import { mailer, publicUrl } from '../services/mailer';
+import { createToken } from '../services/emailTokens';
+import { resetMail } from '../services/mailTemplates';
 import { iso } from '../clock';
 import { J, canAccessStudent, parse, wrap } from '../http';
 import { HttpError, testStatus } from '../services/tests';
@@ -64,8 +67,38 @@ export function adminRoutes(db: DB) {
   const r = Router(); r.use(requireRole('admin'));
   r.get('/system', wrap(async (_req, res) => res.json(await systemStatus(db))));
   r.get('/stats', wrap(async (_req, res) => { const n = async (s: string) => (await q.get<any>(db, s))!.n; res.json({ users: await n('SELECT COUNT(*) n FROM users'), students: await n("SELECT COUNT(*) n FROM users WHERE role='student'"), schools: await n('SELECT COUNT(*) n FROM schools'), tests: await n('SELECT COUNT(*) n FROM tests'), attempts: await n('SELECT COUNT(*) n FROM attempts'), certificates: await n("SELECT COUNT(*) n FROM certificates WHERE status='valid'"), lessons: await n('SELECT COUNT(*) n FROM lessons'), questions: await n('SELECT COUNT(*) n FROM questions'), errorsNote: 'Operational errors are written to the server log; none are stored in the database.' }); }));
-  r.get('/role-requests', wrap(async (_req, res) => res.json({ requests: (await q.all<any>(db, "SELECT s.key, s.value, u.id, u.email, u.display_name, u.role FROM settings s JOIN users u ON s.key = 'rolereq:' || u.id WHERE u.role='pending' ORDER BY u.created_at")).map(x => ({ userId: x.id, email: x.email, name: x.display_name, ...JSON.parse(x.value) })) })));
-  r.get('/users', wrap(async (_req, res) => res.json({ users: (await q.all(db, 'SELECT id,email,display_name,role,school_id,disabled,is_demo,created_at FROM users ORDER BY created_at DESC LIMIT 300')) })));
+  r.get('/role-requests', wrap(async (_req, res) => res.json({ requests: (await q.all<any>(db, "SELECT s.key, s.value, u.id, u.email, u.display_name, u.role FROM settings s JOIN users u ON s.key = 'rolereq:' || u.id WHERE u.role='pending' AND u.disabled=0 ORDER BY u.created_at")).map(x => ({ userId: x.id, email: x.email, name: x.display_name, ...JSON.parse(x.value) })) })));
+  /** Approve or decline a teacher / school-admin sign-up. Approving gives the role they asked for; declining switches the account off. */
+  r.post('/role-requests/:id/decide', wrap(async (req, res) => {
+    const b = parse(z.object({ decision: z.enum(['approve', 'decline']), schoolId: z.string().nullable().optional() }), req.body);
+    const u = await q.get<any>(db, 'SELECT id,role FROM users WHERE id=?', req.params.id); if (!u || u.role !== 'pending') throw new HttpError(404, 'There is no waiting request for this person.');
+    const row = await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `rolereq:${u.id}`); const rq = row ? JSON.parse(row.value) : {}; const role = rq.requested === 'school_admin' ? 'school_admin' : 'teacher';
+    if (b.schoolId && !(await q.get(db, 'SELECT 1 FROM schools WHERE id=?', b.schoolId))) throw new HttpError(400, 'That school does not exist.');
+    const approve = b.decision === 'approve'; const at = iso();
+    await tx(db, async () => {
+      if (approve) { await q.run(db, 'UPDATE users SET role=? WHERE id=?', role, u.id); if (b.schoolId) await q.run(db, 'UPDATE users SET school_id=? WHERE id=?', b.schoolId, u.id); }
+      else { await q.run(db, 'UPDATE users SET disabled=1 WHERE id=?', u.id); await q.run(db, 'DELETE FROM sessions WHERE user_id=?', u.id); }
+      await q.run(db, 'UPDATE settings SET value=? WHERE key=?', JSON.stringify({ ...rq, status: approve ? 'approved' : 'declined', decidedAt: at }), `rolereq:${u.id}`);
+      await q.run(db, 'INSERT INTO notifications(id,user_id,title,body,created_at) VALUES (?,?,?,?,?)', uid(), u.id, approve ? 'Your account was approved' : 'Your sign-up was not approved', approve ? `You can now use Kalvi Mitra as a ${role === 'teacher' ? 'teacher' : 'school admin'}.` : 'Please contact your school if you think this is a mistake.', at);
+      await audit(db, req.user!.id, approve ? 'role.approved' : 'role.declined', 'user', u.id, { role, schoolId: b.schoolId ?? null });
+    });
+    res.json({ ok: true, role: approve ? role : null });
+  }));
+  /** Help someone who is locked out. "email" sends a one-time reset link; "temp" sets a one-time password the admin hands over (shown once, never stored in clear). */
+  r.post('/users/:id/reset-password', wrap(async (req, res) => {
+    const b = parse(z.object({ mode: z.enum(['email', 'temp']) }), req.body);
+    const u = await q.get<any>(db, 'SELECT id,email,display_name,disabled,is_demo FROM users WHERE id=?', req.params.id); if (!u) throw new HttpError(404, 'User not found.');
+    if (u.is_demo) throw new HttpError(400, 'Demo accounts have a fixed password.'); if (u.disabled) throw new HttpError(400, 'This account is switched off. Turn it on first.');
+    if (b.mode === 'email') {
+      const m = mailer(); if (!m) throw new HttpError(400, 'Email is not set up on this server. Use a temporary password instead.');
+      try { await m.send(resetMail(u.email, u.display_name, `${publicUrl()}/reset-password?token=${await createToken(db, u.id, 'reset')}`)); } catch { throw new HttpError(502, 'The email service did not accept the message. Try again, or use a temporary password.'); }
+      await audit(db, req.user!.id, 'user.reset_link_sent', 'user', u.id); return void res.json({ ok: true, sent: true });
+    }
+    const temp = `${newToken(6)}${Math.floor(10 + Math.random() * 90)}`; // letters and digits, 10+ characters
+    await tx(db, async () => { await q.run(db, 'UPDATE users SET password_hash=? WHERE id=?', await hashPassword(temp), u.id); await q.run(db, 'DELETE FROM sessions WHERE user_id=?', u.id); await audit(db, req.user!.id, 'user.temp_password', 'user', u.id); });
+    res.json({ ok: true, temporaryPassword: temp });
+  }));
+  r.get('/users', wrap(async (req, res) => { const f = String(req.query.q ?? '').trim().toLowerCase().slice(0, 60); res.json({ users: await q.all(db, `SELECT id,email,display_name,role,school_id,disabled,is_demo,created_at FROM users ${f ? "WHERE lower(email) LIKE ? OR lower(display_name) LIKE ?" : ''} ORDER BY created_at DESC LIMIT 300`, ...(f ? [`%${f}%`, `%${f}%`] : [])) }); }));
   r.patch('/users/:id', wrap(async (req, res) => {
     const b = parse(z.object({ role: z.enum(['student', 'parent', 'teacher', 'school_admin', 'admin']).optional(), disabled: z.boolean().optional(), schoolId: z.string().nullable().optional() }), req.body);
     if (req.params.id === req.user!.id && (b.disabled || (b.role && b.role !== 'admin'))) throw new HttpError(400, 'You cannot remove your own admin access.');

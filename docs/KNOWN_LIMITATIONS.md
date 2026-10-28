@@ -11,7 +11,7 @@
 - **Accessibility**: automated axe checks pass; no manual screen-reader audit yet.
 - **Uploads**: type/size/magic-byte checks, but no antivirus scanning. Files live on local disk or an S3-compatible bucket (`STORAGE_DRIVER`).
 - No ESLint config; no CI pipeline.
-- **Sign-up**: email confirmation is a reminder, not a gate: unconfirmed students can still sign in. Under-13 approval happens through the emailed guardian link (or the link code if no mail provider is set). Staff approval has an API but no admin screen yet. The UI uses `/app`, not the `/student/...` route names from the master prompt.
+- **Sign-up**: email confirmation is a reminder, not a gate: unconfirmed students can still sign in. Under-13 approval happens through the emailed guardian link (or the link code if no mail provider is set). Teacher and school-admin sign-ups are approved on the admin People screen (`/admin/people`), which also finds accounts, switches them off and helps people who are locked out (email link or one-time temporary password). Approval relies on the admin judging the details; nothing is verified automatically. The UI uses `/app`, not the `/student/...` route names from the master prompt.
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
 - **UI-preview mode** (`.env.production`) fakes the API in the browser; sign-ups there are kept for the tab only.
 - **UI-preview mode** replays one recorded run (sample student, canned passing test, canned practice set and material answers); it does not grade or persist anything. It exists only to review screens without a backend.
