@@ -27,8 +27,8 @@ function lessonPassages(db: DB, classLevel: number, subjectId?: string | null): 
   const rows = q.all<any>(db, `SELECT * FROM lessons WHERE class_level=? ${subjectId ? 'AND subject_id=?' : ''} AND status='published'`, ...(subjectId ? [classLevel, subjectId] : [classLevel]));
   const out: LessonPassage[] = [];
   for (const l of rows) {
-    const c = J(l.content); const label = `${l.title_en} (Class ${l.class_level} sample lesson)`;
-    for (const s of c.sections ?? []) out.push({ bi: bi(`${s.h_en}: ${s.en}`, `${s.h_ta}: ${s.ta}`), label, lessonId: l.id });
+    const c = J(l.content); const sample = String(l.source).startsWith('Sample'); const label = sample ? `${l.title_en} (Class ${l.class_level} sample lesson)` : `${l.title_en} — Class ${l.class_level} ${c.kind ?? 'lesson'}, Samacheer Kalvi textbook${c.textbookPage ? `, starts p. ${c.textbookPage}` : ''}`;
+    for (const s of c.sections ?? []) out.push({ bi: bi(`${s.h_en}: ${s.en}`, `${s.h_ta}: ${s.ta ?? s.en}`), label, lessonId: l.id });
     for (const v of c.vocab ?? []) out.push({ bi: bi(`${v.en} (${v.ta}) — ${v.meaning}. Example: ${v.example}`, `${v.ta} (${v.en}) — ${v.meaning}. எ.கா: ${v.example}`), label, lessonId: l.id });
     for (const e of c.examples ?? []) out.push({ bi: bi(`Example — ${e.q_en} ${e.steps_en.join(' → ')}`, `எடுத்துக்காட்டு — ${e.q_ta} ${e.steps_ta.join(' → ')}`), label, lessonId: l.id });
   }
@@ -172,7 +172,10 @@ export function developmentTutor(db: DB, i: TutorInput): TutorReply {
   // 6. Vocabulary / lesson retrieval.
   const l = lessonFor(db, i); const passages = lessonPassages(db, i.classLevel, i.subjectId ?? l?.subject_id);
   const asBi = passages.map(p => ({ text: `${p.bi.en} ${p.bi.ta}`, source: p.label, p }));
-  const hits = topPassages(text, asBi.map(a => ({ text: a.text, source: a.source })), 2);
+  // the lesson the student is in comes first; other lessons are only searched when it has nothing relevant
+  const inLesson = l ? asBi.filter(a => a.p.lessonId === l.id) : [];
+  const hits = (inLesson.length ? topPassages(text, inLesson.map(a => ({ text: a.text, source: a.source })), 2) : []).concat([]);
+  if (!hits.length) hits.push(...topPassages(text, asBi.map(a => ({ text: a.text, source: a.source })), 2));
   if (hits.length) {
     const used = hits.map(h => asBi.find(a => a.text === h.text)!.p);
     return mkReply(bi(used.map(u => u.bi.en).join('\n\n'), used.map(u => u.bi.ta).join('\n\n')), { grounded: 'lesson', sources: [...new Set(used.map(u => u.label))], suggestions: ['simpler', 'another', 'test_me', 'notes'] });

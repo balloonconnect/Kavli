@@ -1,4 +1,5 @@
 import { DB, q, tx } from './db';
+import { upsertTextbookLessons } from './curriculum';
 import { hashPassword, uid } from './security';
 import { iso, clock } from './clock';
 import { randomBytes } from 'node:crypto';
@@ -125,6 +126,7 @@ practiceQs.push(
 );
 
 export async function seed(db: DB) {
+  // textbook lessons are real content: they are also loaded into existing databases (see server/index.ts)
   if (q.get(db, 'SELECT 1 FROM users LIMIT 1')) return;
   const now = clock.now(); const day = 864e5; const at = (d: number, h = 0) => iso(new Date(now.getTime() + d * day + h * 36e5));
   const ts = iso(now);
@@ -134,6 +136,7 @@ export async function seed(db: DB) {
     q.run(db, 'INSERT INTO schools(id,name,created_at) VALUES (?,?,?)', 'school-demo', 'Demo Government Higher Secondary School (sample)', ts);
     for (const [id, en, ta] of subjects) q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta);
     for (const l of lessons) q.run(db, 'INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), SAMPLE);
+    upsertTextbookLessons(db);
     for (const x of [...testQs, ...practiceQs]) q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', 'school-demo');
   });
   const mk = (id: string, email: string, name: string, role: string, school: string | null) => q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,school_id,consent_at,created_at,is_demo) VALUES (?,?,?,?,?,?,?,?,1)', id, email, name, pw, role, school, ts, ts);

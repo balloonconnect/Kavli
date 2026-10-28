@@ -15,3 +15,11 @@
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
 - **UI-preview mode** (`.env.production`) fakes the API in the browser; sign-ups there are kept for the tab only.
 - **UI-preview mode** replays one recorded run (sample student, canned passing test, canned practice set and material answers); it does not grade or persist anything. It exists only to review screens without a backend.
+
+## Class 8 textbook import (English, Tamil, Mathematics)
+
+- **English (imported, partial):** 6 lessons from the Class 8 English textbook (Unit 1 and Unit 2: prose, poem, supplementary) are in `server/curriculum/class8-english.json`. The text we received from the Drive connector stops partway through Unit 3, so the rest of the book (Units 3–7 and the play) is **not** imported. Each lesson is a short excerpt with its source and starting page, shown in English only. Run `scripts/import-textbook.ts` again with a fuller extraction to add the rest.
+- **Tamil (not imported):** the extracted text is corrupted (the PDF's font mapping is broken, e.g. "தமிழ்நாடு" comes out as "தமிழ்்நநாடு"). It needs OCR of the original PDF with Tamil language data (`tam.traineddata`), which needs the PDF file itself.
+- **Mathematics, Tamil medium (not imported):** the PDF has no text layer at all (scanned pages), so it also needs OCR of the original file.
+- Files over 10 MB cannot be downloaded through the Drive connector and Drive is not reachable from the build environment, so the three PDFs (67 MB, 17 MB, 40 MB) must be attached to the chat or placed in the project folder.
+- Textbook lessons are excerpts for learning and tutor grounding. They are not a replacement for the printed textbook. Check Tamil Nadu Textbook Corporation terms before publishing more than short excerpts.

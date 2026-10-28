@@ -117,7 +117,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
     save({ ...state, [which]: has ? state[which].filter(x => x !== id) : [...state[which], id], [other]: state[other].filter(x => x !== id) } as State); };
 
   const node = sel ? by.get(sel) : null; const hiddenMatches = matches.filter(m => !modeShow(map, mode).has(m.id)).length;
-  const tutor = (a: string, l?: 'ta' | 'en', extra = '') => `/app/tutor?lesson=${lessonId}&action=${a}&q=${encodeURIComponent(`${extra}${node ? node.en : ''}`.trim())}${l ? `&lang=${l}` : ''}`;
+  const ask = (phrase: string, l?: 'ta' | 'en') => `/app/tutor?lesson=${lessonId}&q=${encodeURIComponent(`${phrase}: ${node ? (node.detail_en ?? node.en) : ''}`.slice(0, 290))}${l ? `&lang=${l}` : ''}`;
 
   const exportPng = async (print = false) => {
     try { await (document as any).fonts?.load('16px "Noto Sans Tamil"', 'தமிழ்'); await (document as any).fonts?.load('600 16px Inter'); } catch { /* fonts are best-effort */ }
@@ -200,12 +200,12 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
               <Button tone="secondary" disabled={busy} aria-pressed={state.revision.includes(node.id)} onClick={() => mark(node.id, 'revision')}>{state.revision.includes(node.id) ? 'In my revision list' : 'Add to revision'}</Button></div>
             <div className="mm-actions" role="group" aria-label="Ask Kavli AI about this concept">
               <b className="small muted">Ask Kavli AI</b>
-              <Link className="btn secondary" to={tutor('simpler')}>Explain simply</Link>
-              <Link className="btn secondary" to={tutor('tamil_first', 'ta')}>Explain in Tamil</Link>
-              <Link className="btn secondary" to={tutor('simpler', 'en')}>Explain in English</Link>
-              <Link className="btn secondary" to={tutor('another')}>Give an example</Link>
-              <Link className="btn secondary" to={tutor('steps')}>Step by step</Link>
-              <Link className="btn secondary" to={tutor('practice')}>Practice question</Link>
+              <Link className="btn secondary" to={ask('Explain simply')}>Explain simply</Link>
+              <Link className="btn secondary" to={ask('Explain in Tamil', 'ta')}>Explain in Tamil</Link>
+              <Link className="btn secondary" to={ask('Explain in English', 'en')}>Explain in English</Link>
+              <Link className="btn secondary" to={ask('Give an example of')}>Give an example</Link>
+              <Link className="btn secondary" to={ask('Explain step by step')}>Step by step</Link>
+              <Link className="btn secondary" to={ask('Ask me a practice question about')}>Practice question</Link>
             </div>
             <div className="row wrap"><Button tone="ghost" onClick={() => onOpenLesson(anchorFor(node.id))}>Open in lesson →</Button>{subjectId && <Button tone="ghost" to={`/app/practice?subject=${subjectId}`}>Practice this subject</Button>}</div>
           </div>}

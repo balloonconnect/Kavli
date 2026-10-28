@@ -10,6 +10,7 @@ export const useLang = () => useContext(Ctx);
 export function Bi({ en, ta, block }: { en: string; ta: string; block?: boolean }) {
   const { lang } = useLang();
   const Wrap = block ? 'div' : 'span';
+  if (en === ta) return <Wrap>{en}</Wrap>; // same text in both languages (e.g. an English title): show it once
   return (
     <>
       {lang !== 'ta' && <Wrap>{en}</Wrap>}

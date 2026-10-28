@@ -82,7 +82,7 @@ export function studentRoutes(db: DB) {
   const mmState = (sid: string, lid: string) => { const v = q.get<any>(db, 'SELECT value FROM settings WHERE key=?', mmKey(sid, lid))?.value; const s = v ? J(v) : {}; return { understood: (s.understood ?? []) as string[], revision: (s.revision ?? []) as string[], viewedAt: (s.viewedAt ?? null) as string | null }; };
   r.get('/lessons/:id/mindmap', S, wrap(async (req, res) => {
     const l = q.get<any>(db, "SELECT * FROM lessons WHERE id=? AND status='published'", req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.');
-    let map; try { map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content) }); } catch { throw new HttpError(500, 'The mind map for this lesson could not be built.'); }
+    let map; try { map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content), source: l.source }); } catch { throw new HttpError(500, 'The mind map for this lesson could not be built.'); }
     const sid = req.user!.id; const st = mmState(sid, l.id); const ids = new Set(map.nodes.map(n => n.id));
     const state = { understood: st.understood.filter(x => ids.has(x)), revision: st.revision.filter(x => ids.has(x)), viewedAt: st.viewedAt };
     q.run(db, 'INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', mmKey(sid, l.id), JSON.stringify({ ...state, viewedAt: iso() }));
@@ -91,7 +91,7 @@ export function studentRoutes(db: DB) {
   r.put('/lessons/:id/mindmap/state', S, wrap(async (req, res) => {
     const l = q.get<any>(db, "SELECT * FROM lessons WHERE id=? AND status='published'", req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.');
     const b = parse(z.object({ understood: z.array(z.string().max(40)).max(120), revision: z.array(z.string().max(40)).max(120) }), req.body);
-    const map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content) }); const ids = new Set(map.nodes.map(n => n.id));
+    const map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content), source: l.source }); const ids = new Set(map.nodes.map(n => n.id));
     const clean = (a: string[]) => [...new Set(a)].filter(x => ids.has(x)); const understood = clean(b.understood); const revision = clean(b.revision).filter(x => !understood.includes(x));
     q.run(db, 'INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', mmKey(req.user!.id, l.id), JSON.stringify({ understood, revision, viewedAt: iso() }));
     res.json({ understood, revision });

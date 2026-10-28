@@ -94,11 +94,12 @@ export function Lesson() {
   return <Async s={s}>{d => {
     const l = d.lesson, c = l.content; const both = lang === 'both';
     const toggleBm = async () => { try { if (bm) await del(`/bookmarks?kind=lesson&ref=${l.id}`); else await post('/bookmarks', { kind: 'lesson', ref: l.id, title: l.title_en }); setBm(!bm); toast(bm ? 'Bookmark removed' : 'Lesson bookmarked'); } catch (e) { toast(msg(e), 'err'); } };
-    const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta}`)].join('. ');
+    const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta ?? x.en}`)].join('. ');
     return (
     <div className="col lesson">
       <div className="row wrap"><Link to="/app/learn" className="link row" style={{ gap: 4 }}><Icon name="back" size={16} />All lessons</Link></div>
-      <PageTitle title={<Bi en={l.title_en} ta={l.title_ta} block />} sub={<><Bi en={`${l.subject_en} · Class ${l.class_level} · Chapter ${l.chapter_no}`} ta={`${l.subject_ta} · வகுப்பு ${l.class_level} · பாடம் ${l.chapter_no}`} /> · {l.minutes} min</>} right={<div className="row wrap">{done && <Badge tone="success">Completed</Badge>}<Badge tone="warning">Sample content</Badge></div>} />
+      <PageTitle title={<Bi en={l.title_en} ta={l.title_ta} block />} sub={<><Bi en={`${l.subject_en} · Class ${l.class_level} · Chapter ${l.chapter_no}`} ta={`${l.subject_ta} · வகுப்பு ${l.class_level} · பாடம் ${l.chapter_no}`} /> · {l.minutes} min</>} right={<div className="row wrap">{done && <Badge tone="success">Completed</Badge>}{String(l.source ?? '').startsWith('Sample') ? <Badge tone="warning">Sample content</Badge> : <Badge tone="teal">Textbook excerpt</Badge>}</div>} />
+      {!String(l.source ?? '').startsWith('Sample') && <div className="notice info no-print"><Icon name="info" /><div><b>From the Samacheer Kalvi textbook.</b> {l.source} Only a short excerpt is shown here, and the text is in English; use your printed textbook for the full lesson.</div></div>}
       <div className="row wrap no-print">
         <ReadAloud en={speakEn} ta={speakTa} rate={profile?.voice_prefs?.rate ?? 1} />
         <Button tone="secondary" onClick={toggleBm} aria-pressed={bm}><Icon name="bookmark" /> {bm ? 'Bookmarked' : 'Bookmark'}</Button>
@@ -112,7 +113,7 @@ export function Lesson() {
       <Card className="col"><h2><Bi en="What you will learn" ta="இதில் நீங்கள் கற்பது" /></h2>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ul>{c.objectives.en.map((o: string) => <li key={o}>{o}</li>)}</ul>}{lang !== 'en' && <ul lang="ta" className="ta">{c.objectives.ta.map((o: string) => <li key={o}>{o}</li>)}</ul>}</div></Card>
       {c.sections.map((x: any, si: number) => <div key={x.h_en} id={`lesson-sec-${si}`}><Card className="col"><h2><Bi en={x.h_en} ta={x.h_ta} block /></h2>
-        <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <p>{x.en}</p>}{lang !== 'en' && <p lang="ta" className="ta">{x.ta}</p>}</div></Card></div>)}
+        <div className={both && x.ta ? 'grid g2 split' : ''}>{(lang !== 'ta' || !x.ta) && <p>{x.en}</p>}{lang !== 'en' && x.ta && <p lang="ta" className="ta">{x.ta}</p>}</div></Card></div>)}
       {!!c.vocab?.length && <div id="lesson-vocab"><Card className="col"><h2><Bi en="Key words" ta="முக்கிய சொற்கள்" /></h2><div className="tablewrap" tabIndex={0} role="region" aria-label="Data table"><table className="tbl"><thead><tr><th>English</th><th>தமிழ்</th><th>Meaning</th><th>Say it</th><th>Example</th></tr></thead>
         <tbody>{c.vocab.map((v: any) => <tr key={v.en}><td><b>{v.en}</b></td><td lang="ta" className="ta">{v.ta}</td><td>{v.meaning}</td><td className="muted">{v.pron}</td><td>{v.example}</td></tr>)}</tbody></table></div></Card></div>}
       </>}

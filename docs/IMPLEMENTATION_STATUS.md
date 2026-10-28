@@ -34,3 +34,8 @@ Status: implemented and tested (7 API/unit tests; browser-checked at 1280 and 37
 - Export: PNG download, and Print / Save as PDF (via the browser print dialog).
 
 Limits: maps are only as rich as the (sample) lesson content; there is no AI-generated map yet; "practice this branch" opens the tutor's practice action and the subject practice page, not branch-specific server questions; "save to learning materials" and sharing links are not implemented; in UI-preview mode marks live only in the browser tab.
+
+## Textbook lessons (Class 8 English)
+
+- `scripts/import-textbook.ts` turns an extracted textbook into short, source-labelled excerpts (`server/curriculum/*.json`). `server/curriculum.ts` loads them into new databases (seed) and adds or refreshes them in existing ones on every start without touching student data.
+- Lessons show a "Textbook excerpt" badge and a source note; the tutor answers from the current lesson first and cites the textbook and starting page; mind maps are built from the same excerpt. Tests: `tests/textbook.test.ts`.
