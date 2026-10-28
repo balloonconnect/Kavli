@@ -80,7 +80,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (156 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (163 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
@@ -98,4 +98,4 @@ Run these once on a staging copy before announcing.
 
 - One instance handles a classroom comfortably; the limits that bite first are the model/voice providers, not the database.
 - To run several instances you need: a shared rate limiter, one OCR worker (set `OCR_ENGINE=off` on the others), and `STORAGE_DRIVER=s3` (not local disk).
-- Retrieval reads each class's book pages from the database for every question (about 60–100 ms for a 192-page book). For many books, add Postgres full-text search or embeddings; the `topPassages` call site is the only place to change.
+- Retrieval reads each class's book pages from the database for every question (about 60–100 ms for a 192-page book). For many books, cache the per-book passage list, or add Postgres full-text search or embeddings; `topPassages` is the only ranking function to change.
