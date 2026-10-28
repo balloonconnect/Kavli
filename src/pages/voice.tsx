@@ -4,6 +4,7 @@ import { Badge, Button, Card, Empty, Icon, Loading, PageTitle } from '../compone
 import { useAuth } from '../auth';
 import { get, getCsrf, msg, post, api } from '../api';
 import { PREVIEW } from '../preview';
+import { previewTurn } from '../previewVoice';
 import { canListen, canSpeak, hasVoice, recognize, Recognizer, Seg, Speaker, SpeechLang } from '../components/speech';
 
 type Lang = 'ta' | 'en' | 'both';
@@ -17,6 +18,7 @@ let seq = 0; const nid = () => `i${Date.now().toString(36)}${seq++}`;
 
 /** SSE over fetch (EventSource cannot send a POST body or the CSRF header). Falls back to one JSON response. */
 async function streamTurn(id: string, body: any, signal: AbortSignal, onEvent: (type: string, data: any) => void) {
+  if (PREVIEW) { for await (const ev of previewTurn(body)) { if (signal.aborted) throw new DOMException('aborted', 'AbortError'); onEvent(ev.type, ev); } return; }
   const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'text/event-stream', 'x-csrf-token': getCsrf() };
   const res = await fetch(`/api/voice/sessions/${id}/turn`, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'same-origin', signal });
   if (!res.ok) { let m = 'Request failed.'; try { m = (await res.json()).error ?? m; } catch { /* ignore */ } const e: any = new Error(m); e.status = res.status; throw e; }
@@ -54,7 +56,7 @@ export function VoiceTutor() {
 
   // load config, previous sessions, lesson list
   useEffect(() => { (async () => {
-    try { if (PREVIEW) return; const [c, l, cur] = await Promise.all([get('/voice/config'), get('/voice/sessions'), get('/curriculum')]); setCfg(c); setPrior(l.sessions.filter((s: any) => s.status === 'active')); setCurr(cur); }
+    try { if (PREVIEW) { setCfg({ engine: { mock: true }, notes: 'UI preview demo: a small in-browser tutor that only walks through linear equations such as 3x + 5 = 20.' }); return; } const [c, l, cur] = await Promise.all([get('/voice/config'), get('/voice/sessions'), get('/curriculum')]); setCfg(c); setPrior(l.sessions.filter((s: any) => s.status === 'active')); setCurr(cur); }
     catch (e) { setErr(msg(e)); } finally { setLoading(false); }
   })(); return () => { speaker.cancel(); R.current.ac?.abort(); R.current.rec?.stop(); }; }, []); // eslint-disable-line
   useEffect(() => { if (!curr) return; setLessons(curr.subjects.filter((s: any) => !subject || s.id === subject).flatMap((s: any) => s.lessons.map((l: any) => ({ id: l.id, t: l.title_en, s: s.id })))); setLesson(''); }, [curr, subject]);
@@ -142,7 +144,6 @@ export function VoiceTutor() {
   const both = lang === 'both' || showBoth;
 
   if (loading) return <Loading />;
-  if (PREVIEW) return <div className="col"><PageTitle title="Voice tutor" sub="Talk or type with the tutor, one step at a time." /><Empty title="The voice tutor needs the live backend" text="This is the browser-only UI preview, which has no teaching engine or saved sessions. Run the full app (npm run dev:server) to try it." /></div>;
   const strictlyText = !canListen && !canSpeak;
 
   return (
@@ -171,7 +172,7 @@ export function VoiceTutor() {
       ) : (
         <div className="vt-grid">
           <Card className="col vt-stage">
-            <div><Badge tone={cfg?.engine?.mock ? 'warning' : 'info'}>{cfg?.engine?.mock ? 'Rule-based tutor — no AI model connected' : 'AI tutor'}</Badge></div>
+            <div><Badge tone={cfg?.engine?.mock ? 'warning' : 'info'}>{PREVIEW ? 'UI preview demo — in-browser, not the real tutor' : cfg?.engine?.mock ? 'Rule-based tutor — no AI model connected' : 'AI tutor'}</Badge></div>
             <Visualizer status={status} />
             <div className="vt-status" role="status" aria-live="polite"><b>{STATUS_TEXT[status]}</b>{interim && <span className="muted"> “{interim}”</span>}</div>
             <div className="muted small">Class {profile?.class_level ?? 8} · {ses.topic ?? 'Ask a question to begin'}</div>

@@ -72,6 +72,12 @@ export async function previewApi(method: string, url: string, body: any): Promis
     s.msgs[c.id].push(u, a); if (c.title === 'New conversation' && text) c.title = text.slice(0, 60); save(s); return { messages: [u, a] };
   }
   if (path.startsWith('/tutor/messages/')) return { ok: true };
+  if (path.startsWith('/voice/')) {
+    if (path === '/voice/config') return { engine: { mock: true }, notes: '' };
+    if (path === '/voice/sessions' && method === 'POST') return { session: { id: 'preview-voice', mode: body?.mode ?? 'teach', lang: body?.lang ?? 'both', showBoth: body?.showBoth ?? true, topic: null, state: {}, status: 'active', updatedAt: now() } };
+    if (path === '/voice/sessions') return { sessions: [] };
+    return { ok: true, session: { id: 'preview-voice', mode: body?.mode ?? 'teach', lang: body?.lang ?? 'both', showBoth: true, state: {}, status: 'active' }, turns: [] };
+  }
   if (method === 'GET' && url === '/textbooks') return { textbooks: [] };
   if (method === 'GET' && url.startsWith('/textbooks/for-lesson/')) return { pages: [] };
   throw new PErr(404, 'Not available in UI preview.');
