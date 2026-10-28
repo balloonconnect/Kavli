@@ -5,12 +5,12 @@ import { COOKIE, audit, createSession, destroySession, hashPassword, parseCookie
 import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
-import { readableId } from '../seed';
+import { readableId, DEMO_USERNAMES } from '../seed';
 
 const pw = z.string().min(8, 'Use at least 8 characters').max(128).refine(s => /[A-Za-z]/.test(s) && /\d/.test(s), 'Use letters and at least one number');
 const Reg = z.object({ displayName: z.string().trim().min(1, 'Enter a name').max(60), email: z.string().trim().toLowerCase().email('Enter a valid email'), password: pw, role: z.enum(['student', 'parent']).default('student'),
   consent: z.literal(true, { message: 'Please accept the terms and privacy notice' }), under13: z.boolean().default(false) });
-const Login = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1).max(128) });
+const Login = z.object({ email: z.string().trim().toLowerCase().min(1).max(254), password: z.string().min(1).max(128) });
 
 export function authRoutes(db: DB) {
   const r = Router(); const secure = process.env.NODE_ENV === 'production';
@@ -29,7 +29,8 @@ export function authRoutes(db: DB) {
   }));
   r.post('/login', rateLimit(15, 600000, req => `${req.ip}:${String(req.body?.email ?? '').toLowerCase()}`), wrap(async (req, res) => {
     const b = parse(Login, req.body);
-    const u = q.get<any>(db, 'SELECT * FROM users WHERE email=?', b.email);
+    const ident = process.env.SEED_DEMO === '0' ? b.email : (DEMO_USERNAMES[b.email] ?? b.email);
+    const u = q.get<any>(db, 'SELECT * FROM users WHERE email=?', ident);
     const ok = u && !u.disabled && await verifyPassword(b.password, u.password_hash);
     if (!ok) { audit(db, u?.id ?? null, 'auth.login_failed', 'user', u?.id); throw new HttpError(401, 'Email or password is incorrect.'); }
     const s = createSession(db, u.id); setCookie(res, s.token); audit(db, u.id, 'auth.login', 'user', u.id);

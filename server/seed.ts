@@ -4,7 +4,9 @@ import { iso, clock } from './clock';
 import { randomBytes } from 'node:crypto';
 
 const SAMPLE = 'Sample content written for this prototype — not the official Samacheer Kalvi textbook.';
-export const DEMO_PASSWORD = 'Demo@12345';
+export const DEMO_PASSWORD = 'demo@12345';
+// Development-only login usernames (resolved only when SEED_DEMO != 0)
+export const DEMO_USERNAMES: Record<string, string> = { vikikalvi: 'meena@demo.kavli.local', 'vikikalvi-parent': 'parent@demo.kavli.local', 'vikikalvi-teacher': 'teacher@demo.kavli.local', 'vikikalvi-school': 'school@demo.kavli.local', 'vikikalvi-admin': 'admin@demo.kavli.local' };
 export const readableId = (prefix: string) => `${prefix}-${randomBytes(4).toString('hex').toUpperCase()}`;
 
 const subjects = [

@@ -27,8 +27,8 @@ Open http://localhost:5173.
 | `npm run typecheck` | front-end + server type-check |
 | `npm test` | vitest (API, grading, timing, certificates, SSRF, materials) |
 
-## Demo accounts (development only, password `Demo@12345`)
-`meena@`, `parent@`, `teacher@`, `school@`, `admin@` `…demo.kavli.local` (also `arun`, `divya`, `karthik`).
+## Demo accounts (development only, password `demo@12345`)
+Usernames `vikikalvi` (student), `vikikalvi-parent`, `vikikalvi-teacher`, `vikikalvi-school`, `vikikalvi-admin`; or the matching `…@demo.kavli.local` emails (also `arun`, `divya`, `karthik`).
 Set `SEED_DEMO=0` in production so none of these are created.
 
 ## Architecture

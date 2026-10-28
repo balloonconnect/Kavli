@@ -85,14 +85,14 @@ export function SignIn() {
     <div className="authwrap"><Card className="authcard">
       <h1>Sign in</h1><p className="muted">Welcome back. <Bi en="" ta="மீண்டும் வருக" /></p>
       <form className="col" onSubmit={e => { e.preventDefault(); go(email, password); }} noValidate>
-        <Field label="Email" type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required />
+        <Field label="Email or username" type="text" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required />
         <div className="field"><label htmlFor="pw">Password</label><div className="row" style={{ gap: 8 }}><input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required style={{ flex: 1 }} /><button type="button" className="btn secondary" onClick={() => setShow(s => !s)} aria-pressed={show}>{show ? 'Hide' : 'Show'}</button></div></div>
         {err && <div className="notice err" role="alert"><Icon name="alert" />{err}</div>}
         <Button type="submit" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
       <p className="small muted center">New here? <Link to="/signup" className="link">Create an account</Link></p>
-      {config.demoAccounts && <div className="demobox"><div className="row"><Badge tone="warning">Development only</Badge><span className="small muted">Demo accounts (password <code>Demo@12345</code>). Hidden in production.</span></div>
-        <div className="row wrap">{demo.map(([l, e]) => <button key={e} className="pill" disabled={busy} onClick={() => go(e, 'Demo@12345')}>{l}</button>)}</div></div>}
+      {config.demoAccounts && <div className="demobox"><div className="row"><Badge tone="warning">Development only</Badge><span className="small muted">Demo accounts (password <code>demo@12345</code>). Hidden in production.</span></div>
+        <div className="row wrap">{demo.map(([l, e]) => <button key={e} className="pill" disabled={busy} onClick={() => go(e, 'demo@12345')}>{l}</button>)}</div></div>}
     </Card></div>
   );
 }

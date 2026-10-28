@@ -9,7 +9,7 @@ const PAGES = [['public', null, ['/', '/signin', '/signup', '/features', '/priva
 const browser = await chromium.launch(); let bad = 0, n = 0;
 for (const [role, email, routes] of PAGES) for (const w of [1280, 375]) {
   const ctx = await browser.newContext({ viewport: { width: w, height: 800 } }); const p = await ctx.newPage();
-  if (email) { await p.goto(BASE + '/signin'); await p.getByLabel('Email').fill(email); await p.locator('#pw').fill('Demo@12345'); await p.getByRole('button', { name: 'Sign in', exact: true }).click(); await p.waitForURL(u => !u.pathname.startsWith('/signin')); }
+  if (email) { await p.goto(BASE + '/signin'); await p.getByLabel('Email').fill(email); await p.locator('#pw').fill('demo@12345'); await p.getByRole('button', { name: 'Sign in', exact: true }).click(); await p.waitForURL(u => !u.pathname.startsWith('/signin')); }
   for (const r of routes) { await p.goto(BASE + r); await p.waitForSelector('h1', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(300); await p.evaluate(axeSrc);
     const res = await p.evaluate(async () => (await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations.filter(v => ['serious', 'critical'].includes(v.impact)).map(v => ({ id: v.id, impact: v.impact, n: v.nodes.length, ex: v.nodes[0].target.join(' ') })));
     n++; for (const v of res) { bad++; console.log(`${role} ${w}px ${r}: ${v.id} (${v.impact}) x${v.n}  e.g. ${v.ex}`); } }

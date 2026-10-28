@@ -16,7 +16,7 @@ const browser = await chromium.launch(); let bad = 0, checked = 0;
 for (const [role, cfg] of Object.entries(ROLES)) {
   for (const w of WIDTHS) {
     const ctx = await browser.newContext({ viewport: { width: w, height: 800 } }); const p = await ctx.newPage();
-    if (cfg.email) { await p.goto(BASE + '/signin'); await p.getByLabel('Email').fill(cfg.email); await p.locator('#pw').fill('Demo@12345'); await p.getByRole('button', { name: 'Sign in', exact: true }).click(); await p.waitForURL(u => !u.pathname.startsWith('/signin')); }
+    if (cfg.email) { await p.goto(BASE + '/signin'); await p.getByLabel('Email').fill(cfg.email); await p.locator('#pw').fill('demo@12345'); await p.getByRole('button', { name: 'Sign in', exact: true }).click(); await p.waitForURL(u => !u.pathname.startsWith('/signin')); }
     for (const r of cfg.routes) {
       await p.goto(BASE + r); await p.waitForSelector('h1, h2', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
       const res = await p.evaluate(() => { const de = document.documentElement; const over = de.scrollWidth - de.clientWidth; const offenders = [];
