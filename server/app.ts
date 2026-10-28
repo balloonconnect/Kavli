@@ -11,11 +11,13 @@ import { testRoutes } from './routes/tests';
 import { tutorRoutes } from './routes/tutor';
 import { materialRoutes } from './routes/materials';
 import { textbookRoutes } from './routes/textbooks';
+import { voiceRoutes } from './routes/voice';
+import type { TeachEngine } from './services/teach';
 import { teacherRoutes } from './routes/teacher';
 import { adminRoutes, parentRoutes, schoolRoutes } from './routes/roles';
 import { selectProvider, TutorProvider } from './services/tutor';
 
-export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean } = {}) {
+export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean; voiceEngine?: TeachEngine; voiceMax?: number; voiceQueueMs?: number } = {}) {
   const app = express();
   app.disable('x-powered-by'); app.set('trust proxy', 1);
   app.use((_req, res, next) => {
@@ -32,6 +34,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   api.use('/auth', authRoutes(db));
   api.use('/profile', profileRoutes(db));
   api.use('/tutor', tutorRoutes(db, provider));
+  api.use('/voice', voiceRoutes(db, opts.voiceEngine, { maxConcurrency: opts.voiceMax, queueMs: opts.voiceQueueMs }));
   api.use('/materials', materialRoutes(db));
   api.use('/textbooks', textbookRoutes(db));
   api.use('/teacher', teacherRoutes(db));

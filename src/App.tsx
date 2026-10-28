@@ -10,6 +10,7 @@ import { TestsList, TestDetail, TakeTest, Result, Review } from './pages/tests';
 import { Certificates, Verify } from './pages/certs';
 import { Tutor } from './pages/tutor';
 import { ClassBooks, BookViewer, BookAdmin } from './pages/books';
+import { VoiceTutor } from './pages/voice';
 import { ParentHome, ParentChild, ParentAccount } from './pages/parent';
 import { TeacherHome, Classes, ClassDetail, Questions, TeacherTests, TestBuilder, TestResults, Reviews, ReviewAttempt, TeacherHomework, CertAdmin } from './pages/teacher';
 import type { ReactNode } from 'react';
@@ -28,7 +29,7 @@ export default function App() {
       <Route path="/app" element={S(ALL, <Dashboard />)} />
       <Route path="/app/tutor" element={S(['student'], <Tutor />)} />
       <Route path="/app/learn" element={S(['student'], <Learn />)} /><Route path="/app/learn/:id" element={S(['student'], <Lesson />)} />
-      <Route path="/app/material" element={S(['student'], <Material />)} /><Route path="/app/practice" element={S(['student'], <Practice />)} /><Route path="/app/books" element={S(['student'], <ClassBooks />)} /><Route path="/app/textbook/:id" element={S(['student'], <BookViewer />)} /><Route path="/teacher/books" element={S(['teacher'], <BookAdmin />)} /><Route path="/admin/books" element={S(['admin'], <BookAdmin canEdit />)} />
+      <Route path="/app/voice" element={S(['student'], <VoiceTutor />)} /><Route path="/app/material" element={S(['student'], <Material />)} /><Route path="/app/practice" element={S(['student'], <Practice />)} /><Route path="/app/books" element={S(['student'], <ClassBooks />)} /><Route path="/app/textbook/:id" element={S(['student'], <BookViewer />)} /><Route path="/teacher/books" element={S(['teacher'], <BookAdmin />)} /><Route path="/admin/books" element={S(['admin'], <BookAdmin canEdit />)} />
       <Route path="/app/tests" element={S(['student'], <TestsList />)} /><Route path="/app/tests/:id" element={S(['student'], <TestDetail />)} />
       <Route path="/app/take/:id" element={S(['student'], <TakeTest />)} /><Route path="/app/result/:id" element={S(['student'], <Result />)} /><Route path="/app/review/:id" element={S(['student'], <Review />)} />
       <Route path="/app/progress" element={S(['student'], <Progress_ />)} /><Route path="/app/certificates" element={S(['student'], <Certificates />)} />

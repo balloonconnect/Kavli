@@ -6,10 +6,10 @@ import { useAuth, Role } from '../auth';
 import { get, post } from '../api';
 
 export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typeof Icon>[0]['name']; end?: boolean; short?: string };
-const SHORT: Record<string, string> = { '/teacher': 'Overview', '/teacher/homework': 'Homework', '/teacher/books': 'Books', '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
+const SHORT: Record<string, string> = { '/teacher': 'Overview', '/teacher/homework': 'Homework', '/teacher/books': 'Books', '/app': 'Home', '/app/tutor': 'Tutor', '/app/voice': 'Voice', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
-  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
+  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/voice', 'Voice Tutor', 'குரல் ஆசிரியர்', 'mic'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
     T('/app/practice', 'Practice', 'பயிற்சி', 'target'), T('/app/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/app/progress', 'Progress', 'முன்னேற்றம்', 'chart'), T('/app/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award'),
     T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
   parent: [T('/parent', 'My children', 'என் குழந்தைகள்', 'users', true), T('/parent/settings', 'Account', 'கணக்கு', 'settings')],

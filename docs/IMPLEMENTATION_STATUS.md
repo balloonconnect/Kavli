@@ -62,3 +62,6 @@ Verified by tests (68 passing) and a 375 px browser check of the preview build (
 - The dev tutor answers from the student's class books (after the open lesson), shows "Open book, page N" links, and never searches other classes' books.
 - Verified: `tests/textbooks.test.ts` (4) and a real-browser run (teacher upload → student question → click "Open book, page 2" (opens in a new tab) → viewer at page 2, no console errors, no overflow at 375 px). Total 72 tests pass.
 - Not verified: the browser's inline PDF rendering (headless Chromium does not show a PDF viewer; a text-of-page panel and an "open in new tab" link are the fallback).
+
+## Voice tutor
+- `/app/voice`: voice + text tutor with five teaching modes, streaming turns, interruption, saved/resumable sessions, usage limits and latency metrics. See `docs/VOICE_TUTOR.md` (architecture, install, tests, honest limits). Default engine is rule-based; real-time/LLM/local-GPU providers are an interface, not implemented.

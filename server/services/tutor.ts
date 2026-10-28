@@ -24,7 +24,7 @@ function lessonFor(db: DB, i: TutorInput) {
   return undefined;
 }
 type LessonPassage = { bi: Bi; label: string; lessonId: string };
-function lessonPassages(db: DB, classLevel: number, subjectId?: string | null): LessonPassage[] {
+export function lessonPassages(db: DB, classLevel: number, subjectId?: string | null): LessonPassage[] {
   const rows = q.all<any>(db, `SELECT * FROM lessons WHERE class_level=? ${subjectId ? 'AND subject_id=?' : ''} AND status='published'`, ...(subjectId ? [classLevel, subjectId] : [classLevel]));
   const out: LessonPassage[] = [];
   for (const l of rows) {
@@ -59,7 +59,7 @@ function presentQuestion(row: any): Bi {
   return bi(en, ta);
 }
 /** Extracts the student's answer for a pending practice question from free text. */
-function parseGiven(row: any, text: string): unknown {
+export function parseGiven(row: any, text: string): unknown {
   const t = text.trim(); const opts = J(row.options) as string[];
   if (row.type === 'mcq' || row.type === 'tf') {
     const m = t.match(/^\(?([a-dA-D])\)?[.)]?$/); if (m) return 'abcd'.indexOf(m[1].toLowerCase());
@@ -70,7 +70,7 @@ function parseGiven(row: any, text: string): unknown {
   if (row.type === 'numeric') { const m = t.match(/-?\d+(\.\d+)?/); return m ? m[0] : ''; }
   return t;
 }
-const looksLikeAnswer = (row: any, text: string) => {
+export const looksLikeAnswer = (row: any, text: string) => {
   if (text.length > 60) return false;
   if (row.type === 'numeric') return /\d/.test(text) && !/[a-zA-Z]{4,}/.test(text);
   if (row.type === 'mcq' || row.type === 'tf') return parseGiven(row, text) !== -1;
@@ -213,7 +213,7 @@ export function developmentTutor(db: DB, i: TutorInput): TutorReply {
   // 7. Honest fallback — never invent curriculum claims.
   return mkReply(bi('I do not have verified lesson material for that question in this development version, so I will not guess. Try: typing an equation to solve (like 2(x − 3) = 10), asking about a term from your lesson (like “What is a variable?”), or uploading your textbook page in “Learn from Your Material”.', 'இந்தக் கேள்விக்கு உறுதிசெய்யப்பட்ட பாடப் பொருள் இந்த மேம்பாட்டுப் பதிப்பில் இல்லை; எனவே ஊகித்துச் சொல்ல மாட்டேன். 2(x − 3) = 10 போன்ற சமன்பாட்டை எழுதுங்கள், “மாறி என்றால் என்ன?” போல் பாடச் சொல்லைப் பற்றிக் கேளுங்கள், அல்லது “உங்கள் பாடப்பொருளிலிருந்து கற்க” பகுதியில் புத்தகப் பக்கத்தைப் பதிவேற்றுங்கள்.'), { suggestions: ['test_me', 'practice'] });
 }
-function hintFor(row: any, lang: 'en' | 'ta') {
+export function hintFor(row: any, lang: 'en' | 'ta') {
   const e = (lang === 'en' ? row.explanation_en : row.explanation_ta) ?? '';
   const first = e.split(/(?<=[.:।])\s/)[0] ?? e;
   return row.type === 'numeric' || row.type === 'fill' ? (lang === 'en' ? `Start with: ${first}` : `இதிலிருந்து தொடங்குங்கள்: ${first}`) : (lang === 'en' ? 'Eliminate options that cannot be right, then check the rest by calculating.' : 'சரியாக இருக்க முடியாத விருப்பங்களை நீக்கி, மீதியைக் கணக்கிட்டுச் சரிபாருங்கள்.');
