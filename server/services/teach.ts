@@ -10,6 +10,7 @@ import { DB, q } from '../db';
 import { gradeAnswer } from './grading';
 import { solveLinearFromText, Solution, fstr } from './solver';
 import { topPassages, tokens } from './retrieval';
+import { VKey, Visual, canSimplify, describeVisual, detectKey, labelMeaning } from '../../shared/visuals';
 import { Bi, Lang, lessonPassages, parseGiven, looksLikeAnswer, hintFor, textbookHits } from './tutor';
 
 export type Mode = 'teach' | 'explain' | 'hint' | 'practice' | 'revise';
@@ -20,6 +21,8 @@ export type Plan = { topic: Bi; grounded: 'lesson' | 'textbook' | 'solver' | 'no
 export type State = {
   mode: Mode; plan: Plan | null; idx: number; awaiting: 'check' | 'practice' | 'continue' | null; wrong: number; hintLevel: number;
   quiz: { qid: string; wrong: number; asked: string[]; correct: number; total: number; limit: number } | null; done: boolean;
+  /** The diagram currently on screen, so follow-ups like “explain this diagram” know what the student means. */
+  visual?: VKey;
 };
 export const initialState = (mode: Mode): State => ({ mode, plan: null, idx: 0, awaiting: null, wrong: 0, hintLevel: 0, quiz: null, done: false });
 export type Ctx = { db: DB; userId: string; sessionId?: string; classLevel: number; lang: Lang; subjectId: string | null; lessonId: string | null; state: State };
@@ -27,7 +30,8 @@ export type TurnInput = { text: string; action?: string };
 /** `chunk` = something to show and speak; `done` carries the new state. */
 export type TurnEvent =
   | { type: 'ack' }
-  | { type: 'chunk'; kind: 'step' | 'check' | 'feedback' | 'hint' | 'info' | 'question' | 'summary' | 'notice'; en: string; ta: string; say: Bi; step?: number; total?: number; math?: string[]; grounded?: string; sources?: string[]; refs?: { bookId: string; page: number }[] }
+  | { type: 'chunk'; kind: 'step' | 'check' | 'feedback' | 'hint' | 'info' | 'question' | 'summary' | 'notice'; en: string; ta: string; say: Bi; step?: number; total?: number; math?: string[]; grounded?: string; sources?: string[]; refs?: { bookId: string; page: number }[]; vis?: VKey }
+  | { type: 'visual'; at: number; visuals: Visual[] }
   | { type: 'done'; state: State; meta: { grounded: string; completed?: boolean } };
 export interface TeachEngine { name: string; mock: boolean; turn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent>; }
 
@@ -184,6 +188,20 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
 
   if (action.startsWith('mode:')) { const m = action.slice(5) as Mode; if (MODES.includes(m)) { const keepPlan = st.plan; Object.assign(st, initialState(m)); st.plan = keepPlan; } }
   const mode = st.mode;
+
+  // follow-ups about the diagram on screen
+  const PIC = /diagram|figure|picture|image|label|படம்|வரைபட/i;
+  if (text && (PIC.test(text) || (st.visual && labelMeaning(st.visual, text) && /what|mean|\?|என்ன|விளக்க/i.test(text)))) {
+    const simpler = /simpler|easier|எளிய/i.test(text);
+    if (!st.visual) {
+      if (!detectKey(text)) { const m = bi('There is no diagram on screen yet. Ask about a topic such as the human heart, reflection of light or a right-angled triangle, and I will show one.', 'இன்னும் திரையில் படம் இல்லை. மனித இதயம், ஒளியின் எதிரொளிப்பு, செங்கோண முக்கோணம் போன்ற தலைப்பைக் கேளுங்கள்; படத்தைக் காட்டுகிறேன்.'); yield { type: 'chunk', kind: 'info', en: m.en, ta: m.ta, say: m }; yield fin(); return; }
+    } else {
+      const k = st.visual; const lm = labelMeaning(k, text);
+      if (simpler) { const ok = canSimplify(k.id); const m = ok ? bi('Here is a simpler version with fewer labels.', 'குறைந்த குறிப்புகளுடன் எளிய வடிவம் இதோ.') : bi('This diagram is already simple. Let me explain it in words instead: ' + describeVisual(k).en, 'இந்தப் படம் ஏற்கனவே எளிமையானது. சொற்களில் விளக்குகிறேன்: ' + describeVisual(k).ta); yield { type: 'chunk', kind: 'info', en: m.en, ta: m.ta, say: m, vis: ok ? { id: k.id, lvl: 'simple' } : k }; yield fin(); return; }
+      if (lm) { const t = { en: `${lm.label.name.en}: ${lm.label.meaning.en}`, ta: `${lm.label.name.ta}: ${lm.label.meaning.ta}` }; yield { type: 'chunk', kind: 'info', en: t.en, ta: t.ta, say: t, vis: { id: k.id, hl: lm.label.id, lvl: k.lvl } }; yield fin(); return; }
+      const d = describeVisual(k); yield { type: 'chunk', kind: 'info', en: d.en, ta: d.ta, say: d, vis: { id: k.id, lvl: k.lvl, p: k.p } }; yield fin(); return;
+    }
+  }
   if (action === 'repeat') { if (st.plan && st.plan.steps[st.idx]) { yield stepChunk(st.plan, st.idx); const c = st.awaiting === 'check' ? checkChunk(st.plan, st.idx, ctx.lang) : null; if (c) yield c; } else yield { type: 'chunk', kind: 'info', en: 'There is nothing to repeat yet.', ta: 'மீண்டும் சொல்ல இன்னும் எதுவும் இல்லை.', say: bi('There is nothing to repeat yet.', 'மீண்டும் சொல்ல இன்னும் எதுவும் இல்லை.') }; yield fin(); return; }
   if (action === 'simpler' && st.plan?.steps[st.idx]) { const b = simplerOf(st.plan, st.idx); yield { type: 'chunk', kind: 'info', en: b.en, ta: b.ta, say: sayOf(b), step: st.idx, total: st.plan.steps.length, grounded: st.plan.grounded, sources: st.plan.sources }; yield fin(); return; }
   if (action === 'hint') { yield* emit(hintChunks(ctx, st)); yield fin(); return; }

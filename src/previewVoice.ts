@@ -1,6 +1,7 @@
 /** Browser-only demo tutor for the UI preview (Vercel). Not the real engine: it solves simple linear equations
  *  (ax + b = c) and walks through them one step at a time so the whole voice-tutor interface can be tried. */
-type Ev = { type: 'chunk'; kind: string; en: string; ta: string; say: { en: string; ta: string }; step?: number; total?: number; math?: string[]; sources?: string[] } | { type: 'done'; state: any; meta: any };
+import { visualsFor, detectKey, labelMeaning, describeVisual, VKey, Visual } from '../shared/visuals';
+type Ev = { type: 'visual'; at: number; visuals: Visual[] } | { type: 'chunk'; kind: string; en: string; ta: string; say: { en: string; ta: string }; step?: number; total?: number; math?: string[]; sources?: string[] } | { type: 'done'; state: any; meta: any };
 type Demo = { eq: string; a: number; b: number; c: number; idx: number; awaiting: boolean; hint: number } | null;
 let D: Demo = null;
 const SRC = ['Worked out by the equation solver (not from a textbook) — UI preview demo'];
@@ -18,7 +19,11 @@ const bi = (en: string, ta: string, kind: string, extra: any = {}): Ev => ({ typ
 const done = (): Ev => ({ type: 'done', state: { mode: 'teach', plan: D ? { topic: { en: `Solving ${D.eq}`, ta: `${D.eq} தீர்த்தல்` } } : null, idx: D?.idx ?? 0 }, meta: { grounded: D ? 'solver' : 'none' } });
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+let LAST: VKey | null = null;
 export async function* previewTurn(body: { text?: string; action?: string }): AsyncGenerator<Ev> {
+  let n = 0; for await (const ev of inner(body)) { yield ev; if (ev.type === 'chunk') { const at = n++; try { const vs = visualsFor({ student: body.text ?? '', chunkText: ev.en, kind: ev.kind, first: at === 0, math: ev.math, solver: !!D, mode: 'teach', step: ev.step, total: ev.total, want: (ev as any).vis }); if (vs.length) { LAST = vs[vs.length - 1].key; yield { type: 'visual', at, visuals: vs }; } } catch { /* the lesson continues without the picture */ } } }
+}
+async function* inner(body: { text?: string; action?: string }): AsyncGenerator<Ev> {
   await wait(120);
   const t = (body.text ?? '').trim(); const act = body.action ?? '';
   const eq = parse(t);
@@ -26,8 +31,14 @@ export async function* previewTurn(body: { text?: string; action?: string }): As
     D = { eq: t.replace(/^.*?(-?\d*x.*=\s*-?\d+).*$/i, '$1').trim(), ...eq!, idx: 0, awaiting: false, hint: 0 };
   } else if (act.startsWith('mode:') || act === 'start') {
     if (!D) { yield bi('Type an equation such as 3x + 5 = 20 and I will teach it one step at a time.', 'ஒரு சமன்பாட்டை (எ.கா. 3x + 5 = 20) தட்டச்சு செய்யுங்கள்; ஒவ்வொரு படியாகக் கற்றுத் தருகிறேன்.', 'info'); yield done(); return; }
+  } else if (!D && detectKey(t)) {
+    const k = detectKey(t)!; const d = describeVisual(k); yield bi(d.en, d.ta, 'info', { sources: ['Original diagram drawn by Kalvi Mitra · UI preview demo, not a textbook'] }); yield done(); return;
+  } else if (/diagram|figure|picture|label|படம்/i.test(t) && LAST) {
+    if (/simpler|easier|எளிய/i.test(t)) { yield bi('Here is a simpler version with fewer labels.', 'குறைந்த குறிப்புகளுடன் எளிய வடிவம் இதோ.', 'info', { vis: { id: LAST.id, lvl: 'simple' } }); yield done(); return; }
+    const lm = labelMeaning(LAST, t); if (lm) { yield bi(`${lm.label.name.en}: ${lm.label.meaning.en}`, `${lm.label.name.ta}: ${lm.label.meaning.ta}`, 'info', { vis: { id: LAST.id, hl: lm.label.id } }); yield done(); return; }
+    const d = describeVisual(LAST); yield bi(d.en, d.ta, 'info', { vis: { id: LAST.id, p: LAST.p } }); yield done(); return;
   } else if (!D) {
-    yield bi('This is the UI preview demo. It can only walk through a linear equation like 3x + 5 = 20. The real tutor uses your class lessons and books.', 'இது UI முன்னோட்டம். 3x + 5 = 20 போன்ற சமன்பாட்டை மட்டுமே இது விளக்கும்; உண்மையான ஆசிரியர் உங்கள் பாடங்களையும் புத்தகங்களையும் பயன்படுத்தும்.', 'notice', { sources: ['No verified source — nothing was invented'] }); yield done(); return;
+    yield bi('This is the UI preview demo. It can walk through a linear equation like 3x + 5 = 20, or show diagrams for “the human heart”, “reflection of light” and “right-angled triangle”. The real tutor uses your class lessons and books.', 'இது UI முன்னோட்டம். 3x + 5 = 20 போன்ற சமன்பாட்டை மட்டுமே இது விளக்கும்; உண்மையான ஆசிரியர் உங்கள் பாடங்களையும் புத்தகங்களையும் பயன்படுத்தும்.', 'notice', { sources: ['No verified source — nothing was invented'] }); yield done(); return;
   }
   const d = D!; const S = steps(d);
   if (act === 'hint') {

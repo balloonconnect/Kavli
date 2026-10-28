@@ -49,3 +49,25 @@ Optional env: `VOICE_MAX_CONCURRENCY` (default 8), `VOICE_QUEUE_MS` (default 800
 - Voice interruption relies on the browser hearing the student over the tutor's own voice; headphones recommended.
 - No diagrams/tables/KaTeX: equations are shown as plain Unicode text in a monospace chip.
 - Voice transcripts are stored as plain text in SQLite when the student allows it; delete from the page.
+
+## Reference images and visual learning
+
+**What is implemented.** Original diagrams drawn in code as SVG (`shared/visuals.ts`), shown inside the tutor transcript next to the step they explain:
+human heart (four chambers and blood flow, with a simple variant), reflection of light (ray diagram, angle i = angle r), right-angled triangle (a² + b² = c²),
+an equation balance that changes with each solving step, and the graph of y = mx + c. Labels are bilingual (Tamil / English / both).
+
+- Detection: `detectKey()` looks for the topic in the student's question (English and Tamil). Conversational text gets no image. Nothing is shown "to fill space".
+- Retrieval is separate from answer generation: the voice route calls `visualsFor()` after each chunk inside try/catch and sends a separate `visual` event. If it throws, the lesson continues (tested; a `visual_error` metric is recorded).
+- API: `GET /api/visuals/svg/:id?lang=&hl=&lvl=&p=` serves the SVG with `ETag` + `Cache-Control: max-age=3600` and a locked-down CSP. All parameters are validated against an allow-list.
+- UI: `VisualCard` — title, caption, source and licence, "Not yet teacher-reviewed" tag, View larger (full-screen dialog with zoom), Hide image / Show diagram, loading skeleton, error state, alt text, and the follow-ups "Explain this diagram", "Simpler diagram", "What do the labels mean?".
+- Follow-ups are handled by the teaching engine using `state.visual`; if no diagram is on screen it says so.
+- Persistence: visual metadata is stored with the saved transcript, so a resumed lesson shows the same diagrams.
+- The UI preview (Vercel) uses the same module and draws diagrams in the browser.
+
+**Not implemented (be aware).**
+- Source priority 1, 2 and 4: no textbook illustration extraction, no web/licensed image repositories, no AI-generated images. `ImageProvider` in `server/services/visuals.ts` is the seam; `safeImageUrl()` (https only, approved hosts via `VISUAL_IMAGE_HOSTS`, no credentials/ports/IP literals/private ranges) is ready and tested, but no provider uses it yet. Any provider that downloads must also use the pinned-IP fetch in `ssrf.ts`.
+- No geography maps or history images, and no chemistry structures — nothing was drawn for them rather than risk wrong labels.
+- No image upload / photographed textbook question: the rule-based engine has no vision model.
+- Diagram labels and science content are written by the developer and have **not been reviewed by a teacher**; the UI says so. Have a subject teacher review before calling them reliable.
+- The classic AI Tutor chat page does not show diagrams yet (only the Voice Tutor does).
+- "Highlight the relevant part" works when the student names a label (e.g. the aorta); it is not tied to each spoken sentence.

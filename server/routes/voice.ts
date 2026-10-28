@@ -6,6 +6,7 @@ import { iso } from '../clock';
 import { J, parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { myProfile } from './student';
+import { visualsFor, Visual } from '../../shared/visuals';
 import { initialState, MODES, ruleEngine, TeachEngine, TurnEvent, State } from '../services/teach';
 
 /** Limits concurrent AI work; extra requests wait in a queue and give up with a clear message instead of piling up. */
@@ -29,7 +30,7 @@ const LANG = z.enum(['ta', 'en', 'both']);
  * this API holds the teaching state, the transcript (if the student allows it), usage limits and latency metrics.
  * `engine` is replaceable: any TeachEngine that yields the same events can sit behind the same UI.
  */
-export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { maxConcurrency?: number; queueMs?: number } = {}) {
+export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { maxConcurrency?: number; queueMs?: number; visuals?: typeof visualsFor } = {}) {
   const r = Router(); const S = requireRole('student');
   const gate = new Gate(opts.maxConcurrency ?? Number(process.env.VOICE_MAX_CONCURRENCY ?? 8), opts.queueMs ?? Number(process.env.VOICE_QUEUE_MS ?? 8000));
   const inflight = new Set<string>();
@@ -75,27 +76,37 @@ export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { ma
       release = await gate.acquire();
       const sse = String(req.headers.accept ?? '').includes('text/event-stream'); const t0 = Date.now(); let firstMs: number | null = null;
       if (sse) { res.status(200); res.setHeader('Content-Type', 'text/event-stream'); res.setHeader('Cache-Control', 'no-cache, no-transform'); res.setHeader('Connection', 'keep-alive'); res.setHeader('X-Accel-Buffering', 'no'); res.flushHeaders(); }
-      const lang = b.lang ?? s.lang; const state = J(s.state) as State; const events: TurnEvent[] = []; let doneEv: Extract<TurnEvent, { type: 'done' }> | undefined;
+      const lang = b.lang ?? s.lang; const state = J(s.state) as State; const events: TurnEvent[] = []; let doneEv: Extract<TurnEvent, { type: 'done' }> | undefined; let nChunks = 0, vErrors = 0; const visualByChunk = new Map<number, Visual[]>(); let lastVisual: any = null;
       const ctx = { db, userId: req.user!.id, sessionId: s.id, classLevel: p.class_level, lang, subjectId: s.subject_id as string | null, lessonId: s.lesson_id as string | null, state };
       for await (const ev of engine.turn(ctx, { text: b.text, action: b.action })) {
         if (aborted) break; if (firstMs === null) firstMs = Date.now() - t0;
         if (ev.type === 'done') doneEv = ev; else events.push(ev);
         if (sse) res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`);
+        if (ev.type === 'chunk') {
+          // Visuals are separate from answer generation: any failure here is swallowed and the lesson carries on.
+          const at = nChunks++;
+          try {
+            const vs = (opts.visuals ?? visualsFor)({ student: b.text, chunkText: ev.en, kind: ev.kind, first: at === 0, math: ev.math, solver: state.plan?.grounded === 'solver', mode: state.mode, step: ev.step, total: ev.total, want: ev.vis });
+            if (vs.length) { const vev = { type: 'visual' as const, at, visuals: vs }; events.push(vev); visualByChunk.set(at, vs); lastVisual = vs[vs.length - 1].key; if (sse) res.write(`event: visual\ndata: ${JSON.stringify(vev)}\n\n`); }
+          } catch { vErrors++; }
+        }
       }
       const total = Date.now() - t0; const now = iso();
       if (aborted || !doneEv) { q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, s.id, 'server_aborted', total, now); return; }
       const chunks = events.filter(e => e.type === 'chunk') as Extract<TurnEvent, { type: 'chunk' }>[];
+      if (lastVisual) doneEv.state.visual = lastVisual;
       db.exec('BEGIN');
       try {
         q.run(db, 'UPDATE voice_sessions SET state=?, topic=COALESCE(?, topic), lang=?, status=?, updated_at=? WHERE id=?', JSON.stringify(doneEv.state), doneEv.state.plan?.topic.en ?? null, lang, doneEv.meta.completed ? 'completed' : 'active', now, s.id);
         if (s.save_transcript) {
           if (b.text) q.run(db, 'INSERT INTO voice_turns(session_id,role,kind,content,step,at) VALUES (?,?,?,?,?,?)', s.id, 'student', b.via, JSON.stringify({ text: b.text }), null, now);
           else if (b.action) q.run(db, 'INSERT INTO voice_turns(session_id,role,kind,content,step,at) VALUES (?,?,?,?,?,?)', s.id, 'student', 'action', JSON.stringify({ text: b.action }), null, now);
-          for (const c of chunks) q.run(db, 'INSERT INTO voice_turns(session_id,role,kind,content,step,at) VALUES (?,?,?,?,?,?)', s.id, 'tutor', c.kind, JSON.stringify({ en: c.en, ta: c.ta, math: c.math ?? [], sources: c.sources ?? [], refs: c.refs ?? [] }), c.step ?? null, now);
+          for (const c of chunks) q.run(db, 'INSERT INTO voice_turns(session_id,role,kind,content,step,at) VALUES (?,?,?,?,?,?)', s.id, 'tutor', c.kind, JSON.stringify({ en: c.en, ta: c.ta, math: c.math ?? [], sources: c.sources ?? [], refs: c.refs ?? [], visuals: visualByChunk.get(chunks.indexOf(c)) ?? [] }), c.step ?? null, now);
         }
         q.run(db, 'INSERT INTO ai_usage(user_id,provider,kind,input_chars,output_chars,at) VALUES (?,?,?,?,?,?)', req.user!.id, engine.name, 'voice', b.text.length, chunks.reduce((n, c) => n + c.en.length + c.ta.length, 0), now);
         q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, s.id, 'server_first_event', firstMs ?? total, now);
         q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, s.id, 'server_full', total, now);
+        if (vErrors) q.run(db, 'INSERT INTO voice_metrics(user_id,session_id,kind,ms,at) VALUES (?,?,?,?,?)', req.user!.id, s.id, 'visual_error', vErrors, now);
         db.exec('COMMIT');
       } catch (e) { db.exec('ROLLBACK'); throw e; }
       if (sse) res.end(); else res.json({ events, state: doneEv.state, meta: doneEv.meta });

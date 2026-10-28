@@ -5,11 +5,13 @@ import { useAuth } from '../auth';
 import { get, getCsrf, msg, post, api } from '../api';
 import { PREVIEW } from '../preview';
 import { previewTurn } from '../previewVoice';
+import { VisualCard } from '../components/VisualCard';
+import { canSimplify, Visual } from '../../shared/visuals';
 import { canListen, canSpeak, hasVoice, recognize, Recognizer, Seg, Speaker, SpeechLang } from '../components/speech';
 
 type Lang = 'ta' | 'en' | 'both';
 type Mode = 'teach' | 'explain' | 'hint' | 'practice' | 'revise';
-type Item = { id: string; role: 'student' | 'tutor'; kind: string; en: string; ta: string; say?: { en: string; ta: string }; step?: number | null; total?: number; math?: string[]; sources?: string[]; refs?: { bookId: string; page: number }[]; via?: string };
+type Item = { id: string; role: 'student' | 'tutor'; kind: string; en: string; ta: string; say?: { en: string; ta: string }; step?: number | null; total?: number; math?: string[]; sources?: string[]; refs?: { bookId: string; page: number }[]; via?: string; visuals?: Visual[] };
 type Status = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'paused' | 'error';
 const MODES: [Mode, string, string][] = [['teach', 'Teach me', 'கற்றுக்கொடு'], ['explain', 'Explain fully', 'முழுமையாக விளக்கு'], ['hint', 'Give me a hint', 'குறிப்பு கொடு'], ['practice', 'Practice with me', 'என்னுடன் பயிற்சி'], ['revise', 'Revise this topic', 'இந்தப் பாடத்தைத் திருப்பு']];
 const STATUS_TEXT: Record<Status, string> = { idle: 'Ready', connecting: 'Connecting…', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking…', paused: 'Paused', error: 'Something went wrong' };
@@ -85,11 +87,13 @@ export function VoiceTutor() {
     R.current.last = { body, via }; R.current.t0 = performance.now(); R.current.tText = 0; R.current.tAudio = 0; R.current.streaming = true; speaker.reset(); setSt('thinking'); setLastMs(null);
     const ac = new AbortController(); R.current.ac = ac; if (via === 'voice' && R.current.sttMs) { metric('stt', R.current.sttMs); }
     try {
+      const turnIds: string[] = [];
       await streamTurn(s.id, { ...body, lang: R.current.lang, via }, ac.signal, (type, d) => {
-        if (type === 'chunk') {
+        if (type === 'visual') { const id = turnIds[d.at]; if (id) setItems(x => x.map(i => i.id === id ? { ...i, visuals: d.visuals } : i)); }
+        else if (type === 'chunk') {
           if (!R.current.tText) { R.current.tText = performance.now() - R.current.t0; setLastMs(m => ({ ...m, text: Math.round(R.current.tText) })); metric('first_text', R.current.tText); }
           const it: Item = { id: nid(), role: 'tutor', kind: d.kind, en: d.en, ta: d.ta, say: d.say, step: d.step ?? null, total: d.total, math: d.math, sources: d.sources, refs: d.refs };
-          setItems(x => [...x, it]); const segs = segsFor(it); if (segs.length) speaker.enqueue(segs); else setSpeakingId(it.id);
+          turnIds.push(it.id); setItems(x => [...x, it]); const segs = segsFor(it); if (segs.length) speaker.enqueue(segs); else setSpeakingId(it.id);
         } else if (type === 'done') { setSes((o: any) => ({ ...o, state: d.state, topic: d.state?.plan?.topic?.en ?? o.topic })); }
         else if (type === 'error') throw new Error(d.error);
       });
@@ -128,7 +132,7 @@ export function VoiceTutor() {
       let s = resume; let turns: any[] = [];
       if (!s) s = (await post('/voice/sessions', { mode, lang, showBoth, subjectId: subject || undefined, lessonId: lesson || undefined, saveTranscript: save })).session;
       else { const d = await get(`/voice/sessions/${s.id}`); s = d.session; turns = d.turns; setLang(s.lang); setMode(s.mode); setShowBoth(s.showBoth); }
-      R.current.ses = s; setSes(s); setItems(turns.map((t: any, i: number) => t.role === 'student' ? { id: nid(), role: 'student' as const, kind: t.kind, en: t.content.text, ta: t.content.text } : { id: nid(), role: 'tutor' as const, kind: t.kind, en: t.content.en, ta: t.content.ta, step: t.step, math: t.content.math, sources: t.content.sources, refs: t.content.refs }));
+      R.current.ses = s; setSes(s); setItems(turns.map((t: any, i: number) => t.role === 'student' ? { id: nid(), role: 'student' as const, kind: t.kind, en: t.content.text, ta: t.content.text } : { id: nid(), role: 'tutor' as const, kind: t.kind, en: t.content.en, ta: t.content.ta, step: t.step, math: t.content.math, sources: t.content.sources, refs: t.content.refs, visuals: t.content.visuals }));
       setSt('idle');
       if (!resume && (lesson || mode === 'practice')) sendTurn({ text: mode === 'practice' ? 'start' : '' , action: mode === 'practice' ? undefined : 'mode:' + mode }, 'text');
     } catch (e) { setSt('error'); setErr(msg(e)); }
@@ -211,6 +215,7 @@ export function VoiceTutor() {
                   <div className="vt-k">{({ step: 'Step', check: 'Check', feedback: 'Feedback', hint: 'Hint', info: 'Tutor', question: 'Question', summary: 'Summary', notice: 'Note' } as any)[it.kind] ?? 'Tutor'}{speakingId === it.id && <span className="vt-sp"> · speaking</span>}<button className="vt-rep" aria-label="Replay this" onClick={() => replay(it)}><Icon name="volume" size={14} /></button></div>
                   {(lang !== 'ta' || both) && <div className="mtext">{it.en}</div>}{(lang !== 'en' || both) && it.ta !== it.en && <div className="mtext ta" lang="ta">{it.ta}</div>}
                   {!!it.math?.length && <div className="vt-math" aria-label="Equations">{it.math.map((m, k) => <code key={k}>{m}</code>)}</div>}
+                  {it.visuals?.map(v => <VisualCard key={`${it.id}-${v.key.id}-${v.key.hl ?? ''}-${v.key.lvl ?? ''}-${v.key.p ?? ''}`} v={v} lng={lang} canSimple={canSimplify(v.key.id)} onAsk={t => sendTurn({ text: t }, 'text')} />)}
                   {!!it.sources?.length && <div className="srcs"><b>Source:</b> {it.sources.join(' · ')}</div>}
                   {!!it.refs?.length && <div className="chips">{[...new Map(it.refs.map(r => [`${r.bookId}-${r.page}`, r])).values()].map(r => <Link key={`${r.bookId}-${r.page}`} className="pill" to={`/app/textbook/${r.bookId}?page=${r.page}`} target="_blank" rel="noreferrer">Open book, page {r.page}</Link>)}</div>}
                 </div>)}
