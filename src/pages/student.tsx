@@ -84,8 +84,11 @@ function ReadAloud({ en, ta, rate }: { en: string; ta: string; rate: number }) {
   return <button className="btn secondary" aria-pressed={on} onClick={() => { if (on) { stopSpeaking(); setOn(false); } else { setOn(true); speak(lang === 'ta' ? ta : en, lang === 'ta' ? 'ta' : 'en', rate, () => setOn(false)); } }}><Icon name="volume" /> {on ? 'Stop' : 'Read aloud'}</button>;
 }
 
+import { MindMapView, RevisionList } from '../components/MindMap';
+const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision']];
 export function Lesson() {
-  const { id } = useParams(); const nav = useNavigate(); const toast = useToast(); const { profile } = useAuth(); const { lang } = useLang();
+  const { id } = useParams(); const nav = useNavigate(); const [sp, setSp] = useSearchParams(); const rawTab = sp.get('tab') ?? 'explain'; const tab = TABS.some(t => t[0] === rawTab) ? rawTab : 'explain';
+  const goTab = (t: string, el?: string | null) => { const n = new URLSearchParams(sp); n.set('tab', t); setSp(n, { replace: true }); if (el) setTimeout(() => document.getElementById(el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80); else window.scrollTo({ top: 0 });}; const toast = useToast(); const { profile } = useAuth(); const { lang } = useLang();
   const s = useLoad(() => get(`/lessons/${id}`), [id]); const [bm, setBm] = useState(false); const [done, setDone] = useState(false);
   useEffect(() => { if (s.data) { setBm(s.data.bookmarked); setDone(s.data.progress.completed); post(`/lessons/${id}/open`).catch(() => {}); } }, [s.data, id]);
   return <Async s={s}>{d => {
@@ -101,18 +104,28 @@ export function Lesson() {
         <Button tone="secondary" onClick={toggleBm} aria-pressed={bm}><Icon name="bookmark" /> {bm ? 'Bookmarked' : 'Bookmark'}</Button>
         <Button to={`/app/tutor?lesson=${l.id}`}><Icon name="chat" /> Ask AI about this lesson</Button>
       </div>
+      <div className="tabs no-print" role="tablist" aria-label="Lesson sections">{TABS.map(([k, t]) => <button key={k} role="tab" id={`tab-${k}`} aria-selected={tab === k} aria-controls="lesson-panel" tabIndex={tab === k ? 0 : -1} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => goTab(k)} onKeyDown={e => { const i = TABS.findIndex(x => x[0] === k); const j = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : -1; if (j >= 0) { e.preventDefault(); goTab(TABS[j][0]); setTimeout(() => document.getElementById(`tab-${TABS[j][0]}`)?.focus(), 0); } }}>{t}</button>)}</div>
+      <div role="tabpanel" id="lesson-panel" aria-labelledby={`tab-${tab}`} className="col">
+      {tab === 'map' && <MindMapView lessonId={l.id} subjectId={l.subject_id} onOpenLesson={a => goTab(a.tab, a.el)} />}
+      {tab === 'revision' && <RevisionList lessonId={l.id} />}
+      {tab === 'explain' && <>
       <Card className="col"><h2><Bi en="What you will learn" ta="இதில் நீங்கள் கற்பது" /></h2>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ul>{c.objectives.en.map((o: string) => <li key={o}>{o}</li>)}</ul>}{lang !== 'en' && <ul lang="ta" className="ta">{c.objectives.ta.map((o: string) => <li key={o}>{o}</li>)}</ul>}</div></Card>
-      {c.sections.map((x: any) => <Card key={x.h_en} className="col"><h2><Bi en={x.h_en} ta={x.h_ta} block /></h2>
-        <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <p>{x.en}</p>}{lang !== 'en' && <p lang="ta" className="ta">{x.ta}</p>}</div></Card>)}
-      {!!c.vocab?.length && <Card className="col"><h2><Bi en="Key words" ta="முக்கிய சொற்கள்" /></h2><div className="tablewrap" tabIndex={0} role="region" aria-label="Data table"><table className="tbl"><thead><tr><th>English</th><th>தமிழ்</th><th>Meaning</th><th>Say it</th><th>Example</th></tr></thead>
-        <tbody>{c.vocab.map((v: any) => <tr key={v.en}><td><b>{v.en}</b></td><td lang="ta" className="ta">{v.ta}</td><td>{v.meaning}</td><td className="muted">{v.pron}</td><td>{v.example}</td></tr>)}</tbody></table></div></Card>}
+      {c.sections.map((x: any, si: number) => <div key={x.h_en} id={`lesson-sec-${si}`}><Card className="col"><h2><Bi en={x.h_en} ta={x.h_ta} block /></h2>
+        <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <p>{x.en}</p>}{lang !== 'en' && <p lang="ta" className="ta">{x.ta}</p>}</div></Card></div>)}
+      {!!c.vocab?.length && <div id="lesson-vocab"><Card className="col"><h2><Bi en="Key words" ta="முக்கிய சொற்கள்" /></h2><div className="tablewrap" tabIndex={0} role="region" aria-label="Data table"><table className="tbl"><thead><tr><th>English</th><th>தமிழ்</th><th>Meaning</th><th>Say it</th><th>Example</th></tr></thead>
+        <tbody>{c.vocab.map((v: any) => <tr key={v.en}><td><b>{v.en}</b></td><td lang="ta" className="ta">{v.ta}</td><td>{v.meaning}</td><td className="muted">{v.pron}</td><td>{v.example}</td></tr>)}</tbody></table></div></Card></div>}
+      </>}
+      {tab === 'examples' && <>
+      {!c.examples?.length && !c.realLife?.en && !c.mistakes?.length && <Empty title="No examples yet" text="This sample lesson has no worked examples." />}
       {!!c.examples?.length && <Card className="col"><h2><Bi en="Worked example" ta="தீர்க்கப்பட்ட எடுத்துக்காட்டு" /></h2>{c.examples.map((e: any) => <div key={e.q_en} className="col"><b><Bi en={e.q_en} ta={e.q_ta} block /></b>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ol>{e.steps_en.map((x: string) => <li key={x}>{x}</li>)}</ol>}{lang !== 'en' && <ol lang="ta" className="ta">{e.steps_ta.map((x: string) => <li key={x}>{x}</li>)}</ol>}</div></div>)}</Card>}
       {c.realLife?.en && <Card className="col"><h2><Bi en="In real life" ta="நிஜ வாழ்வில்" /></h2><p><Bi en={c.realLife.en} ta={c.realLife.ta} block /></p></Card>}
       {!!c.mistakes?.length && <Card className="col warnbox"><h2><Bi en="Common mistakes" ta="பொதுவான தவறுகள்" /></h2><ul>{c.mistakes.map((m: any) => <li key={m.en}><Bi en={m.en} ta={m.ta} block /></li>)}</ul></Card>}
-      <Card className="col"><h2><Bi en="Check yourself" ta="உங்களைச் சோதிக்க" /></h2><p className="muted">Try a short practice set on this subject, or ask the tutor to test your understanding.</p>
-        <div className="row wrap"><Button to={`/app/practice?subject=${l.subject_id}`}>Practise now</Button><Button tone="secondary" to={`/app/tutor?lesson=${l.id}&action=test_me`}>Test my understanding</Button></div></Card>
+      </>}
+      {tab === 'practice' && <Card className="col"><h2><Bi en="Check yourself" ta="உங்களைச் சோதிக்க" /></h2><p className="muted">Try a short practice set on this subject, or ask the tutor to test your understanding.</p>
+        <div className="row wrap"><Button to={`/app/practice?subject=${l.subject_id}`}>Practise now</Button><Button tone="secondary" to={`/app/tutor?lesson=${l.id}&action=test_me`}>Test my understanding</Button></div></Card>}
+      </div>
       <div className="row wrap lessonnav no-print">
         {d.prev ? <Button tone="secondary" to={`/app/learn/${d.prev.id}`}><Icon name="back" size={16} /> Previous</Button> : <span />}
         <div className="grow" />

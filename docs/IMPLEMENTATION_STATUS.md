@@ -22,3 +22,15 @@ Legend: **Verified** = covered by automated tests or exercised in a real browser
 | Email/SMS, password reset, Postgres, OCR for scans | Not done | |
 
 Tests: 31 passing. No integration is claimed beyond the table above.
+
+## Mind Map (Learn page)
+
+Status: implemented and tested (7 API/unit tests; browser-checked at 1280 and 375 px in UI-preview mode).
+
+- Lesson page now has tabs: Explanation · Mind Map · Examples · Practice questions · Quick revision (`?tab=` in the URL).
+- `GET /api/lessons/:id/mindmap` builds the map **from the lesson's own content** (no AI text, nothing invented), validates it with a zod schema (single root, unique ids, no cycles, size cap), and caches it by content hash. `defaultMode` is Simple for Classes 1–5.
+- `PUT /api/lessons/:id/mindmap/state` and `GET /api/mindmaps/recent` store each student's understood / revise-later marks and recently viewed maps in the existing `settings` table (no migration); shared lesson content is never modified.
+- UI: SVG map with zoom, pan, pinch, Fit, Reset, expand/collapse, search, Simple/Detailed/Quick-revision modes, Tamil / English / both, keyboard-focusable nodes, a detail panel, and links into the existing tutor (explain simply / in Tamil / in English / example / step by step / practice question).
+- Export: PNG download, and Print / Save as PDF (via the browser print dialog).
+
+Limits: maps are only as rich as the (sample) lesson content; there is no AI-generated map yet; "practice this branch" opens the tutor's practice action and the subject practice page, not branch-specific server questions; "save to learning materials" and sharing links are not implemented; in UI-preview mode marks live only in the browser tab.

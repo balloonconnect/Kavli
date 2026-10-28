@@ -6,6 +6,7 @@ import { clock, iso } from '../clock';
 import { J, parse, wrap, canAccessStudent } from '../http';
 import { HttpError, testStatus, topicPerformance } from '../services/tests';
 import { gradeAnswer } from '../services/grading';
+import { buildMindMap } from '../services/mindmap';
 
 const L = (l: any) => ({ id: l.id, class_level: l.class_level, subject_id: l.subject_id, chapter_no: l.chapter_no, chapter_en: l.chapter_en, chapter_ta: l.chapter_ta, title_en: l.title_en, title_ta: l.title_ta, minutes: l.minutes, term: l.term });
 export function myProfile(db: DB, id: string) { return q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id); }
@@ -76,6 +77,30 @@ export function studentRoutes(db: DB) {
   }));
   r.post('/lessons/:id/open', S, wrap(async (req, res) => { const l = q.get(db, 'SELECT 1 FROM lessons WHERE id=?', req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.'); q.run(db, 'INSERT INTO lesson_progress(student_id,lesson_id,opened_at) VALUES (?,?,?) ON CONFLICT DO NOTHING', req.user!.id, req.params.id, iso()); res.json({ ok: true }); }));
   r.post('/lessons/:id/complete', S, wrap(async (req, res) => { const l = q.get(db, 'SELECT 1 FROM lessons WHERE id=?', req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.'); q.run(db, 'INSERT INTO lesson_progress(student_id,lesson_id,opened_at,completed_at) VALUES (?,?,?,?) ON CONFLICT(student_id,lesson_id) DO UPDATE SET completed_at=COALESCE(completed_at, excluded.completed_at)', req.user!.id, req.params.id, iso(), iso()); res.json({ ok: true }); }));
+  // Mind map: the shared map comes from lesson content; each student's marks are stored separately under their own key.
+  const mmKey = (sid: string, lid: string) => `mm:${sid}:${lid}`;
+  const mmState = (sid: string, lid: string) => { const v = q.get<any>(db, 'SELECT value FROM settings WHERE key=?', mmKey(sid, lid))?.value; const s = v ? J(v) : {}; return { understood: (s.understood ?? []) as string[], revision: (s.revision ?? []) as string[], viewedAt: (s.viewedAt ?? null) as string | null }; };
+  r.get('/lessons/:id/mindmap', S, wrap(async (req, res) => {
+    const l = q.get<any>(db, "SELECT * FROM lessons WHERE id=? AND status='published'", req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.');
+    let map; try { map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content) }); } catch { throw new HttpError(500, 'The mind map for this lesson could not be built.'); }
+    const sid = req.user!.id; const st = mmState(sid, l.id); const ids = new Set(map.nodes.map(n => n.id));
+    const state = { understood: st.understood.filter(x => ids.has(x)), revision: st.revision.filter(x => ids.has(x)), viewedAt: st.viewedAt };
+    q.run(db, 'INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', mmKey(sid, l.id), JSON.stringify({ ...state, viewedAt: iso() }));
+    res.json({ map: { ...map, defaultMode: l.class_level <= 5 ? 'simple' : map.defaultMode }, state, classLevel: l.class_level, subject_id: l.subject_id });
+  }));
+  r.put('/lessons/:id/mindmap/state', S, wrap(async (req, res) => {
+    const l = q.get<any>(db, "SELECT * FROM lessons WHERE id=? AND status='published'", req.params.id); if (!l) throw new HttpError(404, 'Lesson not found.');
+    const b = parse(z.object({ understood: z.array(z.string().max(40)).max(120), revision: z.array(z.string().max(40)).max(120) }), req.body);
+    const map = buildMindMap({ id: l.id, title_en: l.title_en, title_ta: l.title_ta, content: J(l.content) }); const ids = new Set(map.nodes.map(n => n.id));
+    const clean = (a: string[]) => [...new Set(a)].filter(x => ids.has(x)); const understood = clean(b.understood); const revision = clean(b.revision).filter(x => !understood.includes(x));
+    q.run(db, 'INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', mmKey(req.user!.id, l.id), JSON.stringify({ understood, revision, viewedAt: iso() }));
+    res.json({ understood, revision });
+  }));
+  r.get('/mindmaps/recent', S, wrap(async (req, res) => {
+    const rows = q.all<any>(db, 'SELECT key, value FROM settings WHERE key LIKE ?', `mm:${req.user!.id}:%`);
+    const out = rows.map(x => { const lid = x.key.slice(`mm:${req.user!.id}:`.length); const s = J(x.value); const l = q.get<any>(db, "SELECT id,title_en,title_ta,class_level FROM lessons WHERE id=? AND status='published'", lid); return l ? { lessonId: lid, title_en: l.title_en, title_ta: l.title_ta, understood: (s.understood ?? []).length, revision: (s.revision ?? []).length, viewedAt: s.viewedAt } : null; }).filter(Boolean) as any[];
+    res.json({ recent: out.sort((a, b) => String(b.viewedAt).localeCompare(String(a.viewedAt))).slice(0, 10) });
+  }));
   // Bookmarks
   r.get('/bookmarks', S, wrap(async (req, res) => res.json({ bookmarks: q.all(db, 'SELECT * FROM bookmarks WHERE student_id=? ORDER BY created_at DESC', req.user!.id) })));
   r.post('/bookmarks', S, wrap(async (req, res) => {

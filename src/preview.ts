@@ -13,7 +13,7 @@ const ACTIONS: Record<string, { en: string; ta: string }> = {
   simpler: { en: 'Explain simply', ta: 'எளிமையாக விளக்கு' }, steps: { en: 'Solve step by step', ta: 'படிப்படியாகத் தீர்' },
   hint: { en: 'Give a hint', ta: 'குறிப்பு கொடு' }, another: { en: 'Show another example', ta: 'இன்னொரு எடுத்துக்காட்டு' },
 };
-type St = { signedIn: boolean; user?: any; profile?: any; emails?: string[]; convs: any[]; msgs: Record<string, any[]>; done?: boolean; mat?: boolean; marks?: any[]; completed?: string[] };
+type St = { signedIn: boolean; user?: any; profile?: any; emails?: string[]; convs: any[]; msgs: Record<string, any[]>; done?: boolean; mat?: boolean; marks?: any[]; completed?: string[]; mm?: Record<string, { understood: string[]; revision: string[] }> };
 const mem: St = { signedIn: false, convs: [], msgs: {} };
 const load = (): St => { try { const s = sessionStorage.getItem('kavli_preview'); return s ? JSON.parse(s) : mem; } catch { return mem; } };
 const save = (s: St) => { try { sessionStorage.setItem('kavli_preview', JSON.stringify(s)); } catch { Object.assign(mem, s); } };
@@ -95,6 +95,8 @@ async function replay(method: string, path: string, url: string, body: any, s: S
     if (done && D.after[path]) return R(D.after[path]);
     if (D.base[key] !== undefined) return R(D.base[key]);
     let x: RegExpMatchArray | null;
+    if ((x = m(/^\/lessons\/([^/]+)\/mindmap$/))) { const mp = D.mindmaps?.[x[1]]; if (!mp) throw new PErr(404, 'Lesson not found.'); return { ...mp, state: { ...(s.mm?.[x[1]] ?? { understood: [], revision: [] }), viewedAt: new Date().toISOString() } }; }
+    if (path === '/mindmaps/recent') return { recent: Object.entries(s.mm ?? {}).map(([lid, v]) => ({ lessonId: lid, title_en: D.mindmaps?.[lid]?.map.title_en ?? lid, title_ta: D.mindmaps?.[lid]?.map.title_ta ?? lid, understood: v.understood.length, revision: v.revision.length, viewedAt: new Date().toISOString() })) };
     if ((x = m(/^\/lessons\/([^/]+)$/))) { if (D.lessons[x[1]]) return R(D.lessons[x[1]]); throw new PErr(404, 'Lesson not found.'); }
     if ((x = m(/^\/tests\/([^/]+)$/))) { if (done && x[1] === D.attempt.testId) return R(D.after.testDetail); if (D.tests[x[1]]) return R(D.tests[x[1]]); throw new PErr(404, 'Test not found.'); }
     if ((x = m(/^\/attempts\/([^/]+)$/))) return R(D.attempt.pre);
@@ -122,6 +124,7 @@ async function replay(method: string, path: string, url: string, body: any, s: S
     if (/^\/assignments\/[^/]+\/submit$/.test(path)) throw new PErr(422, 'Not available in UI preview.');
   }
   if (method === 'PUT') {
+    { const x = path.match(/^\/lessons\/([^/]+)\/mindmap\/state$/); if (x) { const ids = new Set<string>((D.mindmaps?.[x[1]]?.map.nodes ?? []).map((n: any) => n.id)); const u = [...new Set<string>(body?.understood ?? [])].filter(i => ids.has(i)); const r = [...new Set<string>(body?.revision ?? [])].filter(i => ids.has(i) && !u.includes(i)); s.mm = { ...(s.mm ?? {}), [x[1]]: { understood: u, revision: r } }; save(s); return { understood: u, revision: r }; } }
     if (/^\/attempts\/[^/]+\/answers$/.test(path)) return { saved: true, serverTime: now() };
     if (path === '/profile') return { profile: { ...(D.base['/profile'].profile ?? {}), full_name: body?.fullName, class_level: body?.classLevel } };
     if (/^\/materials\/[^/]+\/text$/.test(path)) throw new PErr(422, 'Not available in UI preview.');

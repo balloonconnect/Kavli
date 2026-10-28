@@ -40,15 +40,15 @@ export function Tutor() {
   const loadList = useCallback(async () => { const d = await get('/tutor/conversations'); setList(d.conversations); setInfo({ provider: d.provider, actions: d.actions }); return d; }, []);
   const open = useCallback(async (id: string) => { const d = await get(`/tutor/conversations/${id}/messages`); setCur(d.conversation); setMsgs(d.messages); setShowList(false); }, []);
   const create = useCallback(async (extra: any = {}) => { const d = await post('/tutor/conversations', extra); setCur(d.conversation); setMsgs([]); await loadList(); setShowList(false); return d.conversation; }, [loadList]);
-  const send = useCallback(async (t: string, action?: string, conv = cur) => {
+  const send = useCallback(async (t: string, action?: string, conv = cur, langOverride?: 'ta' | 'en' | 'both') => {
     if (!conv || (!t.trim() && !action)) return; setBusy(true); setErr(null);
     const temp: Msg = { id: 'tmp', role: 'user', content: { en: t, ta: t }, meta: {}, created_at: new Date().toISOString() }; setMsgs(m => [...m, temp]); setText('');
-    try { const d = await post(`/tutor/conversations/${conv.id}/messages`, { text: t, action, lang }); setMsgs(m => [...m.filter(x => x.id !== 'tmp'), ...d.messages]); setCur((c: any) => (c && c.title === 'New conversation' && t ? { ...c, title: t.slice(0, 60) } : c)); loadList(); }
+    try { const d = await post(`/tutor/conversations/${conv.id}/messages`, { text: t, action, lang: langOverride ?? lang }); setMsgs(m => [...m.filter(x => x.id !== 'tmp'), ...d.messages]); setCur((c: any) => (c && c.title === 'New conversation' && t ? { ...c, title: t.slice(0, 60) } : c)); loadList(); }
     catch (e) { setMsgs(m => m.filter(x => x.id !== 'tmp')); setErr({ text: t, action }); setText(t); toast(msg(e), 'err'); } finally { setBusy(false); }
   }, [cur, lang, loadList, toast]);
   useEffect(() => { (async () => {
-    try { const d = await loadList(); const lesson = sp.get('lesson'), material = sp.get('material'), action = sp.get('action');
-      if (lesson || material) { const c = await create({ lessonId: lesson ?? undefined, materialId: material ?? undefined }); if (action) await send('', action, c); }
+    try { const d = await loadList(); const lesson = sp.get('lesson'), material = sp.get('material'), action = sp.get('action'), qtext = (sp.get('q') ?? '').slice(0, 300), ql = sp.get('lang'), lo = ql === 'ta' || ql === 'en' ? ql : undefined;
+      if (lesson || material) { const c = await create({ lessonId: lesson ?? undefined, materialId: material ?? undefined }); if (action || qtext) await send(qtext, action ?? undefined, c, lo); }
       else if (d.conversations[0]) await open(d.conversations[0].id); else await create();
     } catch (e) { toast(msg(e), 'err'); } finally { setLoading(false); } })(); return () => { stopSpeaking(); stop.current(); }; }, []); // eslint-disable-line
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [msgs.length, busy]);

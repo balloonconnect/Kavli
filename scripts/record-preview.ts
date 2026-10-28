@@ -12,7 +12,7 @@ import { createApp } from '../server/app';
 import { clock } from '../server/clock';
 
 process.env.DISABLE_RATE_LIMIT = '1';
-const out: any = { base: {}, lessons: {}, tests: {}, practice: {}, attempt: {}, after: {}, verify: {}, material: {} };
+const out: any = { base: {}, lessons: {}, tests: {}, practice: {}, attempt: {}, after: {}, verify: {}, material: {}, mindmaps: {} };
 
 async function pdf(): Promise<Buffer> {
   const d = new PDFDocument({ size: 'A4' }); const chunks: Buffer[] = []; d.on('data', c => chunks.push(c));
@@ -33,7 +33,7 @@ async function pdf(): Promise<Buffer> {
   for (const p of ['/auth/me', '/config', '/dashboard', '/curriculum?class=8', '/profile', '/practice/options', '/bookmarks', '/certificates', '/reports/me', '/revision-plan', '/assignments', '/materials', '/notifications', '/tests']) out.base[p] = await get(p);
   const lessonIds: string[] = []; const cur = out.base['/curriculum?class=8'];
   JSON.stringify(cur, (_k, v) => { if (v && typeof v === 'object' && typeof v.id === 'string' && v.chapter_no !== undefined && v.title_en) lessonIds.push(v.id); return v; });
-  for (const id of [...new Set(lessonIds)]) out.lessons[id] = await get(`/lessons/${id}`);
+  for (const id of [...new Set(lessonIds)]) { out.lessons[id] = await get(`/lessons/${id}`); const mm = await get(`/lessons/${id}/mindmap`); out.mindmaps[id] = { map: mm.map, classLevel: mm.classLevel, subject_id: mm.subject_id }; }
   for (const t of out.base['/tests'].tests) out.tests[t.id] = await get(`/tests/${t.id}`);
 
   // practice
