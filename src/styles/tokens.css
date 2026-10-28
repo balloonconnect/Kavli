@@ -1,0 +1,15 @@
+/* Design tokens — mirrored from the Figma "Foundations" variables */
+:root {
+  --bg:#faf8f5; --surface:#fff; --surface-alt:#f4f2ee; --border:#e7e3dc;
+  --text:#1f2340; --text-muted:#6b7085;
+  --primary:#4f46e5; --primary-dark:#3730a3; --primary-soft:#eef0ff; --on-primary:#fff;
+  --accent:#0d9488; --accent-soft:#d9f4f0;
+  --success:#15803d; --success-soft:#dcfce7;
+  --warning:#b45309; --warning-soft:#fef3c7;
+  --danger:#b91c1c; --danger-soft:#fee2e2;
+  --gold:#b8892b; --gold-soft:#fbf3dc;
+  --s4:4px; --s8:8px; --s12:12px; --s16:16px; --s24:24px; --s32:32px; --s48:48px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px;
+  --font:'Inter','Noto Sans Tamil',system-ui,sans-serif;
+  --font-ta:'Noto Sans Tamil','Inter',system-ui,sans-serif;
+}
