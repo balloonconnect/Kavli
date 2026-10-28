@@ -6,13 +6,15 @@ import { useAuth, Role } from '../auth';
 import { get, post } from '../api';
 
 export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typeof Icon>[0]['name']; end?: boolean; short?: string };
-const SHORT: Record<string, string> = { '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
+const SHORT: Record<string, string> = { '/teacher': 'Overview', '/teacher/homework': 'Homework', '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
   student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
     T('/app/practice', 'Practice', 'பயிற்சி', 'target'), T('/app/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/app/progress', 'Progress', 'முன்னேற்றம்', 'chart'), T('/app/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award'),
     T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
-  parent: [T('/app', 'Home', 'முகப்பு', 'home', true)], teacher: [T('/app', 'Home', 'முகப்பு', 'home', true)], school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
+  parent: [T('/parent', 'My children', 'என் குழந்தைகள்', 'users', true), T('/parent/settings', 'Account', 'கணக்கு', 'settings')],
+  teacher: [T('/teacher', 'Overview', 'மேலோட்டம்', 'home', true), T('/teacher/classes', 'Classes', 'வகுப்புகள்', 'users'), T('/teacher/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/homework', 'Homework', 'வீட்டுப்பாடம்', 'file'), T('/teacher/questions', 'Question bank', 'கேள்வி வங்கி', 'layers'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
+   school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
 };
 const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin', pending: 'Awaiting approval' };
 
@@ -58,7 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
           <Bell />
         </header>
-        <main className="content" id="main" tabIndex={-1}>{children}</main>
+        <main className="content" id="main" tabIndex={-1}><OfflineBanner />{children}</main>
         <nav className="bottomnav" aria-label="Primary">
           {mobile.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={n.icon} size={22} /><span>{n.short ?? n.en.split(' ')[0]}</span></NavLink>)}
           <button onClick={() => setMore(true)} aria-label="More menu"><Icon name="more" size={22} /><span>More</span></button>
@@ -70,4 +72,10 @@ export function Shell({ children }: { children: ReactNode }) {
         <button className="btn secondary" onClick={out}><Icon name="logout" /> Sign out</button></div></div>}
     </div>
   );
+}
+
+function OfflineBanner() {
+  const [off, setOff] = useState(typeof navigator !== 'undefined' && navigator.onLine === false);
+  useEffect(() => { const a = () => setOff(true), b = () => setOff(false); window.addEventListener('offline', a); window.addEventListener('online', b); return () => { window.removeEventListener('offline', a); window.removeEventListener('online', b); }; }, []);
+  return off ? <div className="notice warn" role="status">You are offline. What you have already opened stays on screen; saving and asking the tutor need a connection.</div> : null;
 }

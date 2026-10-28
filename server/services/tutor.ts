@@ -14,6 +14,7 @@ const bi = (en: string, ta: string): Bi => ({ en, ta });
 export const ACTIONS: Record<string, { en: string; ta: string }> = {
   simpler: { en: 'Explain simply', ta: 'எளிமையாக விளக்கு' }, tamil_first: { en: 'Explain in Tamil first', ta: 'முதலில் தமிழில் விளக்கு' }, both: { en: 'Show both languages', ta: 'இரு மொழிகளிலும் காட்டு' },
   steps: { en: 'Solve step by step', ta: 'படிப்படியாகத் தீர்' }, hint: { en: 'Give a hint', ta: 'குறிப்பு கொடு' }, another: { en: 'Show another example', ta: 'மற்றொரு எடுத்துக்காட்டு' },
+  worked: { en: 'Worked example', ta: 'தீர்க்கப்பட்ட எடுத்துக்காட்டு' }, again: { en: 'Explain again', ta: 'மீண்டும் விளக்கு' },
   test_me: { en: 'Test my understanding', ta: 'என் புரிதலைச் சோதி' }, practice: { en: 'Create practice questions', ta: 'பயிற்சிக் கேள்விகள் உருவாக்கு' }, mistake: { en: 'Explain my mistake', ta: 'என் தவறை விளக்கு' }, notes: { en: 'Prepare revision notes', ta: 'திருப்புதல் குறிப்புகள் தயாரி' },
 };
 const SUGGEST_DEFAULT = ['simpler', 'steps', 'hint', 'another', 'test_me', 'practice', 'notes'];
@@ -78,6 +79,10 @@ const looksLikeAnswer = (row: any, text: string) => {
 
 function grammarGreeting(t: string) { return /^(hi|hello|hey|vanakkam|வணக்கம்|thanks|thank you|நன்றி)\b/i.test(t.trim()); }
 
+/** Tamil written in English letters ("Tanglish"), e.g. "indha equation epdi solve panradhu". Conservative: needs 2+ common Tamil words and no Tamil script. */
+const TANGLISH = new Set(['enna', 'epdi', 'eppadi', 'idhu', 'ithu', 'indha', 'intha', 'adhu', 'athu', 'enakku', 'puriyala', 'puriyudhu', 'purila', 'sollu', 'sollunga', 'vilakku', 'vilakkunga', 'panna', 'panradhu', 'pannunga', 'irukku', 'illa', 'illai', 'seiya', 'seyyanum', 'theriyala', 'theriyum', 'romba', 'konjam', 'eduthukattu', 'ketka', 'venum', 'vendam', 'nalla', 'sariya', 'thappu', 'tamilil', 'tamizhil', 'aachu', 'ennoda', 'unga', 'enga']);
+export function looksTanglish(t: string) { if (/[\u0B80-\u0BFF]/.test(t)) return false; const w = t.toLowerCase().match(/[a-z]+/g) ?? []; return w.filter(x => TANGLISH.has(x)).length >= 2; }
+
 export function developmentTutor(db: DB, i: TutorInput): TutorReply {
   const text = i.text.trim(); const lang = i.lang;
   const la = lastAssistant(i.history); const pending = la?.meta?.pending as { qid: string; wrong: number; level: number; asked: string[] } | undefined;
@@ -123,6 +128,17 @@ export function developmentTutor(db: DB, i: TutorInput): TutorReply {
     case 'hint': {
       if (pending) { const row = q.get<any>(db, 'SELECT * FROM questions WHERE id=?', pending.qid); if (row) return mkReply(bi(`Hint: ${hintFor(row, 'en')}`, `குறிப்பு: ${hintFor(row, 'ta')}`), { meta: { pending }, suggestions: ['simpler'] }); }
       return mkReply(bi('Hint: first decide what you are trying to find (x). Then undo the operations one by one, in reverse order. Paste your problem and I will give a hint for that exact one.', 'குறிப்பு: முதலில் எதைக் காண வேண்டும் (x) என முடிவு செய்யுங்கள். பிறகு செயல்களைத் தலைகீழ் வரிசையில் ஒவ்வொன்றாகத் திருப்புங்கள். உங்கள் கணக்கை எழுதினால் அதற்கேற்ற குறிப்பு தருகிறேன்.'));
+    }
+    case 'worked': {
+      const l = lessonFor(db, i); const ex = (l ? J(l.content).examples : [])?.[0];
+      if (ex) return mkReply(bi(`Worked example: ${ex.q_en}\n${ex.steps_en.map((x: string, n: number) => `${n + 1}. ${x}`).join('\n')}`, `தீர்க்கப்பட்ட எடுத்துக்காட்டு: ${ex.q_ta}\n${ex.steps_ta.map((x: string, n: number) => `${n + 1}. ${x}`).join('\n')}`), { grounded: 'lesson', sources: [l.title_en], suggestions: ['another', 'test_me'] });
+      return mkReply(bi('This lesson has no worked example yet. Type a problem such as 3x + 5 = 20 and I will solve it step by step.', 'இந்தப் பாடத்தில் இன்னும் எடுத்துக்காட்டு இல்லை. 3x + 5 = 20 போன்ற கணக்கை எழுதுங்கள்; படிப்படியாகத் தீர்க்கிறேன்.'), {});
+    }
+    case 'again': {
+      const l = lessonFor(db, i); const c = l ? J(l.content) : null; const rl = c?.realLife;
+      if (rl?.en) return mkReply(bi(`Let me explain it another way, with a real-life picture: ${rl.en}`, `வேறு விதமாக, நிஜ வாழ்க்கை உதாரணத்துடன் விளக்குகிறேன்: ${rl.ta ?? rl.en}`), { grounded: 'lesson', sources: [l.title_en], suggestions: ['worked', 'simpler', 'test_me'] });
+      const prev = la?.content; if (prev) return mkReply(bi(`Let me say it again in smaller pieces:\n• ${prev.en.split(/(?<=[.!?])\s+/).slice(0, 3).join('\n• ')}`, `சிறு பகுதிகளாக மீண்டும்:\n• ${prev.ta.split(/(?<=[.!?])\s+/).slice(0, 3).join('\n• ')}`), { suggestions: ['worked', 'simpler'] });
+      break;
     }
     case 'another': {
       const l = lessonFor(db, i); const subj = l?.subject_id;

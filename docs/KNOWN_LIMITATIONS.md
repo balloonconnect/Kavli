@@ -23,3 +23,7 @@
 - **Mathematics, Tamil medium (not imported):** the PDF has no text layer at all (scanned pages), so it also needs OCR of the original file.
 - Files over 10 MB cannot be downloaded through the Drive connector and Drive is not reachable from the build environment, so the three PDFs (67 MB, 17 MB, 40 MB) must be attached to the chat or placed in the project folder.
 - Textbook lessons are excerpts for learning and tutor grounding. They are not a replacement for the printed textbook. Check Tamil Nadu Textbook Corporation terms before publishing more than short excerpts.
+
+- Slow/offline behaviour was tested with the browser offline switch only, not on real 2G/3G links; Tamil rendering was checked on desktop Chromium fonts, not on physical low-end Android devices.
+- Side-by-side bilingual view relies on the existing "both languages" mode; no separate per-message toggle was added. The preview tutor remains canned.
+- axe accessibility scan not run.

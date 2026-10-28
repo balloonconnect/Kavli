@@ -78,7 +78,15 @@ export function testRoutes(db: DB) {
   }));
   r.get('/revision-plan', S, wrap(async (req, res) => {
     const id = req.user!.id; const rep = studentReport(db, id); const p = myProfile(db, id)!;
-    const items = rep.revisionTopics.map(t => ({ topic: t.topic, pct: t.pct, lessons: q.all<any>(db, "SELECT id,title_en,title_ta FROM lessons WHERE class_level=? AND (title_en LIKE ? OR chapter_en LIKE ?) LIMIT 2", p.class_level, `%${t.topic.split(' ')[0]}%`, `%${t.topic.split(' ')[0]}%`) }));
+    // weak topic -> the subject/chapter of the questions that were missed -> that chapter's lessons (not a guess from the topic's words)
+    const chapters = new Map<string, Set<string>>();
+    for (const row of q.all<any>(db, "SELECT r.snapshot FROM attempts a JOIN results r ON r.attempt_id=a.id WHERE a.student_id=? AND a.status='finalised'", id))
+      for (const pq of J(row.snapshot).perQuestion ?? []) { const qu = q.get<any>(db, 'SELECT subject_id, chapter_no FROM questions WHERE id=?', pq.id); if (!qu) continue; const k = pq.topic ?? 'General'; (chapters.get(k) ?? chapters.set(k, new Set()).get(k)!).add(`${qu.subject_id}|${qu.chapter_no}`); }
+    const items = rep.revisionTopics.map(t => {
+      const seen = new Set<string>(); const lessons: any[] = [];
+      for (const c of chapters.get(t.topic) ?? []) { const [sub, ch] = c.split('|'); for (const l of q.all<any>(db, "SELECT id,title_en,title_ta FROM lessons WHERE class_level=? AND subject_id=? AND chapter_no=? AND status='published' ORDER BY position LIMIT 2", p.class_level, sub, Number(ch))) if (!seen.has(l.id)) { seen.add(l.id); lessons.push(l); } }
+      return { topic: t.topic, pct: t.pct, lessons: lessons.slice(0, 2) };
+    });
     const upcoming = q.all<any>(db, "SELECT id,title,opens_at,closes_at FROM tests WHERE published=1 AND class_level=? AND closes_at>? ORDER BY opens_at LIMIT 5", p.class_level, iso());
     res.json({ items, upcoming, basis: rep.finalised, note: rep.finalised ? 'Based on your finalised test results.' : 'Take a weekly test to get a personalised revision plan.' });
   }));

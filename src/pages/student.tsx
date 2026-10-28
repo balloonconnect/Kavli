@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Async, Badge, Button, Card, Empty, Icon, IconBox, PageTitle, Progress, Stat, fmtDT, useLoad, Loading, ErrorState } from '../components/ui';
 import { Bi, useLang } from '../components/lang';
 import { useAuth } from '../auth';
@@ -12,6 +12,7 @@ export const subjColor = (i: number) => [['var(--primary-soft)', 'var(--primary)
 
 export function Dashboard() {
   const { user } = useAuth();
+  if (user && (user.role === 'parent' || user.role === 'teacher')) return <Navigate to={user.role === 'parent' ? '/parent' : '/teacher'} replace />;
   if (user && user.role !== 'student') return <Holding role={user.role} name={user.display_name} />;
   return <StudentDashboard />;
 }
@@ -144,7 +145,7 @@ export function Lesson() {
       {!!c.mistakes?.length && <Card className="col warnbox"><h2><Bi en="Common mistakes" ta="பொதுவான தவறுகள்" /></h2><ul>{c.mistakes.map((m: any) => <li key={m.en}><Bi en={m.en} ta={m.ta} block /></li>)}</ul></Card>}
       </>}
       {tab === 'practice' && <Card className="col"><h2><Bi en="Check yourself" ta="உங்களைச் சோதிக்க" /></h2><p className="muted">Try a short practice set on this subject, or ask the tutor to test your understanding.</p>
-        <div className="row wrap"><Button to={`/app/practice?subject=${l.subject_id}`}>Practise now</Button><Button tone="secondary" to={`/app/tutor?lesson=${l.id}&action=test_me`}>Test my understanding</Button></div></Card>}
+        <div className="row wrap"><Button to={`/app/practice?subject=${l.subject_id}&chapter=${l.chapter_no}`}>Practise this chapter</Button><Button tone="secondary" to={`/app/tutor?lesson=${l.id}&action=test_me`}>Test my understanding</Button></div></Card>}
       </div>
       <div className="row wrap lessonnav no-print">
         {d.prev ? <Button tone="secondary" to={`/app/learn/${d.prev.id}`}><Icon name="back" size={16} /> Previous</Button> : <span />}
@@ -183,13 +184,13 @@ export function Progress_() {
         <div className="bars" role="img" aria-label="Test scores">{rep.scores.map((x: any, i: number) => <div key={i} className="barcol"><span className="barval">{x.pct}%</span><i style={{ height: `${Math.max(4, x.pct)}%`, background: x.status === 'passed' ? 'var(--success)' : 'var(--danger)' }} /><span className="barlbl">{x.test.replace(/ —.*/, '')}</span></div>)}</div>}</Card>
       <div className="grid g2 split"><Card className="col"><h2>By subject</h2>{!rep.subjects.length ? <p className="muted">Appears after your first finished test.</p> : rep.subjects.map((x: any) => <div key={x.id} className="col" style={{ gap: 4 }}><div className="row"><b className="grow">{x.name}</b><span>{x.avgPct}% avg · {x.tests} test(s)</span></div><Progress pct={x.avgPct} label={x.name} /></div>)}</Card>
         <Card className="col"><h2>Activity — last 7 days</h2><div className="tablewrap" tabIndex={0} role="region" aria-label="Data table"><table className="tbl"><thead><tr><th>Day</th><th>Lessons</th><th>Practice</th><th>Tests</th><th>Tutor</th></tr></thead><tbody>{r.activity.days.map((d: any) => <tr key={d.day}><td>{new Date(d.day).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })}</td><td>{d.lessons}</td><td>{d.practice}</td><td>{d.tests}</td><td>{d.tutor}</td></tr>)}</tbody></table></div></Card></div>
-      <Card className="col"><h2>Revision plan</h2><p className="muted small">{plan.note}</p>{!plan.items.length ? <p>No weak topics found yet.</p> : plan.items.map((i: any) => <div key={i.topic} className="row wrap listrow"><div className="grow"><b>{i.topic}</b><div className="muted small">{i.pct}% in recent tests</div></div>{i.lessons.map((l: any) => <Button key={l.id} tone="secondary" to={`/app/learn/${l.id}`}>Review: {l.title_en}</Button>)}<Button tone="ghost" to="/app/practice">Practise</Button></div>)}
+      <Card className="col"><h2>Revision plan</h2><p className="muted small">{plan.note}</p>{!plan.items.length ? <p>No weak topics found yet.</p> : plan.items.map((i: any) => <div key={i.topic} className="row wrap listrow"><div className="grow"><b>{i.topic}</b><div className="muted small">{i.pct}% in recent tests</div></div>{i.lessons.map((l: any) => <Button key={l.id} tone="secondary" to={`/app/learn/${l.id}`}>Review: {l.title_en}</Button>)}{i.lessons.slice(0, 1).map((l: any) => <Button key={`m${l.id}`} tone="ghost" to={`/app/learn/${l.id}?tab=map`}>Mind map</Button>)}<Button tone="ghost" to="/app/practice">Practise</Button></div>)}
         {!!plan.upcoming.length && <><h3>Upcoming tests</h3>{plan.upcoming.map((t: any) => <div key={t.id} className="row wrap listrow"><span className="grow">{t.title}</span><span className="muted small">closes {fmtDT(t.closes_at)}</span><Button tone="secondary" to={`/app/tests/${t.id}`}>View</Button></div>)}</>}</Card></>; }}</Async></div>;
 }
 
 export function Practice() {
   const [sp] = useSearchParams(); const opt = useLoad(() => get('/practice/options')); const toast = useToast();
-  const [cfg, setCfg] = useState<any>({ subject: sp.get('subject') ?? '', chapter: '', difficulty: 'mixed', count: 5 }); const [run, setRun] = useState<any>(null); const [ans, setAns] = useState<Record<string, any>>({}); const [res, setRes] = useState<any>(null); const [busy, setBusy] = useState(false);
+  const [cfg, setCfg] = useState<any>({ subject: sp.get('subject') ?? '', chapter: sp.get('chapter') ?? '', difficulty: 'mixed', count: 5 }); const [run, setRun] = useState<any>(null); const [ans, setAns] = useState<Record<string, any>>({}); const [res, setRes] = useState<any>(null); const [busy, setBusy] = useState(false);
   useEffect(() => { if (opt.data && !cfg.subject && opt.data.subjects[0]) setCfg((c: any) => ({ ...c, subject: opt.data.subjects[0].id })); }, [opt.data]); // eslint-disable-line
   const start = async () => { setBusy(true); try { const r = await post('/practice/start', { subject: cfg.subject, chapter: cfg.chapter ? Number(cfg.chapter) : undefined, difficulty: cfg.difficulty, count: Number(cfg.count) }); setRun(r); setAns({}); setRes(null); } catch (e) { toast(msg(e), 'err'); } finally { setBusy(false); } };
   const submit = async () => { setBusy(true); try { setRes(await post(`/practice/${run.sessionId}/submit`, { answers: ans })); } catch (e) { toast(msg(e), 'err'); } finally { setBusy(false); } };
@@ -206,7 +207,7 @@ export function Practice() {
         <div className="row"><Button onClick={submit} disabled={busy}>{busy ? 'Checking…' : 'Submit answers'}</Button><Button tone="secondary" onClick={() => setRun(null)}>Cancel</Button></div></Card>}
       {res && <Card className="col"><h2>Result: {res.score}/{res.total} ({res.pct}%)</h2><p>{res.next}</p>
         {res.results.map((r: any, i: number) => <div key={r.id} className={`review ${r.correct ? 'ok' : 'bad'}`}><div className="row"><b className="grow">Q{i + 1}. <Bi en={r.text_en} ta={r.text_ta} /></b><Badge tone={r.correct ? 'success' : 'danger'}>{r.correct ? 'Correct' : 'Not correct'}</Badge></div>
-          <div className="small">Your answer: <b>{String(r.given ?? '—')}</b>{!r.correct && <> · Correct answer: <b>{String(r.correctAnswer)}</b></>}</div>{r.explanation_en && <div className="muted small"><Bi en={r.explanation_en} ta={r.explanation_ta ?? ''} /></div>}</div>)}
+          {!r.correct && <div className="row wrap no-print"><Button tone="ghost" to={`/app/tutor?q=${encodeURIComponent(`Explain why this is wrong and help me understand: ${r.text_en}`)}`}>Explain my mistake</Button></div>}<div className="small">Your answer: <b>{String(r.given ?? '—')}</b>{!r.correct && <> · Correct answer: <b>{String(r.correctAnswer)}</b></>}</div>{r.explanation_en && <div className="muted small"><Bi en={r.explanation_en} ta={r.explanation_ta ?? ''} /></div>}</div>)}
         {!!res.revise.length && <div className="notice info"><Icon name="target" />Revise: {res.revise.join(', ')}</div>}
         <div className="row wrap"><Button onClick={() => { setRun(null); setRes(null); }}>New set</Button><Button tone="secondary" to="/app/tutor">Ask the tutor</Button></div></Card>}</>}</Async></div>;
 }

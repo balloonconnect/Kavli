@@ -109,7 +109,7 @@ export function Result() {
       {r.certificate ? <Card className="gold row wrap"><Icon name="award" size={28} /><div className="grow"><b>Certificate earned</b><div className="muted small">Reference {r.certificate.ref_no}</div></div><Button to="/app/certificates">View certificate</Button></Card>
         : pass && !r.certificateEligible ? <Card><p className="muted">This test does not award a certificate.</p></Card> : pass ? <Card><p className="muted">Your certificate is being prepared. Check <Link to="/app/certificates" className="link">My certificates</Link>.</p></Card> : null}
       {!!r.topics.length && <Card className="col"><h2>Topic-wise performance</h2>{r.topics.map((t: any) => <div key={t.topic} className="col" style={{ gap: 4 }}><div className="row"><span className="grow">{t.topic}</span><b>{t.got}/{t.max}</b></div><Progress pct={t.pct} color={t.pct >= 70 ? 'var(--success)' : 'var(--warning)'} label={t.topic} /></div>)}
-        {!!r.revision.length && <div className="notice info"><Icon name="target" /><span>Revise: {r.revision.join(', ')}. <Link to="/app/progress" className="link">See revision plan</Link></span></div>}</Card>}
+        {!!r.revision.length && <div className="notice info"><Icon name="target" /><span>Revise: {r.revision.join(', ')}. <Link to="/app/progress" className="link">See revision plan with lessons and mind maps</Link></span></div>}</Card>}
       {!!r.nextTests.length && <Card className="col"><h2>What’s next</h2>{r.nextTests.map((t: any) => <div key={t.id} className="row wrap listrow"><span className="grow">{t.title}</span><span className="muted small">opens {fmtDT(t.opens_at)}</span><Button tone="secondary" to={`/app/tests/${t.id}`}>View</Button></div>)}</Card>}</div>; }}</Async>;
 }
 

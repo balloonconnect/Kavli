@@ -5,7 +5,7 @@ import { audit, rateLimit, requireRole, uid } from '../security';
 import { iso, clock } from '../clock';
 import { J, parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
-import { ACTIONS, TutorProvider, selectProvider } from '../services/tutor';
+import { ACTIONS, looksTanglish, TutorProvider, selectProvider } from '../services/tutor';
 import { splitPassages } from '../services/retrieval';
 import { myProfile } from './student';
 
@@ -32,7 +32,7 @@ export function tutorRoutes(db: DB, provider: TutorProvider = selectProvider()) 
     const used = q.get<any>(db, "SELECT COUNT(*) n FROM ai_usage WHERE user_id=? AND substr(at,1,10)=?", req.user!.id, iso().slice(0, 10))!.n;
     if (used >= limit) throw new HttpError(429, 'You have reached today’s tutor limit. Please try again tomorrow.');
     const hist = q.all<any>(db, 'SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at, rowid', c.id).map(m => ({ role: m.role, content: J(m.content), meta: J(m.meta) }));
-    const lang = b.lang ?? c.lang;
+    const lang = b.lang ?? (looksTanglish(b.text) ? 'both' : c.lang);
     let passages: any[] | undefined, materialName: string | undefined;
     if (c.material_id) { const m = q.get<any>(db, 'SELECT * FROM materials WHERE id=? AND user_id=?', c.material_id, req.user!.id); if (m?.text) { materialName = m.name; const pages = J(m.pages) as { page: number; text: string }[]; passages = pages.length ? pages.flatMap(pg => splitPassages(pg.text, pg.page, m.name)) : splitPassages(m.text, undefined, m.name); } }
     const text = b.text || (ACTIONS[b.action!]?.en ?? '');

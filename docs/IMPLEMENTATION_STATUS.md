@@ -46,3 +46,10 @@ Limits: maps are only as rich as the (sample) lesson content; there is no AI-gen
 - Sign-in (`/signin`): inline field errors with focus, labelled show/hide password, "Forgot password" page (honest: no email reset exists yet), redirect only to same-site `/app`, `/profile`, `/verify` paths (`src/lib/safeNext.ts`), already-signed-in visitors are redirected, network-error message. Server: login always runs one password hash so timing does not reveal which emails exist.
 - Dashboard (`/app`): Ask Kavli AI box (opens the tutor with your question), Continue learning (+ "Open mind map"), four tool shortcuts with real counts, a Mind maps card (recent maps and your understood/revise counts), then the existing goals, subjects, tests, results and revision cards.
 - Mind map: "Practise this branch" asks the tutor for questions about the whole branch. These are tutor-generated, not from the server question bank.
+
+## Learning loop, tutor, resilience, security pass
+Verified by tests (68 passing) and a 375 px browser check of the preview build (no overflow, no console errors):
+- Learning loop links: lesson → "Practise this chapter" (`/app/practice?subject&chapter`, now honoured); wrong practice answers → "Explain my mistake" (tutor); Progress revision plan → lesson + mind map links built from real result snapshots.
+- Tutor: Tanglish detection (conservative, 2+ common words, replies in both languages); "Worked example" and "Explain again" actions use the lesson's own example / real-life text. Listen-aloud already existed. The tutor is still rule-based unless `ANTHROPIC_API_KEY` is set.
+- Network: request timeouts (15 s GET / 45 s write), GET retried twice, writes never auto-retried, offline banner.
+- Security tests (`tests/security.test.ts`): auth required; cross-student access to conversations, materials, attempts and certificates denied; no answers leaked during an attempt; upload content-sniffing; idempotent server-side scoring and no forged score; no certificate for failed attempts; built bundle contains no API keys.
