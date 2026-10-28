@@ -9,7 +9,9 @@ export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typ
 const SHORT: Record<string, string> = { '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
-  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat')],
+  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
+    T('/app/practice', 'Practice', 'பயிற்சி', 'target'), T('/app/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/app/progress', 'Progress', 'முன்னேற்றம்', 'chart'), T('/app/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award'),
+    T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
   parent: [T('/app', 'Home', 'முகப்பு', 'home', true)], teacher: [T('/app', 'Home', 'முகப்பு', 'home', true)], school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
 };
 const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin', pending: 'Awaiting approval' };
@@ -52,6 +54,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="main">
         <header className="topbar">
           <Link to="/" className="logo mlogo" aria-label="Kalvi Mitra home"><span className="m"><Icon name="book" size={18} /></span></Link>
+          {user.role === 'student' && <form className="searchform" role="search" onSubmit={e => { e.preventDefault(); nav(`/app/learn?q=${encodeURIComponent(q)}`); }}><Icon name="search" size={16} /><input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search lessons…" aria-label="Search lessons" /></form>}
           <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
           <Bell />
         </header>

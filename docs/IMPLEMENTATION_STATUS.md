@@ -1,6 +1,6 @@
 # Implementation status
 
-> **Front end trimmed:** only public pages, sign-in, dashboard and AI tutor are reachable in the UI now. Rows below marked Verified refer to the server and to the earlier full UI; features other than sign-in, dashboard and tutor currently have no screens.
+> **Front end:** the student flow (lessons, tutor, material, practice, tests, results, certificates, verify) and the shared sign-up are present. Parent, teacher, school-admin and platform-admin screens are not in the UI. Route smoke-tested against the real server and in UI-preview mode; the earlier responsive/axe audits predate the latest changes.
 
 Legend: **Verified** = covered by automated tests or exercised in a real browser. **Implemented** = built but not independently verified. **Not done** = absent.
 

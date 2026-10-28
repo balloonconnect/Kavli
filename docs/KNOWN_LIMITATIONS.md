@@ -14,3 +14,4 @@
 - **Sign-up**: email verification and guardian-approval emails are not sent (no email service). Under-13 approval happens only through the student's guardian link code. Staff approval has an API but no admin screen yet. The UI uses `/app`, not the `/student/...` route names from the master prompt.
 - **Existing dev databases** created before the `pending` role was added must be deleted (`data/kavli.db`) so the new schema is created.
 - **UI-preview mode** (`.env.production`) fakes the API in the browser; sign-ups there are kept for the tab only.
+- **UI-preview mode** replays one recorded run (sample student, canned passing test, canned practice set and material answers); it does not grade or persist anything. It exists only to review screens without a backend.

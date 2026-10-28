@@ -13,7 +13,7 @@ const ACTIONS: Record<string, { en: string; ta: string }> = {
   simpler: { en: 'Explain simply', ta: 'எளிமையாக விளக்கு' }, steps: { en: 'Solve step by step', ta: 'படிப்படியாகத் தீர்' },
   hint: { en: 'Give a hint', ta: 'குறிப்பு கொடு' }, another: { en: 'Show another example', ta: 'இன்னொரு எடுத்துக்காட்டு' },
 };
-type St = { signedIn: boolean; user?: any; profile?: any; emails?: string[]; convs: any[]; msgs: Record<string, any[]> };
+type St = { signedIn: boolean; user?: any; profile?: any; emails?: string[]; convs: any[]; msgs: Record<string, any[]>; done?: boolean; mat?: boolean; marks?: any[]; completed?: string[] };
 const mem: St = { signedIn: false, convs: [], msgs: {} };
 const load = (): St => { try { const s = sessionStorage.getItem('kavli_preview'); return s ? JSON.parse(s) : mem; } catch { return mem; } };
 const save = (s: St) => { try { sessionStorage.setItem('kavli_preview', JSON.stringify(s)); } catch { Object.assign(mem, s); } };
@@ -38,7 +38,7 @@ function reply(text: string, action?: string) {
 export async function previewApi(method: string, url: string, body: any): Promise<any> {
   const s = load(); const path = url.split('?')[0];
   if (path === '/config') return { production: false, demoAccounts: true, aiProvider: 'ui-preview', aiIsMock: true, ocrAvailable: false, preview: true };
-  if (path === '/auth/me') return s.signedIn ? { user: s.user ?? USER, profile: s.user ? s.profile ?? null : PROFILE, needsProfile: false, csrf: 'preview' } : { user: null };
+  if (path === '/auth/me') { if (!s.signedIn) return { user: null }; if (s.user) return { user: s.user, profile: s.profile ?? null, needsProfile: false, csrf: 'preview' }; if (!DATA) DATA = (await import('./preview-data.json')).default; return fresh({ ...DATA.base['/auth/me'], csrf: 'preview' }, s); }
   if (path === '/auth/register') {
     // Preview only: validates the same rules, keeps the account for this tab, stores no password.
     const email = String(body?.email ?? '').trim().toLowerCase();
@@ -53,12 +53,11 @@ export async function previewApi(method: string, url: string, body: any): Promis
   if (path === '/auth/login') {
     const u = String(body?.email ?? '').trim().toLowerCase();
     if (u !== PREVIEW_LOGIN.username || body?.password !== PREVIEW_LOGIN.password) throw new PErr(401, 'Email or password is incorrect.');
-    s.signedIn = true; s.user = undefined; save(s); return { user: USER, csrf: 'preview' };
+    s.signedIn = true; s.user = undefined; save(s); if (!DATA) DATA = (await import('./preview-data.json')).default; return { user: DATA.login.user ?? DATA.base['/auth/me'].user, csrf: 'preview' };
   }
   if (path === '/auth/logout') { s.signedIn = false; s.user = undefined; save(s); return { ok: true }; }
   if (!s.signedIn) throw new PErr(401, 'Please sign in.');
-  if (path === '/notifications') return { notifications: [], unread: 0 };
-  if (path === '/notifications/read' || path === '/bookmarks') return { ok: true };
+  const rep = await replay(method, path, url, body, s); if (rep !== undefined) return rep;
   if (path === '/tutor/conversations') {
     if (method === 'GET') return { conversations: [...s.convs].reverse(), provider: { name: 'ui-preview', mock: true }, actions: ACTIONS };
     const c = { id: id(), title: body?.title ?? 'New conversation', created_at: now() }; s.convs.push(c); s.msgs[c.id] = []; save(s); return { conversation: c };
@@ -76,3 +75,62 @@ export async function previewApi(method: string, url: string, body: any): Promis
   throw new PErr(404, 'Not available in UI preview.');
 }
 export { PErr };
+
+// ---------- replay of recorded real responses (scripts/record-preview.ts) ----------
+let DATA: any = null;
+const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/;
+function fresh(x: any, s: St): any {
+  const delta = Date.now() - Date.parse(DATA.recordedAt); const name = s.user?.role === 'student' ? s.user.display_name : null;
+  const walk = (v: any): any => typeof v === 'string' ? (ISO.test(v) ? new Date(Date.parse(v) + delta).toISOString() : name ? v.replace(/Meenakshi Kumar/g, name).replace(/\bMeena\b/g, name.split(' ')[0]) : v) : Array.isArray(v) ? v.map(walk) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, w]) => [k, walk(w)])) : v;
+  return walk(x);
+}
+async function replay(method: string, path: string, url: string, body: any, s: St): Promise<any> {
+  if (!DATA) DATA = (await import('./preview-data.json')).default;
+  const D = DATA; const R = (x: any) => fresh(x, s); const m = (re: RegExp) => path.match(re);
+  const done = !!s.done; const key = url;
+  if (method === 'GET') {
+    if (path === '/bookmarks') return { bookmarks: s.marks ?? D.base['/bookmarks'].bookmarks };
+    if (path === '/materials') return R({ materials: s.mat ? D.material.list.materials : [], capabilities: D.base['/materials'].capabilities });
+    if (path === '/notifications') return R(done ? D.after['/notifications'] : D.base['/notifications']);
+    if (done && D.after[path]) return R(D.after[path]);
+    if (D.base[key] !== undefined) return R(D.base[key]);
+    let x: RegExpMatchArray | null;
+    if ((x = m(/^\/lessons\/([^/]+)$/))) { if (D.lessons[x[1]]) return R(D.lessons[x[1]]); throw new PErr(404, 'Lesson not found.'); }
+    if ((x = m(/^\/tests\/([^/]+)$/))) { if (done && x[1] === D.attempt.testId) return R(D.after.testDetail); if (D.tests[x[1]]) return R(D.tests[x[1]]); throw new PErr(404, 'Test not found.'); }
+    if ((x = m(/^\/attempts\/([^/]+)$/))) return R(D.attempt.pre);
+    if ((x = m(/^\/attempts\/([^/]+)\/result$/))) return R(D.attempt.result);
+    if ((x = m(/^\/attempts\/([^/]+)\/review$/))) return R(D.attempt.review);
+    if ((x = m(/^\/certificates\/([^/]+)\/history$/))) return R(D.attempt.certHistory);
+    if ((x = m(/^\/verify\/([^/]+)$/))) { if (D.verify[x[1]]) return R(D.verify[x[1]]); throw new PErr(404, 'Certificate not found.'); }
+    if ((x = m(/^\/materials\/([^/]+)$/)) && s.mat) return R(D.material.detail);
+    return undefined;
+  }
+  if (method === 'POST') {
+    let x: RegExpMatchArray | null;
+    if ((x = m(/^\/tests\/([^/]+)\/attempts$/))) return R(D.attempt.start);
+    if ((x = m(/^\/attempts\/([^/]+)\/submit$/))) { s.done = true; save(s); return R(D.attempt.submit); }
+    if (path === '/practice/start') return R(D.practice.start);
+    if ((x = m(/^\/practice\/([^/]+)\/submit$/))) return R(D.practice.submit);
+    if (m(/^\/lessons\/[^/]+\/open$/)) return { ok: true };
+    if ((x = m(/^\/lessons\/([^/]+)\/complete$/))) { s.completed = [...(s.completed ?? []), x[1]]; save(s); return { ok: true }; }
+    if (path === '/bookmarks') { s.marks = [...(s.marks ?? D.base['/bookmarks'].bookmarks), { id: id(), student_id: 'preview', kind: body?.kind, ref: body?.ref, title: body?.title ?? '', created_at: now() }]; save(s); return { ok: true }; }
+    if (path === '/notifications/read') return { ok: true };
+    if (path === '/profile/guardian-code') return { code: 'K7M2QX' };
+    if (path === '/materials/upload' || path === '/materials/link') { s.mat = true; save(s); return R(D.material.upload); }
+    if ((x = m(/^\/materials\/[^/]+\/(ask|notes|quiz)$/))) return R(D.material[x[1]]);
+    if (path === '/materials/' || /^\/materials\/[^/]+\/(ocr|text)$/.test(path)) throw new PErr(422, 'Not available in UI preview.');
+    if (/^\/assignments\/[^/]+\/submit$/.test(path)) throw new PErr(422, 'Not available in UI preview.');
+  }
+  if (method === 'PUT') {
+    if (/^\/attempts\/[^/]+\/answers$/.test(path)) return { saved: true, serverTime: now() };
+    if (path === '/profile') return { profile: { ...(D.base['/profile'].profile ?? {}), full_name: body?.fullName, class_level: body?.classLevel } };
+    if (/^\/materials\/[^/]+\/text$/.test(path)) throw new PErr(422, 'Not available in UI preview.');
+  }
+  if (method === 'DELETE') {
+    if (path === '/bookmarks') { s.marks = (s.marks ?? D.base['/bookmarks'].bookmarks).filter((b: any) => !(b.kind === new URLSearchParams(url.split('?')[1]).get('kind') && b.ref === new URLSearchParams(url.split('?')[1]).get('ref'))); save(s); return { ok: true }; }
+    let x: RegExpMatchArray | null;
+    if ((x = m(/^\/bookmarks\/([^/]+)$/))) { s.marks = (s.marks ?? D.base['/bookmarks'].bookmarks).filter((b: any) => b.id !== x![1]); save(s); return { ok: true }; }
+    if (/^\/materials\/[^/]+$/.test(path)) { s.mat = false; save(s); return { ok: true }; }
+  }
+  return undefined;
+}
