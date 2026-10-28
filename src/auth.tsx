@@ -3,12 +3,12 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { get, post, setCsrf } from './api';
 import { Loading } from './components/ui';
 
-export type Role = 'student' | 'parent' | 'teacher' | 'school_admin' | 'admin';
+export type Role = 'student' | 'parent' | 'teacher' | 'school_admin' | 'admin' | 'pending';
 export type User = { id: string; email: string; display_name: string; role: Role; school_id: string | null };
 type Ctx = { user: User | null; profile: any; needsProfile: boolean; loading: boolean; config: any; refresh: () => Promise<void>; login: (e: string, p: string) => Promise<User>; register: (b: any) => Promise<any>; logout: () => Promise<void> };
 const C = createContext<Ctx>(null as any);
 export const useAuth = () => useContext(C);
-export const homeFor = (r: Role) => ({ student: '/app', parent: '/parent', teacher: '/teacher', school_admin: '/school', admin: '/admin' }[r]);
+export const homeFor = (_r: Role) => '/app';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null); const [profile, setProfile] = useState<any>(null); const [needsProfile, setNeeds] = useState(false); const [loading, setLoading] = useState(true); const [config, setConfig] = useState<any>({});

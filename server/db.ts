@@ -27,7 +27,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS schools (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, display_name TEXT NOT NULL, password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('student','parent','teacher','school_admin','admin')),
+  role TEXT NOT NULL CHECK (role IN ('student','parent','teacher','school_admin','admin','pending')),
   school_id TEXT REFERENCES schools(id), consent_at TEXT, created_at TEXT NOT NULL, disabled INTEGER NOT NULL DEFAULT 0, is_demo INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at TEXT NOT NULL, csrf TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS student_profiles (

@@ -73,7 +73,7 @@ describe('AI tutor (development tutor) and materials', () => {
     expect(r.status).toBe(200); expect(JSON.stringify(r.body)).not.toMatch(/Border|Allan/);
   });
   it('blocks the tutor for under-13 accounts until a guardian approves', async () => {
-    const c = client(ctx.app); await c.register({ displayName: 'Tiny', email: 'tiny@x.com', password: 'Secret123', consent: true, under13: true });
+    const c = client(ctx.app); await c.register({ displayName: 'Tiny', email: 'tiny@x.com', password: 'Secret123', consent: true, under13: true, guardianName: 'Parent One', guardianEmail: 'parent1@x.com' });
     await c.put('/api/profile', profileBody({ fullName: 'Tiny One', classLevel: 4 }));
     const conv = (await c.post('/api/tutor/conversations', {})).body.conversation;
     expect((await c.post(`/api/tutor/conversations/${conv.id}/messages`, { text: 'hello' })).status).toBe(403);

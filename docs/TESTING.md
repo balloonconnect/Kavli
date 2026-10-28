@@ -1,8 +1,9 @@
 # Testing
 
-## Automated (`npm test`, 31 tests)
+## Automated (`npm test`, 38 tests)
 - `flow.test.ts` — registration, guardian consent, password hashing, CSRF, full register→lesson→test→result→certificate journey, duplicate/attempt limits, RBAC, parent isolation, manual review → finalise → reissue → revoke → verify.
 - `units.test.ts` — grading, SSRF blocking, solver, Tamil PDF, tutor, under-13 limits, materials privacy, real PDF text extraction, scanned-PDF detection.
+- `signup.test.ts` — shared sign-up: student profile in one request, under-13 guardian rules, no admin self-registration, pending teacher/school-admin and approval, parent link codes.
 - `timing.test.ts` — deadline, idempotent submit, expiry settle, review visibility, draft-question publish rule.
 
 ## Browser audits

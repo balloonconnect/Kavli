@@ -62,6 +62,7 @@ export function schoolRoutes(db: DB) {
 export function adminRoutes(db: DB) {
   const r = Router(); r.use(requireRole('admin'));
   r.get('/stats', wrap(async (_req, res) => { const n = (s: string) => q.get<any>(db, s)!.n; res.json({ users: n('SELECT COUNT(*) n FROM users'), students: n("SELECT COUNT(*) n FROM users WHERE role='student'"), schools: n('SELECT COUNT(*) n FROM schools'), tests: n('SELECT COUNT(*) n FROM tests'), attempts: n('SELECT COUNT(*) n FROM attempts'), certificates: n("SELECT COUNT(*) n FROM certificates WHERE status='valid'"), lessons: n('SELECT COUNT(*) n FROM lessons'), questions: n('SELECT COUNT(*) n FROM questions'), errorsNote: 'Operational errors are written to the server log; none are stored in the database.' }); }));
+  r.get('/role-requests', wrap(async (_req, res) => res.json({ requests: q.all<any>(db, "SELECT s.key, s.value, u.id, u.email, u.display_name, u.role FROM settings s JOIN users u ON s.key = 'rolereq:' || u.id WHERE u.role='pending' ORDER BY u.created_at").map(x => ({ userId: x.id, email: x.email, name: x.display_name, ...JSON.parse(x.value) })) })));
   r.get('/users', wrap(async (_req, res) => res.json({ users: q.all(db, 'SELECT id,email,display_name,role,school_id,disabled,is_demo,created_at FROM users ORDER BY created_at DESC LIMIT 300') })));
   r.patch('/users/:id', wrap(async (req, res) => {
     const b = parse(z.object({ role: z.enum(['student', 'parent', 'teacher', 'school_admin', 'admin']).optional(), disabled: z.boolean().optional(), schoolId: z.string().nullable().optional() }), req.body);

@@ -10,9 +10,9 @@ const SHORT: Record<string, string> = { '/app': 'Home', '/app/tutor': 'Tutor', '
 const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
 export const NAV: Record<Role, NavItem[]> = {
   student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat')],
-  parent: [], teacher: [], school_admin: [], admin: [],
+  parent: [T('/app', 'Home', 'முகப்பு', 'home', true)], teacher: [T('/app', 'Home', 'முகப்பு', 'home', true)], school_admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], admin: [T('/app', 'Home', 'முகப்பு', 'home', true)], pending: [T('/app', 'Home', 'முகப்பு', 'home', true)],
 };
-const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin' };
+const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin', pending: 'Awaiting approval' };
 
 function Label({ n }: { n: NavItem }) { const { lang } = useLang(); return <span className="navlbl">{lang === 'ta' ? <span lang="ta" className="ta">{n.ta}</span> : <>{n.en}{lang === 'both' && <span lang="ta" className="ta navta">{n.ta}</span>}</>}</span>; }
 

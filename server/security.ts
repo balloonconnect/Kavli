@@ -18,7 +18,7 @@ export async function verifyPassword(pw: string, stored: string) {
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export const newToken = (bytes = 16) => randomBytes(bytes).toString('base64url');
 
-export type Role = 'student' | 'parent' | 'teacher' | 'school_admin' | 'admin';
+export type Role = 'student' | 'parent' | 'teacher' | 'school_admin' | 'admin' | 'pending';
 export type AuthUser = { id: string; email: string; display_name: string; role: Role; school_id: string | null };
 declare global { namespace Express { interface Request { user?: AuthUser; csrf?: string } } }
 

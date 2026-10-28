@@ -16,10 +16,10 @@ export function PublicLayout({ children }: { children: ReactNode }) {
         <Link to="/" className="logo" aria-label="Kalvi Mitra home"><span className="m"><Icon name="book" size={20} /></span><span><b style={{ fontSize: 16 }}>Kalvi Mitra</b></span></Link>
         <nav className="pubnav" aria-label="Site">{links.map(([to, t]) => <NavLink key={to} to={to}>{t}</NavLink>)}</nav>
         <div className="grow" /><LangToggle />
-        {user ? <Button to={homeFor(user.role)} className="hide-sm">Open app</Button> : <><Button tone="secondary" to="/signin" className="hide-sm">Sign in</Button></>}
+        {user ? <Button to={homeFor(user.role)} className="hide-sm">Open app</Button> : <><Button tone="secondary" to="/signin" className="hide-sm">Sign in</Button><Button to="/signup" className="hide-sm">Create account</Button></>}
         <button className="btn secondary iconbtn menubtn" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(o => !o)}><Icon name={open ? 'x' : 'menu'} /></button>
       </header>
-      {open && <div className="pubdrawer" key={loc.pathname}>{links.map(([to, t]) => <Link key={to} to={to} onClick={() => setOpen(false)}>{t}</Link>)}{!user ? <><Link to="/signin" onClick={() => setOpen(false)}>Sign in</Link></> : <Link to={homeFor(user.role)} onClick={() => setOpen(false)}>Open app</Link>}</div>}
+      {open && <div className="pubdrawer" key={loc.pathname}>{links.map(([to, t]) => <Link key={to} to={to} onClick={() => setOpen(false)}>{t}</Link>)}{!user ? <><Link to="/signin" onClick={() => setOpen(false)}>Sign in</Link><Link to="/signup" onClick={() => setOpen(false)}>Create account</Link></> : <Link to={homeFor(user.role)} onClick={() => setOpen(false)}>Open app</Link>}</div>}
       <main id="main" tabIndex={-1} className="pubmain">{children}</main>
       <footer className="pubfoot">
         <div><b>Kalvi Mitra · கல்வி மித்ரா</b><p className="muted small">An independent study companion for Tamil Nadu State Board (Samacheer Kalvi) students, Classes 1–12. Not affiliated with, or endorsed by, the Government of Tamil Nadu or the Tamil Nadu State Board.</p></div>
@@ -38,7 +38,7 @@ export function Landing() {
           <Badge tone="info">Tamil Nadu State Board · Classes 1–12</Badge>
           <h1 className="herotitle"><Bi en="Learn in Tamil, English, or both — with an AI study friend" ta="தமிழ், ஆங்கிலம் அல்லது இரண்டிலும் கற்றுக்கொள்ளுங்கள்" block /></h1>
           <p className="muted" style={{ fontSize: 16 }}><Bi en="Bilingual lessons, a patient AI tutor, practice questions, weekly tests and verifiable achievement certificates." ta="இருமொழிப் பாடங்கள், AI ஆசிரியர், பயிற்சி, வாராந்திரத் தேர்வுகள் மற்றும் சான்றிதழ்கள்." block /></p>
-          <div className="row wrap"><Button to={user ? homeFor(user.role) : '/signin'}>{user ? 'Open my app' : 'Sign in'}</Button><Button tone="secondary" to="/how-it-works">See how it works</Button></div>
+          <div className="row wrap"><Button to={user ? homeFor(user.role) : '/signup'}>{user ? 'Open my app' : 'Create account'}</Button><Button tone="secondary" to="/how-it-works">See how it works</Button></div>
           <p className="muted small">Lessons and questions shown here are sample content for this prototype, not official textbook content.</p>
         </div>
         <Card className="heroside"><h3>Today’s learning loop</h3>
@@ -77,9 +77,9 @@ export function Help() {
 export function NotFound() { return <div className="state"><h1>Page not found</h1><p>The page you are looking for does not exist.</p><Button to="/">Go home</Button></div>; }
 
 export function SignIn() {
-  const { login, logout, config } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const toast = useToast();
+  const { login, config } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const toast = useToast();
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [show, setShow] = useState(false); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const go = async (e: string, p: string) => { setErr(''); setBusy(true); try { const u = await login(e, p); if (u.role !== 'student') { await logout(); throw new Error('This account type is not available in this version.'); } const from = (loc.state as any)?.from; nav(from && from.startsWith('/') ? from : homeFor(u.role), { replace: true }); } catch (x) { setErr(msg(x)); } finally { setBusy(false); } };
+  const go = async (e: string, p: string) => { setErr(''); setBusy(true); try { const u = await login(e, p); const from = (loc.state as any)?.from; nav(from && from.startsWith('/') ? from : homeFor(u.role), { replace: true }); } catch (x) { setErr(msg(x)); } finally { setBusy(false); } };
   const demo: [string, string][] = [['Use demo login', 'vikikalvi']];
   return (
     <div className="authwrap"><Card className="authcard">
@@ -90,6 +90,7 @@ export function SignIn() {
         {err && <div className="notice err" role="alert"><Icon name="alert" />{err}</div>}
         <Button type="submit" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
+      <p className="small muted center">New here? <Link to="/signup" className="link">Create an account</Link></p>
       {config.demoAccounts && <div className="demobox"><div className="row"><Badge tone="warning">{config.preview ? 'UI preview' : 'Development only'}</Badge><span className="small muted">{config.preview ? <>No backend: sample data only. Username <code>vikikalvi</code>, password <code>demo@12345</code>.</> : <>Demo account (password <code>demo@12345</code>). Hidden in production.</>}</span></div>
         <div className="row wrap">{demo.map(([l, e]) => <button key={e} className="pill" disabled={busy} onClick={() => go(e, 'demo@12345')}>{l}</button>)}</div></div>}
     </Card></div>

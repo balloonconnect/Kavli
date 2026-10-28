@@ -13,7 +13,7 @@ const ACTIONS: Record<string, { en: string; ta: string }> = {
   simpler: { en: 'Explain simply', ta: 'எளிமையாக விளக்கு' }, steps: { en: 'Solve step by step', ta: 'படிப்படியாகத் தீர்' },
   hint: { en: 'Give a hint', ta: 'குறிப்பு கொடு' }, another: { en: 'Show another example', ta: 'இன்னொரு எடுத்துக்காட்டு' },
 };
-type St = { signedIn: boolean; convs: any[]; msgs: Record<string, any[]> };
+type St = { signedIn: boolean; user?: any; profile?: any; emails?: string[]; convs: any[]; msgs: Record<string, any[]> };
 const mem: St = { signedIn: false, convs: [], msgs: {} };
 const load = (): St => { try { const s = sessionStorage.getItem('kavli_preview'); return s ? JSON.parse(s) : mem; } catch { return mem; } };
 const save = (s: St) => { try { sessionStorage.setItem('kavli_preview', JSON.stringify(s)); } catch { Object.assign(mem, s); } };
@@ -38,13 +38,24 @@ function reply(text: string, action?: string) {
 export async function previewApi(method: string, url: string, body: any): Promise<any> {
   const s = load(); const path = url.split('?')[0];
   if (path === '/config') return { production: false, demoAccounts: true, aiProvider: 'ui-preview', aiIsMock: true, ocrAvailable: false, preview: true };
-  if (path === '/auth/me') return s.signedIn ? { user: USER, profile: PROFILE, needsProfile: false, csrf: 'preview' } : { user: null };
+  if (path === '/auth/me') return s.signedIn ? { user: s.user ?? USER, profile: s.user ? s.profile ?? null : PROFILE, needsProfile: false, csrf: 'preview' } : { user: null };
+  if (path === '/auth/register') {
+    // Preview only: validates the same rules, keeps the account for this tab, stores no password.
+    const email = String(body?.email ?? '').trim().toLowerCase();
+    if (email === USER.email || s.emails?.includes(email)) throw new PErr(409, 'An account with this email already exists. Try signing in.');
+    if (body?.role === 'admin' || !['student', 'parent', 'teacher', 'school_admin'].includes(body?.role)) throw new PErr(400, 'Choose a valid account type.');
+    const staff = body.role === 'teacher' || body.role === 'school_admin';
+    s.user = { id: id(), email, display_name: String(body.displayName), role: staff ? 'pending' : body.role, school_id: null };
+    s.profile = body.role === 'student' ? { full_name: body.displayName, preferred_name: body.displayName, class_level: body.student?.classLevel, medium: body.student?.medium, voice_prefs: { rate: 1 } } : null;
+    s.emails = [...(s.emails ?? []), email]; s.signedIn = true; save(s);
+    return { user: s.user, csrf: 'preview', needsProfile: false, requestedRole: body.role, pendingApproval: staff };
+  }
   if (path === '/auth/login') {
     const u = String(body?.email ?? '').trim().toLowerCase();
     if (u !== PREVIEW_LOGIN.username || body?.password !== PREVIEW_LOGIN.password) throw new PErr(401, 'Email or password is incorrect.');
-    s.signedIn = true; save(s); return { user: USER, csrf: 'preview' };
+    s.signedIn = true; s.user = undefined; save(s); return { user: USER, csrf: 'preview' };
   }
-  if (path === '/auth/logout') { s.signedIn = false; save(s); return { ok: true }; }
+  if (path === '/auth/logout') { s.signedIn = false; s.user = undefined; save(s); return { ok: true }; }
   if (!s.signedIn) throw new PErr(401, 'Please sign in.');
   if (path === '/notifications') return { notifications: [], unread: 0 };
   if (path === '/notifications/read' || path === '/bookmarks') return { ok: true };
