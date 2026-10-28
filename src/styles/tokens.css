@@ -1,7 +1,7 @@
 /* Design tokens — mirrored from the Figma "Foundations" variables */
 :root {
   --bg:#faf8f5; --surface:#fff; --surface-alt:#f4f2ee; --border:#e7e3dc;
-  --text:#1f2340; --text-muted:#6b7085;
+  --text:#1f2340; --text-muted:#565b70;
   --primary:#4f46e5; --primary-dark:#3730a3; --primary-soft:#eef0ff; --on-primary:#fff;
   --accent:#0d9488; --accent-soft:#d9f4f0;
   --success:#15803d; --success-soft:#dcfce7;

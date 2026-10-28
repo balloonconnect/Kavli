@@ -1,40 +1,79 @@
-import { ReactNode } from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { Icon, DemoBadge } from './ui';
-import { LangToggle } from './lang';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Icon, Badge, fmtDT } from './ui';
+import { LangToggle, useLang } from './lang';
+import { useAuth, Role } from '../auth';
+import { get, post } from '../api';
 
-export type NavItem = { to: string; label: string; icon: Parameters<typeof Icon>[0]['name'] };
-export const studentNav: NavItem[] = [
-  { to: '/app', label: 'Dashboard', icon: 'home' }, { to: '/app/lesson', label: 'Curriculum', icon: 'layers' },
-  { to: '/app/tutor', label: 'AI Tutor', icon: 'chat' }, { to: '/app/material', label: 'Learn from Your Material', icon: 'upload' },
-  { to: '/app/tests', label: 'Weekly Tests', icon: 'test' }, { to: '/app/certificates', label: 'Certificates', icon: 'award' },
-];
-export const parentNav: NavItem[] = [{ to: '/parent', label: 'Overview', icon: 'home' }];
-export const teacherNav: NavItem[] = [{ to: '/teacher/builder', label: 'Weekly tests', icon: 'test' }, { to: '/teacher/results', label: 'Results & analytics', icon: 'chart' }];
-export const adminNav: NavItem[] = [{ to: '/admin/certificates', label: 'Certificates', icon: 'award' }];
+export type NavItem = { to: string; en: string; ta: string; icon: Parameters<typeof Icon>[0]['name']; end?: boolean; short?: string };
+const SHORT: Record<string, string> = { '/app': 'Home', '/app/tutor': 'Tutor', '/app/material': 'Material', '/app/tests': 'Tests', '/parent': 'Children', '/teacher/classes': 'Classes', '/teacher/questions': 'Questions', '/teacher/tests': 'Tests', '/teacher/reviews': 'Marking', '/school/people': 'People', '/admin/users': 'Users', '/admin/schools': 'Schools' };
+const T = (to: string, en: string, ta: string, icon: NavItem['icon'], end = false): NavItem => ({ to, en, ta, icon, end, short: SHORT[to] });
+export const NAV: Record<Role, NavItem[]> = {
+  student: [T('/app', 'Dashboard', 'முகப்பு', 'home', true), T('/app/learn', 'Learn', 'பாடங்கள்', 'layers'), T('/app/tutor', 'AI Tutor', 'AI ஆசிரியர்', 'chat'), T('/app/material', 'My Material', 'என் பொருள்', 'upload'),
+    T('/app/practice', 'Practice', 'பயிற்சி', 'target'), T('/app/tests', 'Weekly Tests', 'வாராந்திரத் தேர்வுகள்', 'test'), T('/app/progress', 'Progress', 'முன்னேற்றம்', 'chart'), T('/app/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award'),
+    T('/app/homework', 'Homework', 'வீட்டுப்பாடம்', 'edit'), T('/app/bookmarks', 'Bookmarks', 'புத்தகக்குறி', 'bookmark'), T('/app/settings', 'Settings', 'அமைப்புகள்', 'settings')],
+  parent: [T('/parent', 'My children', 'என் குழந்தைகள்', 'users', true), T('/parent/settings', 'Account', 'கணக்கு', 'settings')],
+  teacher: [T('/teacher', 'Overview', 'மேலோட்டம்', 'home', true), T('/teacher/classes', 'Classes', 'வகுப்புகள்', 'users'), T('/teacher/questions', 'Question bank', 'கேள்வி வங்கி', 'layers'), T('/teacher/tests', 'Weekly tests', 'வாராந்திரத் தேர்வுகள்', 'test'),
+    T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/homework', 'Homework', 'வீட்டுப்பாடம்', 'file'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
+  school_admin: [T('/school', 'Overview', 'மேலோட்டம்', 'home', true), T('/school/people', 'People', 'நபர்கள்', 'users'), T('/school/classes', 'Classes', 'வகுப்புகள்', 'layers'), T('/teacher/tests', 'Weekly tests', 'வாராந்திரத் தேர்வுகள்', 'test'),
+    T('/teacher/reviews', 'Marking queue', 'மதிப்பீட்டு வரிசை', 'edit'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
+  admin: [T('/admin', 'Overview', 'மேலோட்டம்', 'home', true), T('/admin/users', 'Users & roles', 'பயனர்கள்', 'users'), T('/admin/schools', 'Schools', 'பள்ளிகள்', 'layers'), T('/admin/curriculum', 'Curriculum', 'பாடத்திட்டம்', 'book'),
+    T('/admin/ai', 'AI & usage', 'AI பயன்பாடு', 'chat'), T('/admin/audit', 'Audit log', 'தணிக்கை', 'shield'), T('/admin/settings', 'Settings & security', 'அமைப்புகள்', 'settings'), T('/teacher/tests', 'Weekly tests', 'தேர்வுகள்', 'test'), T('/teacher/certificates', 'Certificates', 'சான்றிதழ்கள்', 'award')],
+};
+const ROLE_LABEL: Record<Role, string> = { student: 'Student', parent: 'Parent / guardian', teacher: 'Teacher', school_admin: 'School admin', admin: 'Platform admin' };
 
-export function Shell({ nav, user, role, children, mobileNav }: { nav: NavItem[]; user: { name: string; sub: string; initial: string }; role: string; children: ReactNode; mobileNav?: NavItem[] }) {
-  const mn = (mobileNav ?? nav).slice(0, 5);
+function Label({ n }: { n: NavItem }) { const { lang } = useLang(); return <span className="navlbl">{lang === 'ta' ? <span lang="ta" className="ta">{n.ta}</span> : <>{n.en}{lang === 'both' && <span lang="ta" className="ta navta">{n.ta}</span>}</>}</span>; }
+
+function Bell() {
+  const [open, setOpen] = useState(false); const [d, setD] = useState<any>(null); const ref = useRef<HTMLDivElement>(null);
+  const load = () => get('/notifications').then(setD).catch(() => {});
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
+  useEffect(() => { if (!open) return; const f = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); }; const k = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false); document.addEventListener('mousedown', f); document.addEventListener('keydown', k); return () => { document.removeEventListener('mousedown', f); document.removeEventListener('keydown', k); }; }, [open]);
   return (
-    <div className="shell">
-      <aside className="side" aria-label="Main navigation">
-        <Link to="/" className="logo"><span className="m"><Icon name="book" size={20} /></span>
-          <span><b style={{ fontSize: 16 }}>Kalvi Mitra</b><br /><span className="muted small ta">{role}</span></span></Link>
-        {nav.map(n => <NavLink key={n.to} to={n.to} end className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}><Icon name={n.icon} />{n.label}</NavLink>)}
-        <div className="usercard"><span className="avatar">{user.initial}</span><div><div className="semi small">{user.name}</div><div className="muted small">{user.sub}</div></div></div>
-      </aside>
-      <div className="main">
-        <header className="topbar">
-          <input className="search" placeholder="Search lessons, questions…" aria-label="Search" />
-          <div className="grow" /><DemoBadge /><LangToggle />
-          <button className="btn secondary" aria-label="Notifications" style={{ padding: 0, width: 40 }}><Icon name="bell" /></button>
-        </header>
-        <main className="content">{children}</main>
-        <nav className="bottomnav" aria-label="Primary">
-          {mn.map(n => <NavLink key={n.to} to={n.to} end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={n.icon} size={22} />{n.label.split(' ')[0]}</NavLink>)}
-        </nav>
-      </div>
+    <div className="pop-wrap" ref={ref}>
+      <button className="btn secondary iconbtn" aria-label={`Notifications${d?.unread ? `, ${d.unread} unread` : ''}`} aria-expanded={open} onClick={() => { setOpen(o => !o); if (!open) load(); }}><Icon name="bell" />{!!d?.unread && <span className="dot">{d.unread}</span>}</button>
+      {open && <div className="pop" role="dialog" aria-label="Notifications">
+        <div className="row" style={{ padding: '4px 4px 8px' }}><b className="grow">Notifications</b>{!!d?.unread && <button className="linkbtn" onClick={async () => { await post('/notifications/read'); load(); }}>Mark all read</button>}</div>
+        {!d?.notifications?.length ? <div className="muted small" style={{ padding: 12 }}>You have no notifications yet.</div> : d.notifications.slice(0, 8).map((n: any) => (
+          <div key={n.id} className={`note ${n.read ? '' : 'unread'}`}><div className="semi small">{n.title}</div><div className="muted small">{n.body}</div><div className="muted xs">{fmtDT(n.created_at)}</div></div>))}
+      </div>}
     </div>
   );
 }
-export const StudentShell = ({ children }: { children: ReactNode }) => <Shell nav={studentNav} role="கல்வி மித்ரா" user={{ name: 'Meena', sub: 'Class 8 · English', initial: 'M' }} children={children} />;
+
+export function Shell({ children }: { children: ReactNode }) {
+  const { user, profile, logout } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const [more, setMore] = useState(false); const [q, setQ] = useState('');
+  useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
+  if (!user) return null;
+  const items = NAV[user.role]; const mobile = items.slice(0, 4);
+  const name = profile?.preferred_name || profile?.full_name || user.display_name;
+  const out = async () => { await logout(); nav('/'); };
+  return (
+    <div className="shell">
+      <a className="skip" href="#main">Skip to content</a>
+      <aside className="side" aria-label="Main navigation">
+        <Link to="/" className="logo"><span className="m"><Icon name="book" size={20} /></span><span><b style={{ fontSize: 16 }}>Kalvi Mitra</b><br /><span className="muted small ta">கல்வி மித்ரா</span></span></Link>
+        <div className="navscroll">{items.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}><Icon name={n.icon} /><Label n={n} /></NavLink>)}</div>
+        <div className="usercard"><span className="avatar" aria-hidden>{(name || '?')[0].toUpperCase()}</span><div className="grow"><div className="semi small ell">{name}</div><div className="muted xs">{ROLE_LABEL[user.role]}{profile ? ` · Class ${profile.class_level}` : ''}</div></div>
+          <button className="btn secondary iconbtn" aria-label="Sign out" onClick={out}><Icon name="logout" /></button></div>
+      </aside>
+      <div className="main">
+        <header className="topbar">
+          <Link to="/" className="logo mlogo" aria-label="Kalvi Mitra home"><span className="m"><Icon name="book" size={18} /></span></Link>
+          {user.role === 'student' && <form className="searchform" role="search" onSubmit={e => { e.preventDefault(); nav(`/app/learn?q=${encodeURIComponent(q)}`); }}><Icon name="search" size={16} /><input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search lessons…" aria-label="Search lessons" /></form>}
+          <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
+          <Bell />
+        </header>
+        <main className="content" id="main" tabIndex={-1}>{children}</main>
+        <nav className="bottomnav" aria-label="Primary">
+          {mobile.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={n.icon} size={22} /><span>{n.short ?? n.en.split(' ')[0]}</span></NavLink>)}
+          <button onClick={() => setMore(true)} aria-label="More menu"><Icon name="more" size={22} /><span>More</span></button>
+        </nav>
+      </div>
+      {more && <div className="sheet-bg" onMouseDown={e => e.target === e.currentTarget && setMore(false)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="row"><b className="grow">Menu</b><button className="btn secondary iconbtn" aria-label="Close menu" onClick={() => setMore(false)}><Icon name="x" /></button></div>
+        <div className="sheetgrid">{items.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}><Icon name={n.icon} /><Label n={n} /></NavLink>)}</div>
+        <button className="btn secondary" onClick={out}><Icon name="logout" /> Sign out</button></div></div>}
+    </div>
+  );
+}

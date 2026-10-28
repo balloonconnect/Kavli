@@ -113,7 +113,19 @@ describe('manual review, revocation', () => {
     res = (await c.get(`/api/attempts/${a}/result`)).body.result; expect(res.status).toBe('passed'); expect(res.certificate).toBeTruthy();
     expect((await t.post(`/api/teacher/attempts/${a}/correct`, { grades: [{ questionId: sh.id, marks: 0 }] })).status).toBe(400);
     const cor = await t.post(`/api/teacher/attempts/${a}/correct`, { grades: [{ questionId: sh.id, marks: 0 }], reason: 'Marking error found' }); expect(cor.status).toBe(200);
-    const certs = (await c.get('/api/certificates')).body.certificates; expect(certs.some((x: any) => x.status === 'valid' && x.attempt_id === a)).toBe(false);
+    // Still a pass (other answers were right) so the certificate stays valid until staff reissue it with corrected marks.
+    let certs = (await c.get('/api/certificates')).body.certificates; const old = certs.find((x: any) => x.attempt_id === a && x.status === 'valid'); expect(old).toBeTruthy();
+    expect(old.snapshot.marks).toBe(50);
+    expect((await t.post(`/api/certificates/${old.id}/reissue`, { reason: 'x' })).status).toBe(400);
+    expect((await t.post(`/api/certificates/${old.id}/reissue`, { reason: 'Marks corrected after review' })).status).toBe(200);
+    certs = (await c.get('/api/certificates')).body.certificates;
+    expect(certs.find((x: any) => x.id === old.id).status).toBe('superseded'); const fresh = certs.find((x: any) => x.attempt_id === a && x.status === 'valid'); expect(fresh.id).not.toBe(old.id); expect(fresh.snapshot.marks).toBeLessThan(50);
+    expect((await client(ctx.app).get(`/api/verify/${old.token}`)).body.status).toBe('superseded');
+    // Revoking requires a reason and removes validity
+    expect((await t.post(`/api/certificates/${fresh.id}/revoke`, { reason: 'ab' })).status).toBe(400);
+    expect((await t.post(`/api/certificates/${fresh.id}/revoke`, { reason: 'Issued in error' })).status).toBe(200);
+    expect((await client(ctx.app).get(`/api/verify/${fresh.token}`)).body.status).toBe('revoked');
+    expect(JSON.stringify((await client(ctx.app).get(`/api/verify/${fresh.token}`)).body)).not.toMatch(/Test Student|Meena/);
   });
   it('revoke requires a reason and a staff role', async () => {
     const c = client(ctx.app); await c.login(DEMO.student);

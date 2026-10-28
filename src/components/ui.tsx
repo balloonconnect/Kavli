@@ -1,4 +1,4 @@
-import { ReactNode, ButtonHTMLAttributes } from 'react';
+import { ReactNode, ButtonHTMLAttributes, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export const Icon = ({ name, size = 18, color = 'currentColor' }: { name: keyof typeof PATHS; size?: number; color?: string }) => (
@@ -34,6 +34,12 @@ const PATHS = {
   ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
   trend: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>', back: '<path d="m15 18-6-6 6-6"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>', logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  volume: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>', copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>', print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>', trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>',
+  rotate: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>', image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>', info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>', refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
 } as const;
 
 type Tone = 'primary' | 'secondary' | 'teal' | 'ghost' | 'danger';
@@ -80,9 +86,39 @@ export function Field({ label, hint, error, ...rest }: { label: string; hint?: s
       {hint && !error && <div className="hint">{hint}</div>}{error && <div className="err" role="alert">{error}</div>}</div>
   );
 }
-export const DemoBadge = () => <Badge tone="warning">Demo data</Badge>;
+export const DemoBadge = () => <Badge tone="warning">Sample content</Badge>;
 export const Loading = ({ text = 'Loading…' }: { text?: string }) => <div className="state" role="status"><div className="spinner" />{text}</div>;
 export const Empty = ({ title, text, action }: { title: string; text: string; action?: ReactNode }) => <div className="state"><h3 style={{ color: 'var(--text)' }}>{title}</h3><p>{text}</p>{action}</div>;
 export const ErrorState = ({ text, retry }: { text: string; retry?: () => void }) => (
   <div className="state" role="alert"><Icon name="alert" size={28} color="var(--danger)" /><p>{text}</p>{retry && <Button tone="secondary" onClick={retry}>Try again</Button>}</div>
 );
+
+export function Modal({ title, children, onClose, wide }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { const prev = document.activeElement as HTMLElement | null; ref.current?.focus(); const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => { document.removeEventListener('keydown', k); prev?.focus?.(); }; }, [onClose]);
+  return (
+    <div className="modal-bg" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref} style={wide ? { maxWidth: 640 } : undefined}>
+        <div className="row" style={{ marginBottom: 12 }}><h2 className="grow">{title}</h2><button className="btn secondary" aria-label="Close" onClick={onClose} style={{ padding: 0, width: 36, minHeight: 36 }}><Icon name="x" /></button></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+/** Loads data on mount / when deps change, with loading + error state. */
+export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
+  const [data, setData] = useState<T | null>(null); const [error, setError] = useState<string | null>(null); const [loading, setLoading] = useState(true);
+  const run = useCallback(async () => { setLoading(true); setError(null); try { setData(await fn()); } catch (e: any) { setError(e?.message ?? 'Something went wrong.'); } finally { setLoading(false); } }, deps); // eslint-disable-line
+  useEffect(() => { run(); }, [run]);
+  return { data, error, loading, reload: run, setData };
+}
+export function Async<T>({ s, children }: { s: { data: T | null; error: string | null; loading: boolean; reload: () => void }; children: (d: T) => ReactNode }) {
+  if (s.loading && !s.data) return <Loading />;
+  if (s.error) return <ErrorState text={s.error} retry={s.reload} />;
+  return <>{s.data ? children(s.data) : null}</>;
+}
+export const PageTitle = ({ title, sub, right }: { title: ReactNode; sub?: ReactNode; right?: ReactNode }) => (
+  <div className="row wrap" style={{ alignItems: 'flex-start' }}><div className="grow"><h1>{title}</h1>{sub && <p className="muted" style={{ marginTop: 4 }}>{sub}</p>}</div>{right}</div>
+);
+export const fmtDate = (s?: string | null, o: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Date(s).toLocaleDateString('en-IN', { ...o, timeZone: 'Asia/Kolkata' }) : '—');
+export const fmtDT = (s?: string | null) => (s ? new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—');

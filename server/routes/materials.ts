@@ -22,9 +22,12 @@ const sniff = (b: Buffer): 'png' | 'jpeg' | 'webp' | 'pdf' | null => {
   if (b.subarray(0, 5).toString() === '%PDF-') return 'pdf'; return null;
 };
 async function extractPdf(buf: Buffer) {
-  const pdfParse = require_('pdf-parse/lib/pdf-parse.js'); const pages: { page: number; text: string }[] = [];
-  await pdfParse(buf, { pagerender: async (pg: any) => { const tc = await pg.getTextContent(); const text = tc.items.map((i: any) => i.str).join(' ').replace(/\s+/g, ' ').trim(); pages.push({ page: pages.length + 1, text }); return text; }, max: 60 });
-  return pages;
+  const { PDFParse } = await import('pdf-parse');
+  const parser = new PDFParse({ data: new Uint8Array(buf) });
+  try {
+    const r = await parser.getText({ first: 100 });
+    return r.pages.map(p => ({ page: p.num, text: p.text.replace(/\s+/g, ' ').trim() })).filter(p => p.text);
+  } finally { await parser.destroy().catch(() => {}); }
 }
 export function materialRoutes(db: DB) {
   const r = Router(); const S = requireRole('student'); const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX, files: 1 } });

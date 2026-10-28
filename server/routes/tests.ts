@@ -10,7 +10,7 @@ import { renderCertificatePdf } from '../services/certificatePdf';
 import { myProfile, studentReport } from './student';
 
 const publicBase = (req: Request) => process.env.PUBLIC_URL ?? `${req.protocol}://${req.get('host')}`;
-const certView = (c: any) => ({ id: c.id, ref_no: c.ref_no, token: c.token, status: c.status, reason: c.reason, issued_at: c.issued_at, issuer: c.issuer, template_type: c.template_type, template_version: c.template_version, test_id: c.test_id, snapshot: J(c.snapshot) });
+const certView = (c: any) => ({ id: c.id, attempt_id: c.attempt_id, ref_no: c.ref_no, token: c.token, status: c.status, reason: c.reason, issued_at: c.issued_at, issuer: c.issuer, template_type: c.template_type, template_version: c.template_version, test_id: c.test_id, snapshot: J(c.snapshot) });
 
 export function testRoutes(db: DB) {
   const r = Router(); const S = requireRole('student');

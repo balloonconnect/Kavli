@@ -93,3 +93,25 @@ describe('AI tutor (development tutor) and materials', () => {
     expect((await b.get(`/api/materials/${id}`)).status).toBe(404); expect((await b.get(`/api/materials/${id}/file`)).status).toBe(404);
   });
 });
+
+describe('PDF materials', () => {
+  async function makePdf(pages: string[]): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default; const doc = new PDFDocument(); const bufs: Buffer[] = []; doc.on('data', (b: Buffer) => bufs.push(b));
+    pages.forEach((t, i) => { if (i) doc.addPage(); if (t) doc.text(t); }); doc.end(); await new Promise(r => doc.on('end', r)); return Buffer.concat(bufs);
+  }
+  it('extracts text per page and answers only from the material', async () => {
+    const ctx = await setup(); const c = client(ctx.app); await c.login(DEMO.student); const csrf = (await c.get('/api/auth/me')).body.csrf;
+    const pdf = await makePdf(['Photosynthesis is how green plants make food using sunlight. Chlorophyll absorbs sunlight in the leaves.', 'Respiration releases energy from food in every living cell of the plant body.']);
+    const up = await c.agent.post('/api/materials/upload').set('x-csrf-token', csrf).field('kind', 'pdf').attach('file', pdf, 'bio.pdf');
+    expect(up.status).toBe(201); expect(up.body.material.status).toBe('ready'); expect(up.body.material.pageCount).toBe(2);
+    const id = up.body.material.id;
+    const hit = await c.post(`/api/materials/${id}/ask`, { question: 'What does chlorophyll absorb?' }); expect(hit.body.found).toBe(true); expect(hit.body.answers[0].page).toBe(1);
+    const miss = await c.post(`/api/materials/${id}/ask`, { question: 'Who invented the telephone?' }); expect(miss.body.found).toBe(false);
+    expect((await c.post(`/api/materials/${id}/quiz`, {})).body.questions.length).toBeGreaterThan(0);
+  });
+  it('reports scanned (text-less) PDFs honestly instead of inventing text', async () => {
+    const ctx = await setup(); const c = client(ctx.app); await c.login(DEMO.student); const csrf = (await c.get('/api/auth/me')).body.csrf;
+    const up = await c.agent.post('/api/materials/upload').set('x-csrf-token', csrf).field('kind', 'pdf').attach('file', await makePdf(['']), 'scan.pdf');
+    expect(up.status).toBe(201); expect(up.body.material.status).toBe('needs_ocr'); expect(up.body.material.hasText).toBe(false);
+  });
+});

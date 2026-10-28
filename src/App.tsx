@@ -1,33 +1,54 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
-import { Landing, Signup, Profile } from './pages/public';
-import { Dashboard, Lesson, Tutor, Material } from './pages/student';
-import { TestsList, TestInstructions, TestTaking, ResultPage, Certificates, CertificateView } from './pages/tests';
-import { Verify } from './pages/verify';
-import { ParentDashboard, TeacherBuilder, TeacherResults, AdminCertificates } from './pages/roles';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { Guard } from './auth';
+import { Shell } from './components/Shell';
+import { PublicLayout, Landing, Features, HowItWorks, Privacy, Terms, ChildSafety, Help, NotFound, SignIn, SignUp } from './pages/public';
+import { ProfilePage, Settings } from './pages/profile';
+import { Dashboard, Learn, Lesson, Bookmarks, Homework, Progress_, Practice } from './pages/student';
+import { Tutor } from './pages/tutor';
+import { Material } from './pages/material';
+import { TestsList, TestDetail, TakeTest, Result, Review } from './pages/tests';
+import { Certificates, Verify } from './pages/certs';
+import { TeacherHome, Classes, ClassDetail, Questions, TeacherTests, TestBuilder, TestResults, Reviews, ReviewAttempt, TeacherHomework, CertAdmin } from './pages/teacher';
+import { ParentHome, ParentChild, ParentAccount, SchoolHome, SchoolPeople, SchoolClasses, AdminHome, AdminUsers, AdminSchools, AdminAudit, AdminAI, AdminCurriculum, AdminSettings } from './pages/admin';
+import type { ReactNode } from 'react';
+import type { Role } from './auth';
+
+const P = (el: ReactNode) => <PublicLayout>{el}</PublicLayout>;
+const S = (roles: Role[], el: ReactNode) => <Guard roles={roles}><Shell>{el}</Shell></Guard>;
+const STAFF: Role[] = ['teacher', 'school_admin', 'admin'];
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/verify" element={<Verify />} />
-      <Route path="/verify/:ref" element={<Verify />} />
-      <Route path="/app" element={<Dashboard />} />
-      <Route path="/app/lesson" element={<Lesson />} />
-      <Route path="/app/tutor" element={<Tutor />} />
-      <Route path="/app/material" element={<Material />} />
-      <Route path="/app/tests" element={<TestsList />} />
-      <Route path="/app/tests/:id" element={<TestInstructions />} />
-      <Route path="/app/tests/:id/take" element={<TestTaking />} />
-      <Route path="/app/tests/:id/result" element={<ResultPage />} />
-      <Route path="/app/certificates" element={<Certificates />} />
-      <Route path="/app/certificates/:ref" element={<CertificateView />} />
-      <Route path="/parent" element={<ParentDashboard />} />
-      <Route path="/teacher/builder" element={<TeacherBuilder />} />
-      <Route path="/teacher/results" element={<TeacherResults />} />
-      <Route path="/admin/certificates" element={<AdminCertificates />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/" element={P(<Landing />)} /><Route path="/features" element={P(<Features />)} /><Route path="/how-it-works" element={P(<HowItWorks />)} />
+      <Route path="/privacy" element={P(<Privacy />)} /><Route path="/terms" element={P(<Terms />)} /><Route path="/child-safety" element={P(<ChildSafety />)} /><Route path="/help" element={P(<Help />)} />
+      <Route path="/signin" element={P(<SignIn />)} /><Route path="/signup" element={P(<SignUp />)} />
+      <Route path="/profile" element={<Guard roles={['student']} allowIncompleteProfile><ProfilePage /></Guard>} />
+      <Route path="/verify" element={<Verify />} /><Route path="/verify/:token" element={<Verify />} />
+
+      <Route path="/app" element={S(['student'], <Dashboard />)} />
+      <Route path="/app/learn" element={S(['student'], <Learn />)} /><Route path="/app/learn/:id" element={S(['student'], <Lesson />)} />
+      <Route path="/app/tutor" element={S(['student'], <Tutor />)} /><Route path="/app/material" element={S(['student'], <Material />)} />
+      <Route path="/app/practice" element={S(['student'], <Practice />)} />
+      <Route path="/app/tests" element={S(['student'], <TestsList />)} /><Route path="/app/tests/:id" element={S(['student'], <TestDetail />)} />
+      <Route path="/app/take/:id" element={S(['student'], <TakeTest />)} /><Route path="/app/result/:id" element={S(['student'], <Result />)} /><Route path="/app/review/:id" element={S(['student'], <Review />)} />
+      <Route path="/app/progress" element={S(['student'], <Progress_ />)} /><Route path="/app/certificates" element={S(['student'], <Certificates />)} />
+      <Route path="/app/homework" element={S(['student'], <Homework />)} /><Route path="/app/bookmarks" element={S(['student'], <Bookmarks />)} /><Route path="/app/settings" element={S(['student'], <Settings />)} />
+
+      <Route path="/parent" element={S(['parent'], <ParentHome />)} /><Route path="/parent/child/:id" element={S(['parent'], <ParentChild />)} /><Route path="/parent/settings" element={S(['parent'], <ParentAccount />)} />
+
+      <Route path="/teacher" element={S(STAFF, <TeacherHome />)} /><Route path="/teacher/classes" element={S(STAFF, <Classes />)} /><Route path="/teacher/classes/:id" element={S(STAFF, <ClassDetail />)} />
+      <Route path="/teacher/questions" element={S(STAFF, <Questions />)} /><Route path="/teacher/tests" element={S(STAFF, <TeacherTests />)} /><Route path="/teacher/tests/new" element={S(STAFF, <TestBuilder />)} />
+      <Route path="/teacher/tests/:id" element={S(STAFF, <TestBuilder />)} /><Route path="/teacher/tests/:id/results" element={S(STAFF, <TestResults />)} />
+      <Route path="/teacher/reviews" element={S(STAFF, <Reviews />)} /><Route path="/teacher/review/:id" element={S(STAFF, <ReviewAttempt />)} />
+      <Route path="/teacher/homework" element={S(STAFF, <TeacherHomework />)} /><Route path="/teacher/certificates" element={S(STAFF, <CertAdmin />)} />
+
+      <Route path="/school" element={S(['school_admin', 'admin'], <SchoolHome />)} /><Route path="/school/people" element={S(['school_admin', 'admin'], <SchoolPeople />)} /><Route path="/school/classes" element={S(['school_admin', 'admin'], <SchoolClasses />)} />
+
+      <Route path="/admin" element={S(['admin'], <AdminHome />)} /><Route path="/admin/users" element={S(['admin'], <AdminUsers />)} /><Route path="/admin/schools" element={S(['admin'], <AdminSchools />)} />
+      <Route path="/admin/curriculum" element={S(['admin'], <AdminCurriculum />)} /><Route path="/admin/ai" element={S(['admin'], <AdminAI />)} /><Route path="/admin/audit" element={S(['admin'], <AdminAudit />)} /><Route path="/admin/settings" element={S(['admin'], <AdminSettings />)} />
+      <Route path="/home" element={<Navigate to="/" replace />} />
+      <Route path="*" element={P(<NotFound />)} />
     </Routes>
   );
 }

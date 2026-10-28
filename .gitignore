@@ -3,3 +3,8 @@ dist
 .DS_Store
 *.log
 *.tsbuildinfo
+data/
+uploads/
+.env
+.env.local
+coverage/

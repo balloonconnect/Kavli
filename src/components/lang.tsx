@@ -19,10 +19,10 @@ export function Bi({ en, ta, block }: { en: string; ta: string; block?: boolean 
 }
 export function LangToggle() {
   const { lang, setLang } = useLang();
-  const opts: [Lang, string][] = [['ta', 'தமிழ்'], ['en', 'English'], ['both', 'தமிழ் + English']];
+  const opts: [Lang, string, string][] = [['ta', 'தமிழ்', 'த'], ['en', 'English', 'EN'], ['both', 'தமிழ் + English', 'த+EN']];
   return (
     <div className="lang" role="group" aria-label="Language">
-      {opts.map(([k, t]) => <button key={k} aria-pressed={lang === k} onClick={() => setLang(k)}>{t}</button>)}
+      {opts.map(([k, t, sh]) => <button key={k} aria-pressed={lang === k} onClick={() => setLang(k)}><span className="lg">{t}</span><span className="sh">{sh}</span></button>)}
     </div>
   );
 }

@@ -1,31 +1,48 @@
-# Kalvi Mitra (Kavli) — AI Teaching Bot UI
+# Kavli — Tamil Nadu State Board AI Teaching Bot (Classes 1–12)
 
-Front-end implementation of the Figma design for a bilingual (Tamil / English / both) AI tutor for Tamil Nadu State Board (Samacheer Kalvi) students, Classes 1–12.
+A full-stack web app: Express + SQLite API and a Vite/React/TypeScript front end.
+Students learn in Tamil / English / both, ask an AI tutor, learn from their own material,
+practise, take weekly tests, and earn verifiable PDF certificates. Parents, teachers,
+school admins and platform admins have their own screens.
 
-Figma: https://www.figma.com/design/wGFWfAauKqkYhYMGLL00VU/Untitled
+> **Status:** honest status is in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md);
+> gaps in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md). This is not an official
+> Tamil Nadu Government product; bundled curriculum content is sample content.
 
-## Stack
-Vite · React 18 · TypeScript · React Router. No UI library; design tokens live in `src/styles/tokens.css` and mirror the Figma variables.
-
-## Run
+## Quick start
+Requires Node 22+ (uses built-in `node:sqlite`).
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build
+cp .env.example .env     # optional; defaults work for local dev
+npm run dev              # API :3001 + web :5173 (proxied /api)
 ```
+Open http://localhost:5173.
 
-## Screens (routes)
-| Area | Routes |
+## Scripts
+| Script | Purpose |
 |---|---|
-| Public | `/`, `/signup`, `/profile`, `/verify`, `/verify/:ref` |
-| Student | `/app`, `/app/lesson`, `/app/tutor`, `/app/material` |
-| Tests & certificates | `/app/tests`, `/app/tests/:id` (instructions), `/app/tests/:id/take`, `/app/tests/:id/result`, `/app/certificates`, `/app/certificates/:ref` (A4, printable) |
-| Parent / Teacher / Admin | `/parent`, `/teacher/builder`, `/teacher/results`, `/admin/certificates` |
+| `npm run dev` | API (tsx watch) + Vite together |
+| `npm run build` | type-check + production front-end build to `dist/` |
+| `npm start` | production server (serves `dist/` + API) |
+| `npm run typecheck` | front-end + server type-check |
+| `npm test` | vitest (API, grading, timing, certificates, SSRF, materials) |
 
-Layout is a sidebar on desktop and a bottom navigation on screens up to 900 px.
+## Demo accounts (development only, password `Demo@12345`)
+`meena@`, `parent@`, `teacher@`, `school@`, `admin@` `…demo.kavli.local` (also `arun`, `divya`, `karthik`).
+Set `SEED_DEMO=0` in production so none of these are created.
 
-## Status: UI prototype
-All data is **demo data** (`src/data/demo.ts`) and is labelled as such. Not yet implemented:
-- Authentication, API, database, AI tutor, file processing.
-- **Scoring, pass/fail and certificate issuance must be done server-side**; the client only displays results. Integration points are marked `TODO` in the code.
-- Certificates are platform-issued achievement certificates: no official board or government branding or signatures.
+## Architecture
+- `server/` — Express app (`app.ts`), SQLite (`db.ts`), auth/CSRF/rate limit (`security.ts`),
+  routes per role, services (`grading`, `tests`, `certificatePdf`, `ssrf`, `retrieval`, `solver`, `tutor`).
+- `src/` — React app, route guards (UI only; the server re-authorises every request), pages per role,
+  bilingual `Bi` component, responsive shell with bottom nav on mobile.
+- `tests/` — vitest + supertest. `e2e/` — Playwright scripts for responsive overflow and axe a11y.
+
+## Key behaviours
+- Server-side auth (scrypt hashes, httpOnly session cookie, CSRF token), RBAC, tenant isolation.
+- Under-13 registration requires guardian consent.
+- Tests: server-authoritative timer, idempotent start/submit, immutable attempts, answer keys never sent before submit, manual review of written answers.
+- Certificates: A4 landscape PDF with Tamil text, QR + public verify page (minimal data), revoke/reissue with reasons and audit trail.
+- Learn from Your Material: private storage, magic-byte checks, SSRF-safe URL fetch, material treated as untrusted text.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/TESTING.md](docs/TESTING.md).

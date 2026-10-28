@@ -36,8 +36,9 @@ export function authRoutes(db: DB) {
     res.json({ user: { id: u.id, email: u.email, display_name: u.display_name, role: u.role }, csrf: s.csrf });
   }));
   r.post('/logout', wrap(async (req, res) => { const t = parseCookies(req.headers.cookie)[COOKIE]; if (t) destroySession(db, t); res.clearCookie(COOKIE, { path: '/' }); res.json({ ok: true }); }));
-  r.get('/me', requireAuth, wrap(async (req, res) => {
-    const u = req.user!; const p = u.role === 'student' ? q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', u.id) : null;
+  r.get('/me', wrap(async (req, res) => {
+    if (!req.user) return void res.json({ user: null });
+    const u = req.user; const p = u.role === 'student' ? q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', u.id) : null;
     res.json({ user: u, csrf: req.csrf, profile: p ? shapeProfile(p) : null, needsProfile: u.role === 'student' && !p?.completed_at });
   }));
   return r;
