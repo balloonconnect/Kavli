@@ -11,7 +11,7 @@ import { dirname } from 'node:path';
  * All SQL in the app is written once with `?` placeholders; the Postgres driver rewrites them to $1, $2, ...
  */
 type Row = Record<string, any>;
-type Conn = { get(sql: string, p: any[]): Promise<Row | undefined>; all(sql: string, p: any[]): Promise<Row[]>; run(sql: string, p: any[]): Promise<{ changes: number }>; };
+type Conn = { get(sql: string, p: any[]): Promise<Row | undefined>; all(sql: string, p: any[]): Promise<Row[]>; run(sql: string, p: any[]): Promise<{ changes: number }>; exec(sql: string): Promise<void>; };
 export type DB = {
   readonly kind: 'sqlite' | 'pg';
   conn(): Conn; tx<T>(fn: () => Promise<T>): Promise<T>; exec(sql: string): Promise<void>; close(): Promise<void>;
@@ -27,9 +27,10 @@ export const q = {
   run: (db: DB, sql: string, ...p: any[]) => active(db).run(sql, p),
 };
 
-export async function openDb(target: string = process.env.DATABASE_URL ?? process.env.DATABASE_PATH ?? 'data/kavli.db'): Promise<DB> {
+export async function openDb(target: string = process.env.DATABASE_URL ?? process.env.DATABASE_PATH ?? 'data/kavli.db', o: { migrate?: boolean } = {}): Promise<DB> {
   const db = /^postgres(ql)?:\/\//.test(target) ? await openPg(target) : openSqlite(target);
   await db.exec(db.kind === 'pg' ? toPgSchema(SCHEMA) : SCHEMA);
+  if (o.migrate !== false && process.env.MIGRATE_ON_START !== '0') await (await import('./migrate')).runMigrations(db);
   return db;
 }
 
@@ -45,9 +46,10 @@ function openSqlite(path: string): DB {
     async get(sql, p) { await gate(); return raw.prepare(sql).get(...p) as Row | undefined; },
     async all(sql, p) { await gate(); return raw.prepare(sql).all(...p) as Row[]; },
     async run(sql, p) { await gate(); const r = raw.prepare(sql).run(...p); return { changes: Number(r.changes) }; },
+    async exec(sql) { await gate(); raw.exec(sql); },
   };
   const db: DB = {
-    kind: 'sqlite', conn: () => conn, async exec(sql) { await gate(); raw.exec(sql); }, async close() { raw.close(); },
+    kind: 'sqlite', conn: () => conn, exec: sql => active(db).exec(sql), async close() { raw.close(); },
     tx<T>(fn: () => Promise<T>) {
       const run = async () => { txActive = true; raw.exec('BEGIN IMMEDIATE'); try { const r = await als.run({ db, conn }, fn); raw.exec('COMMIT'); return r; } catch (e) { raw.exec('ROLLBACK'); throw e; } finally { txActive = false; const w = waiters; waiters = []; w.forEach(f => f()); } };
       const res = chain.then(run, run); chain = res.then(() => undefined, () => undefined); return res;
@@ -72,10 +74,11 @@ async function openPg(url: string): Promise<DB> {
     async get(sql, p) { return (await c.query(toPgSql(sql), pgParams(p))).rows[0]; },
     async all(sql, p) { return (await c.query(toPgSql(sql), pgParams(p))).rows; },
     async run(sql, p) { const r = await c.query(toPgSql(sql), pgParams(p)); return { changes: r.rowCount ?? 0 }; },
+    async exec(sql) { await c.query(sql); }, // raw text, so several statements and any operator characters pass through untouched
   });
   const base = mk(pool);
   const db: DB = {
-    kind: 'pg', conn: () => base, async exec(sql) { await pool.query(sql); }, async close() { await pool.end(); },
+    kind: 'pg', conn: () => base, exec: sql => active(db).exec(sql), async close() { await pool.end(); },
     async tx<T>(fn: () => Promise<T>) { const c = await pool.connect(); try { await c.query('BEGIN'); const r = await als.run({ db, conn: mk(c) }, fn); await c.query('COMMIT'); return r; } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); } },
   };
   await pool.query('SELECT 1'); return db;

@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1158.0",

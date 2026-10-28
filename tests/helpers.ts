@@ -8,7 +8,7 @@ import { setOcrEngine } from '../server/services/ocr';
 process.env.DISABLE_RATE_LIMIT = '1';
 let dbN = 0;
 /** ':memory:' (SQLite) by default; with TEST_PG_URL each setup() gets its own fresh Postgres database. */
-async function target(): Promise<string> {
+export async function target(): Promise<string> {
   const base = process.env.TEST_PG_URL; if (!base) return ':memory:';
   const { default: pg } = await import('pg');
   const name = `t_${process.pid}_${Date.now().toString(36)}_${++dbN}`;

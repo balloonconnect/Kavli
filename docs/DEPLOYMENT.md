@@ -79,11 +79,11 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 **Operations**
 - [ ] Log shipping and an uptime check on `/api/health`.
 - [ ] A named person owns: the model/voice budget, textbook uploads, and student data-deletion requests (the student's *Delete my data* action removes their account, results and uploaded files).
-- [ ] Rollback: keep the previous image tag. Database changes are additive (`CREATE TABLE IF NOT EXISTS`); there are no destructive migrations yet.
+- [ ] Rollback: keep the previous image tag. Schema changes are numbered migrations (`docs/MIGRATIONS.md`), applied on start; take a backup before a release that has one. With several instances set `MIGRATE_ON_START=0` and run `npm run migrate up` as a release step.
 
 ## 6. What has and has not been verified
 
-Verified in this repository's test suite (224 tests, run on **SQLite and on real PostgreSQL 18**):
+Verified in this repository's test suite (234 tests, run on **SQLite and on real PostgreSQL 18**):
 sign-in and roles, tests/results/certificates, voice tutor flow, instant replay, diagrams, textbook upload/OCR flow, retrieval, the tutor-model engine and its fallbacks, storage drivers, voice provider request format.
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
