@@ -12,6 +12,9 @@ school admins and platform admins have their own screens.
 ## Current scope (trimmed UI)
 The web app currently exposes only: public pages, **/signin**, a **dashboard** and the **AI tutor** (student account). Sign-up, profile, lessons, tests, certificates and the parent/teacher/school/admin screens were removed from the front end (still in git history, commit a4ede4c). The server API and tests for those features remain, but they have no UI now. Public pages still describe the full product and should be edited to match.
 
+## UI-preview mode (no backend)
+`.env.production` sets `VITE_UI_PREVIEW=1`, so production builds (e.g. on Vercel) run entirely in the browser with a fixed demo login and canned tutor replies (`src/preview.ts`). Nothing is stored on a server. **Delete `.env.production` (or set it to 0) once the real backend is hosted.**
+
 ## Quick start
 Requires Node 22+ (uses built-in `node:sqlite`).
 ```bash

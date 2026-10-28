@@ -1,7 +1,9 @@
+import { PREVIEW, previewApi, PErr } from './preview';
 let csrf = '';
 export const setCsrf = (t: string) => { csrf = t; };
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 export async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
+  if (PREVIEW) { try { return await previewApi(method, url, body) as T; } catch (e) { if (e instanceof PErr) throw new ApiError(e.status, e.message); throw e; } }
   const headers: Record<string, string> = {}; let payload: BodyInit | undefined;
   if (body instanceof FormData) payload = body; else if (body !== undefined) { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
   if (csrf && method !== 'GET') headers['x-csrf-token'] = csrf;

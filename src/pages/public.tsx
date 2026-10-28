@@ -90,7 +90,7 @@ export function SignIn() {
         {err && <div className="notice err" role="alert"><Icon name="alert" />{err}</div>}
         <Button type="submit" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
-      {config.demoAccounts && <div className="demobox"><div className="row"><Badge tone="warning">Development only</Badge><span className="small muted">Demo accounts (password <code>demo@12345</code>). Hidden in production.</span></div>
+      {config.demoAccounts && <div className="demobox"><div className="row"><Badge tone="warning">{config.preview ? 'UI preview' : 'Development only'}</Badge><span className="small muted">{config.preview ? <>No backend: sample data only. Username <code>vikikalvi</code>, password <code>demo@12345</code>.</> : <>Demo account (password <code>demo@12345</code>). Hidden in production.</>}</span></div>
         <div className="row wrap">{demo.map(([l, e]) => <button key={e} className="pill" disabled={busy} onClick={() => go(e, 'demo@12345')}>{l}</button>)}</div></div>}
     </Card></div>
   );
