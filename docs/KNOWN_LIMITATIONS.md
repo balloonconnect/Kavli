@@ -27,3 +27,5 @@
 - Slow/offline behaviour was tested with the browser offline switch only, not on real 2G/3G links; Tamil rendering was checked on desktop Chromium fonts, not on physical low-end Android devices.
 - Side-by-side bilingual view relies on the existing "both languages" mode; no separate per-message toggle was added. The preview tutor remains canned.
 - axe accessibility scan not run.
+
+- Class books: scanned/image-only PDFs can be opened by students but the chatbot cannot answer from them (no OCR). One PDF is one "book"; no chapter splitting. Hosting official textbooks requires the right to share them. The UI-preview (Vercel) build has no backend, so the book screens show an empty list there. The Anthropic-API tutor path does not yet attach book page links (only the built-in tutor does).

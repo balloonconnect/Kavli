@@ -1,7 +1,7 @@
 import { DB, q } from '../db';
 import { gradeAnswer } from './grading';
 import { solveLinearFromText, evalConst, fstr, Solution } from './solver';
-import { tokens, topPassages, Passage } from './retrieval';
+import { tokens, topPassages, splitPassages, Passage } from './retrieval';
 
 export type Lang = 'ta' | 'en' | 'both';
 export type Bi = { en: string; ta: string };
@@ -82,6 +82,14 @@ function grammarGreeting(t: string) { return /^(hi|hello|hey|vanakkam|வணக�
 /** Tamil written in English letters ("Tanglish"), e.g. "indha equation epdi solve panradhu". Conservative: needs 2+ common Tamil words and no Tamil script. */
 const TANGLISH = new Set(['enna', 'epdi', 'eppadi', 'idhu', 'ithu', 'indha', 'intha', 'adhu', 'athu', 'enakku', 'puriyala', 'puriyudhu', 'purila', 'sollu', 'sollunga', 'vilakku', 'vilakkunga', 'panna', 'panradhu', 'pannunga', 'irukku', 'illa', 'illai', 'seiya', 'seyyanum', 'theriyala', 'theriyum', 'romba', 'konjam', 'eduthukattu', 'ketka', 'venum', 'vendam', 'nalla', 'sariya', 'thappu', 'tamilil', 'tamizhil', 'aachu', 'ennoda', 'unga', 'enga']);
 export function looksTanglish(t: string) { if (/[\u0B80-\u0BFF]/.test(t)) return false; const w = t.toLowerCase().match(/[a-z]+/g) ?? []; return w.filter(x => TANGLISH.has(x)).length >= 2; }
+
+/** Passages from the uploaded books of the student's own class only (and the open lesson's subject when known). */
+export function textbookHits(db: DB, classLevel: number, subjectId: string | null | undefined, text: string, k = 2) {
+  const books = q.all<any>(db, "SELECT id,title,subject_id FROM textbooks WHERE class_level=? AND status='ready'", classLevel).filter(b => !subjectId || !b.subject_id || b.subject_id === subjectId);
+  const ps: (Passage & { bookId: string })[] = [];
+  for (const b of books) for (const pg of q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=?', b.id)) for (const x of splitPassages(pg.text, pg.page, b.title)) ps.push({ ...x, bookId: b.id });
+  return topPassages(text, ps, k).map(h => h as Passage & { bookId: string });
+}
 
 export function developmentTutor(db: DB, i: TutorInput): TutorReply {
   const text = i.text.trim(); const lang = i.lang;
@@ -194,7 +202,12 @@ export function developmentTutor(db: DB, i: TutorInput): TutorReply {
   if (!hits.length) hits.push(...topPassages(text, asBi.map(a => ({ text: a.text, source: a.source })), 2));
   if (hits.length) {
     const used = hits.map(h => asBi.find(a => a.text === h.text)!.p);
-    return mkReply(bi(used.map(u => u.bi.en).join('\n\n'), used.map(u => u.bi.ta).join('\n\n')), { grounded: 'lesson', sources: [...new Set(used.map(u => u.label))], suggestions: ['simpler', 'another', 'test_me', 'notes'] });
+    const tb = textbookHits(db, i.classLevel, i.subjectId ?? l?.subject_id, text, 1);
+    return mkReply(bi(used.map(u => u.bi.en).join('\n\n'), used.map(u => u.bi.ta).join('\n\n')), { grounded: 'lesson', sources: [...new Set([...used.map(u => u.label), ...tb.map(t => `${t.source}, page ${t.page}`)])], suggestions: ['simpler', 'another', 'test_me', 'notes'], meta: { refs: tb.map(t => ({ bookId: t.bookId, page: t.page, title: t.source })) } });
+  }
+  { // not in a lesson: answer from the class book, with the page to open
+    const tb = textbookHits(db, i.classLevel, i.subjectId ?? l?.subject_id, text, 2);
+    if (tb.length) return mkReply(bi(`From your class book:\n${tb.map(t => `• (page ${t.page}) ${t.text}`).join('\n')}\n\n(These are excerpts from the book. Open the page to read it in full.)`, `உங்கள் வகுப்புப் புத்தகத்திலிருந்து:\n${tb.map(t => `• (பக்கம் ${t.page}) ${t.text}`).join('\n')}\n\n(இவை புத்தகத்தின் பகுதிகள். முழுமையாகப் படிக்க பக்கத்தைத் திறக்கவும்.)`), { grounded: 'material', sources: tb.map(t => `${t.source}, page ${t.page}`), suggestions: ['simpler', 'test_me'], meta: { refs: tb.map(t => ({ bookId: t.bookId, page: t.page, title: t.source })) } });
   }
 
   // 7. Honest fallback — never invent curriculum claims.

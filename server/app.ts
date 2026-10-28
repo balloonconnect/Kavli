@@ -10,6 +10,7 @@ import { studentRoutes } from './routes/student';
 import { testRoutes } from './routes/tests';
 import { tutorRoutes } from './routes/tutor';
 import { materialRoutes } from './routes/materials';
+import { textbookRoutes } from './routes/textbooks';
 import { teacherRoutes } from './routes/teacher';
 import { adminRoutes, parentRoutes, schoolRoutes } from './routes/roles';
 import { selectProvider, TutorProvider } from './services/tutor';
@@ -32,6 +33,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   api.use('/profile', profileRoutes(db));
   api.use('/tutor', tutorRoutes(db, provider));
   api.use('/materials', materialRoutes(db));
+  api.use('/textbooks', textbookRoutes(db));
   api.use('/teacher', teacherRoutes(db));
   api.use('/parent', parentRoutes(db));
   api.use('/school', schoolRoutes(db));

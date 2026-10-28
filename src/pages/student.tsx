@@ -51,7 +51,7 @@ function StudentDashboard() {
         </Card>
       </div>
       <nav aria-label="Learning tools" className="grid g4 quick">
-        {([['layers', 'Lessons & mind maps', 'Learn in Tamil or English', '/app/learn', 'var(--primary-soft)', 'var(--primary)'], ['target', 'Practice', 'Hints and explanations', '/app/practice', 'var(--accent-soft)', 'var(--accent)'], ['test', 'Weekly tests', d.toComplete ? `${d.toComplete} to complete` : 'None open now', '/app/tests', 'var(--warning-soft)', 'var(--warning)'], ['chart', 'My progress', d.passRate === null ? 'No finished tests yet' : `${d.passRate}% pass rate`, '/app/progress', 'var(--success-soft)', 'var(--success)']] as const).map(([i, t, sub, to, bg, fg]) => (
+        {([['book', 'Class books', 'Open your textbook pages', '/app/books', 'var(--primary-soft)', 'var(--primary)'], ['layers', 'Lessons & mind maps', 'Learn in Tamil or English', '/app/learn', 'var(--primary-soft)', 'var(--primary)'], ['target', 'Practice', 'Hints and explanations', '/app/practice', 'var(--accent-soft)', 'var(--accent)'], ['test', 'Weekly tests', d.toComplete ? `${d.toComplete} to complete` : 'None open now', '/app/tests', 'var(--warning-soft)', 'var(--warning)'], ['chart', 'My progress', d.passRate === null ? 'No finished tests yet' : `${d.passRate}% pass rate`, '/app/progress', 'var(--success-soft)', 'var(--success)']] as const).map(([i, t, sub, to, bg, fg]) => (
           <Link key={t} to={to} className="quicklink"><IconBox name={i} bg={bg} fg={fg} /><span><b>{t}</b><span className="muted small" style={{ display: 'block' }}>{sub}</span></span></Link>))}
       </nav>
       <div className="grid g2 split">

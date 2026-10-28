@@ -72,6 +72,7 @@ export async function previewApi(method: string, url: string, body: any): Promis
     s.msgs[c.id].push(u, a); if (c.title === 'New conversation' && text) c.title = text.slice(0, 60); save(s); return { messages: [u, a] };
   }
   if (path.startsWith('/tutor/messages/')) return { ok: true };
+  if (method === 'GET' && url === '/textbooks') return { textbooks: [] };
   throw new PErr(404, 'Not available in UI preview.');
 }
 export { PErr };
