@@ -54,6 +54,6 @@ describe('shared sign-up', () => {
     const p = client(ctx.app); const r = await p.register(base({ role: 'parent', parent: { relationship: 'mother', linkCode: code } }));
     expect(r.status).toBe(201); expect((await p.get('/api/parent/children')).body.children?.length ?? (await p.get('/api/parent/children')).body.students?.length).toBeGreaterThan(0);
     const later = client(ctx.app); expect((await later.register(base({ role: 'parent' }))).status).toBe(201);
-    expect(q.get<any>(ctx.db, "SELECT COUNT(*) n FROM users WHERE email LIKE '%@x.com' AND password_hash LIKE '%Secret123%'")!.n).toBe(0);
+    expect((await q.get<any>(ctx.db, "SELECT COUNT(*) n FROM users WHERE email LIKE '%@x.com' AND password_hash LIKE '%Secret123%'"))!.n).toBe(0);
   });
 });

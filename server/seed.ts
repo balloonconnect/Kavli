@@ -127,43 +127,43 @@ practiceQs.push(
 
 export async function seed(db: DB) {
   // textbook lessons are real content: they are also loaded into existing databases (see server/index.ts)
-  if (q.get(db, 'SELECT 1 FROM users LIMIT 1')) return;
+  if ((await q.get(db, 'SELECT 1 FROM users LIMIT 1'))) return;
   const now = clock.now(); const day = 864e5; const at = (d: number, h = 0) => iso(new Date(now.getTime() + d * day + h * 36e5));
   const ts = iso(now);
   const pw = await hashPassword(DEMO_PASSWORD);
   const ay = '2026–2027';
-  tx(db, () => {
-    q.run(db, 'INSERT INTO schools(id,name,created_at) VALUES (?,?,?)', 'school-demo', 'Demo Government Higher Secondary School (sample)', ts);
-    for (const [id, en, ta] of subjects) q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta);
-    for (const l of lessons) q.run(db, 'INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), SAMPLE);
-    upsertTextbookLessons(db);
-    for (const x of [...testQs, ...practiceQs]) q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', 'school-demo');
+  await tx(db, async () => {
+    await q.run(db, 'INSERT INTO schools(id,name,created_at) VALUES (?,?,?)', 'school-demo', 'Demo Government Higher Secondary School (sample)', ts);
+    for (const [id, en, ta] of subjects) await q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta);
+    for (const l of lessons) await q.run(db, 'INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), SAMPLE);
+    await upsertTextbookLessons(db);
+    for (const x of [...testQs, ...practiceQs]) await q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', 'school-demo');
   });
-  const mk = (id: string, email: string, name: string, role: string, school: string | null) => q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,school_id,consent_at,created_at,is_demo) VALUES (?,?,?,?,?,?,?,?,1)', id, email, name, pw, role, school, ts, ts);
-  mk('u-student', 'meena@demo.kavli.local', 'Meena', 'student', 'school-demo');
-  mk('u-parent', 'parent@demo.kavli.local', 'Mr. Kumar', 'parent', null);
-  mk('u-teacher', 'teacher@demo.kavli.local', 'Ms. Priya', 'teacher', 'school-demo');
-  mk('u-school', 'school@demo.kavli.local', 'School Admin', 'school_admin', 'school-demo');
-  mk('u-admin', 'admin@demo.kavli.local', 'Platform Admin', 'admin', null);
-  const prof = (id: string, full: string, ta: string | null, cls: number, medium = 'English', lang = 'both') => q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,class_level,medium,ai_lang,academic_year,school_name,subjects,goals,guardian_approved,school_managed,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, readableId('KM'), full, ta, cls, medium, lang, ay, 'Demo Government Higher Secondary School (sample)', JSON.stringify(['maths', 'science', 'english', 'social', 'tamil']), JSON.stringify(['understand', 'exams']), 1, 1, ts, ts);
-  prof('u-student', 'Meenakshi Kumar', 'மீனாட்சி குமார்', 8);
-  for (const [id, n] of [['u-arun', 'Arun Prakash'], ['u-divya', 'Divya Suresh'], ['u-karthik', 'Karthik Raja']]) { mk(id, `${id.slice(2)}@demo.kavli.local`, n.split(' ')[0], 'student', 'school-demo'); prof(id, n, null, 8); }
-  q.run(db, 'INSERT INTO guardian_links(parent_id,student_id) VALUES (?,?)', 'u-parent', 'u-student');
-  q.run(db, 'INSERT INTO classes VALUES (?,?,?,?,?,?)', 'cls-8a', 'school-demo', 'u-teacher', 'Class 8 · Section A', 8, ay);
-  for (const s of ['u-student', 'u-arun', 'u-divya', 'u-karthik']) q.run(db, 'INSERT INTO enrolments VALUES (?,?)', 'cls-8a', s);
+  const mk = async (id: string, email: string, name: string, role: string, school: string | null) => (await q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,school_id,consent_at,created_at,is_demo) VALUES (?,?,?,?,?,?,?,?,1)', id, email, name, pw, role, school, ts, ts));
+  await mk('u-student', 'meena@demo.kavli.local', 'Meena', 'student', 'school-demo');
+  await mk('u-parent', 'parent@demo.kavli.local', 'Mr. Kumar', 'parent', null);
+  await mk('u-teacher', 'teacher@demo.kavli.local', 'Ms. Priya', 'teacher', 'school-demo');
+  await mk('u-school', 'school@demo.kavli.local', 'School Admin', 'school_admin', 'school-demo');
+  await mk('u-admin', 'admin@demo.kavli.local', 'Platform Admin', 'admin', null);
+  const prof = async (id: string, full: string, ta: string | null, cls: number, medium = 'English', lang = 'both') => (await q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,class_level,medium,ai_lang,academic_year,school_name,subjects,goals,guardian_approved,school_managed,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, readableId('KM'), full, ta, cls, medium, lang, ay, 'Demo Government Higher Secondary School (sample)', JSON.stringify(['maths', 'science', 'english', 'social', 'tamil']), JSON.stringify(['understand', 'exams']), 1, 1, ts, ts));
+  await prof('u-student', 'Meenakshi Kumar', 'மீனாட்சி குமார்', 8);
+  for (const [id, n] of [['u-arun', 'Arun Prakash'], ['u-divya', 'Divya Suresh'], ['u-karthik', 'Karthik Raja']]) { await mk(id, `${id.slice(2)}@demo.kavli.local`, n.split(' ')[0], 'student', 'school-demo'); await prof(id, n, null, 8); }
+  await q.run(db, 'INSERT INTO guardian_links(parent_id,student_id) VALUES (?,?)', 'u-parent', 'u-student');
+  await q.run(db, 'INSERT INTO classes VALUES (?,?,?,?,?,?)', 'cls-8a', 'school-demo', 'u-teacher', 'Class 8 · Section A', 8, ay);
+  for (const s of ['u-student', 'u-arun', 'u-divya', 'u-karthik']) await q.run(db, 'INSERT INTO enrolments VALUES (?,?)', 'cls-8a', s);
   const board = 'Tamil Nadu State Board (Samacheer Kalvi)';
-  const T2 = (id: string, title: string, subj: string, wk: number, open: string, close: string, dur: number | null, pass: number, maxAtt: number, qs: [string, number][], topics: string[]) => {
-    q.run(db, 'INSERT INTO tests(id,title,description,class_level,board,subject_id,academic_year,topics,week_no,opens_at,closes_at,duration_min,language,instructions,pass_pct,max_attempts,score_rule,show_review,awards_certificate,allow_change_answers,auto_submit,published,created_by,school_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, title, 'Weekly test (sample questions written for this prototype).', 8, board, subj, ay, JSON.stringify(topics), wk, open, close, dur, 'both', 'Read each question carefully. You may change answers before you submit. Answers are saved automatically.', pass, maxAtt, 'highest', 1, 1, 1, 1, 1, 'u-teacher', 'school-demo', ts);
-    qs.forEach(([qid, m], i) => q.run(db, 'INSERT INTO test_questions VALUES (?,?,?,?,?)', id, qid, m, i + 1, 1));
+  const T2 = async (id: string, title: string, subj: string, wk: number, open: string, close: string, dur: number | null, pass: number, maxAtt: number, qs: [string, number][], topics: string[]) => {
+    await q.run(db, 'INSERT INTO tests(id,title,description,class_level,board,subject_id,academic_year,topics,week_no,opens_at,closes_at,duration_min,language,instructions,pass_pct,max_attempts,score_rule,show_review,awards_certificate,allow_change_answers,auto_submit,published,created_by,school_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, title, 'Weekly test (sample questions written for this prototype).', 8, board, subj, ay, JSON.stringify(topics), wk, open, close, dur, 'both', 'Read each question carefully. You may change answers before you submit. Answers are saved automatically.', pass, maxAtt, 'highest', 1, 1, 1, 1, 1, 'u-teacher', 'school-demo', ts);
+    qs.forEach(async ([qid, m], i) => (await q.run(db, 'INSERT INTO test_questions VALUES (?,?,?,?,?)', id, qid, m, i + 1, 1)));
   };
-  T2('test-maths-w6', 'Mathematics — Weekly Test 6', 'maths', 6, at(-2), at(5), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m3', 6], ['t-m4', 4], ['t-m5', 6], ['t-m6', 8], ['t-m7', 8], ['t-m8', 6]], ['Equations']);
+  await T2('test-maths-w6', 'Mathematics — Weekly Test 6', 'maths', 6, at(-2), at(5), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m3', 6], ['t-m4', 4], ['t-m5', 6], ['t-m6', 8], ['t-m7', 8], ['t-m8', 6]], ['Equations']);
   // total 50: 6+6+6+4+6+8+8+6 = 50
-  T2('test-maths-w7', 'Mathematics — Weekly Test 7 (written answer)', 'maths', 7, at(-1), at(6), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m5', 6], ['t-m6', 8], ['t-m8', 6], ['t-m9', 18]], ['Equations', 'Word problems']);
-  T2('test-science-w6', 'Science — Weekly Test 6', 'science', 6, at(-1), at(4), 30, 40, 1, [['t-s1', 10], ['t-s2', 10], ['t-s3', 10], ['t-s4', 20]], ['Force and pressure']);
-  T2('test-english-w6', 'English — Weekly Test 6', 'english', 6, at(-1), at(3), 20, 40, 1, [['t-e1', 10], ['t-e2', 10], ['t-e3', 10], ['t-e4', 20]], ['Nouns']);
-  T2('test-social-w8', 'Social Science — Weekly Test 8', 'social', 8, at(2), at(9), 30, 40, 1, [['t-so1', 10], ['t-so2', 20], ['t-so3', 10]], ['Directions', 'Scale']);
-  T2('test-science-w5', 'Science — Weekly Test 5', 'science', 5, at(-9), at(-2), 30, 40, 1, [['t-s1', 10], ['t-s2', 10], ['t-s3', 10], ['t-s4', 20]], ['Force']);
-  q.run(db, 'INSERT INTO assignments VALUES (?,?,?,?,?,?,?)', 'as-1', 'cls-8a', 'Homework: 5 linear equations', 'Solve the 5 equations on page 12 and write each step. Photograph or type your working.', at(3), 'u-teacher', ts);
-  q.run(db, 'INSERT INTO notifications VALUES (?,?,?,?,0,?)', uid(), 'u-student', 'Weekly Test 6 is open', 'Mathematics — Weekly Test 6 closes in 5 days.', ts);
-  q.run(db, 'INSERT INTO settings VALUES (?,?)', 'ai_daily_limit', '200');
+  await T2('test-maths-w7', 'Mathematics — Weekly Test 7 (written answer)', 'maths', 7, at(-1), at(6), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m5', 6], ['t-m6', 8], ['t-m8', 6], ['t-m9', 18]], ['Equations', 'Word problems']);
+  await T2('test-science-w6', 'Science — Weekly Test 6', 'science', 6, at(-1), at(4), 30, 40, 1, [['t-s1', 10], ['t-s2', 10], ['t-s3', 10], ['t-s4', 20]], ['Force and pressure']);
+  await T2('test-english-w6', 'English — Weekly Test 6', 'english', 6, at(-1), at(3), 20, 40, 1, [['t-e1', 10], ['t-e2', 10], ['t-e3', 10], ['t-e4', 20]], ['Nouns']);
+  await T2('test-social-w8', 'Social Science — Weekly Test 8', 'social', 8, at(2), at(9), 30, 40, 1, [['t-so1', 10], ['t-so2', 20], ['t-so3', 10]], ['Directions', 'Scale']);
+  await T2('test-science-w5', 'Science — Weekly Test 5', 'science', 5, at(-9), at(-2), 30, 40, 1, [['t-s1', 10], ['t-s2', 10], ['t-s3', 10], ['t-s4', 20]], ['Force']);
+  await q.run(db, 'INSERT INTO assignments VALUES (?,?,?,?,?,?,?)', 'as-1', 'cls-8a', 'Homework: 5 linear equations', 'Solve the 5 equations on page 12 and write each step. Photograph or type your working.', at(3), 'u-teacher', ts);
+  await q.run(db, 'INSERT INTO notifications VALUES (?,?,?,?,0,?)', uid(), 'u-student', 'Weekly Test 6 is open', 'Mathematics — Weekly Test 6 closes in 5 days.', ts);
+  await q.run(db, 'INSERT INTO settings VALUES (?,?)', 'ai_daily_limit', '200');
 }

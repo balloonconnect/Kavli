@@ -19,7 +19,7 @@ describe('sign-in API', () => {
   it('uses one message for unknown account and wrong password, and records both attempts', async () => {
     const a = await client(ctx.app).login('nobody@example.com', 'whatever123'); const b = await client(ctx.app).login(DEMO.student, 'wrong-password');
     expect(a.status).toBe(401); expect(b.status).toBe(401); expect(a.body.error ?? a.body.message).toBe(b.body.error ?? b.body.message);
-    expect(q.get<any>(ctx.db, "SELECT COUNT(*) n FROM audit WHERE action='auth.login_failed'")!.n).toBe(2);
+    expect((await q.get<any>(ctx.db, "SELECT COUNT(*) n FROM audit WHERE action='auth.login_failed'"))!.n).toBe(2);
   });
   it('accepts email in any letter case and with spaces, and the demo username', async () => {
     expect((await client(ctx.app).login(`  ${DEMO.student.toUpperCase()} `)).status).toBe(200); expect((await client(ctx.app).login('vikikalvi')).status).toBe(200);

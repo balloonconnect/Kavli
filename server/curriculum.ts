@@ -13,11 +13,11 @@ export function textbookLessons(): TextbookLesson[] {
   return out;
 }
 /** Adds or refreshes textbook lessons without touching student data; safe to run on every start. */
-export function upsertTextbookLessons(db: DB): number {
+export async function upsertTextbookLessons(db: DB): Promise<number> {
   let n = 0;
   for (const l of textbookLessons()) {
-    if (!q.get(db, 'SELECT 1 FROM subjects WHERE id=?', l.subject_id)) continue;
-    q.run(db, `INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    if (!(await q.get(db, 'SELECT 1 FROM subjects WHERE id=?', l.subject_id))) continue;
+    await q.run(db, `INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(id) DO UPDATE SET chapter_en=excluded.chapter_en, chapter_ta=excluded.chapter_ta, title_en=excluded.title_en, title_ta=excluded.title_ta, minutes=excluded.minutes, position=excluded.position, content=excluded.content, source=excluded.source`,
       l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), l.source);
     n++;

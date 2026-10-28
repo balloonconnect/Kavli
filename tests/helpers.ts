@@ -5,9 +5,19 @@ import { createApp } from '../server/app';
 import { clock } from '../server/clock';
 
 process.env.DISABLE_RATE_LIMIT = '1';
+let dbN = 0;
+/** ':memory:' (SQLite) by default; with TEST_PG_URL each setup() gets its own fresh Postgres database. */
+async function target(): Promise<string> {
+  const base = process.env.TEST_PG_URL; if (!base) return ':memory:';
+  const { default: pg } = await import('pg');
+  const name = `t_${process.pid}_${Date.now().toString(36)}_${++dbN}`;
+  const admin = new pg.Client({ connectionString: base }); await admin.connect();
+  try { await admin.query(`CREATE DATABASE ${name}`); } finally { await admin.end(); }
+  const u = new URL(base); u.pathname = '/' + name; return u.toString();
+}
 export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
   clock.reset();
-  const db = openDb(':memory:'); await seed(db); const app = createApp(db, { serveStatic: false, ...o });
+  const db = await openDb(await target()); await seed(db); const app = createApp(db, { serveStatic: false, ...o });
   return { db, app };
 }
 export type Client = ReturnType<typeof client>;

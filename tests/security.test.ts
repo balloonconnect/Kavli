@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { client, DEMO, setup } from './helpers';
+import { q as dq } from '../server/db';
 
 let ctx: Awaited<ReturnType<typeof setup>>;
 beforeEach(async () => { ctx = await setup(); });
@@ -20,7 +21,7 @@ describe('server-side permissions and privacy', () => {
     expect((await b.get(`/api/tutor/conversations/${cid}/messages`)).status).toBeGreaterThanOrEqual(403);
     expect((await b.del(`/api/tutor/conversations/${cid}`)).status).toBeGreaterThanOrEqual(403);
     const uid = (await a.get('/api/auth/me')).body.user.id; const mid = 'mat-secret-1';
-    (ctx.db as any).prepare("INSERT INTO materials(id,user_id,kind,name,mime,size,file_path,text,pages,status,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").run(mid, uid, 'pdf', 'private.pdf', 'application/pdf', 1, null, 'secret', '[]', 'ready', null, new Date().toISOString());
+    await dq.run(ctx.db, "INSERT INTO materials(id,user_id,kind,name,mime,size,file_path,text,pages,status,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", mid, uid, 'pdf', 'private.pdf', 'application/pdf', 1, null, 'secret', '[]', 'ready', null, new Date().toISOString());
     expect((await a.get(`/api/materials/${mid}`)).status).toBe(200);
     expect((await b.get(`/api/materials/${mid}`)).status).toBeGreaterThanOrEqual(403);
     expect((await b.del(`/api/materials/${mid}`)).status).toBeGreaterThanOrEqual(403);
@@ -59,7 +60,7 @@ describe('uploads and scoring', () => {
   });
   it('no certificate is issued for a failed attempt, and none can be requested directly', async () => {
     const s = await login(DEMO.student); const a = (await s.post('/api/tests/test-maths-w6/attempts')).body.attemptId; await s.post(`/api/attempts/${a}/submit`, {});
-    const n = (ctx.db as any).prepare('SELECT COUNT(*) c FROM certificates WHERE attempt_id=?').get(a).c; expect(n).toBe(0);
+    const n = Number(((await dq.get(ctx.db, 'SELECT COUNT(*) c FROM certificates WHERE attempt_id=?', a)) as any).c); expect(n).toBe(0);
     expect((await s.post('/api/certificates', {})).status).toBeGreaterThanOrEqual(400);
   });
 });

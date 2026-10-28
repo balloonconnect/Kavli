@@ -1,3 +1,4 @@
+import { q as dq } from '../server/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { client, DEMO, setup } from './helpers';
 
@@ -91,14 +92,14 @@ describe('voice tutor', () => {
   it('blocks duplicate in-flight turns, enforces the daily limit, and isolates students', async () => {
     const a = await login(DEMO.student); const ses = await mk(a, {});
     const o = await login(DEMO.arun); expect((await o.c.get(`/api/voice/sessions/${ses.id}`)).status).toBe(404); expect((await turn(o, ses.id, { text: 'hi' })).status).toBe(404);
-    ctx.db.prepare("INSERT OR REPLACE INTO settings(key,value) VALUES ('voice_daily_limit','0')").run(); expect((await turn(a, ses.id, { text: 'Solve 5x = 10' })).status).toBe(429);
+    await dq.run(ctx.db, "INSERT INTO settings(key,value) VALUES ('voice_daily_limit','0') ON CONFLICT(key) DO UPDATE SET value=excluded.value"); expect((await turn(a, ses.id, { text: 'Solve 5x = 10' })).status).toBe(429);
     const p = await login(DEMO.parent); expect((await p.c.post('/api/voice/sessions', {})).status).toBe(403);
   });
   it('a slow engine: duplicate turn → 409, busy queue → 503, and a disconnect mid-answer does not advance the lesson', async () => {
     const slow = { name: 'slow', mock: true, async *turn(c: any, i: any) { yield { type: 'ack' }; await new Promise(r => setTimeout(r, 150)); yield { type: 'chunk', kind: 'info', en: 'a', ta: 'அ', say: { en: 'a', ta: 'அ' } }; await new Promise(r => setTimeout(r, 150)); c.state.idx++; yield { type: 'done', state: c.state, meta: { grounded: 'none' } }; } };
     ctx = await setup({ voiceEngine: slow, voiceMax: 1, voiceQueueMs: 20 });
     const a = await login(DEMO.student), b = await login(DEMO.arun); const sa = await mk(a, {}), sb = await mk(b, {});
-    const [x, y, z] = await Promise.all([turn(a, sa.id, { text: 'one' }), turn(a, sa.id, { text: 'two' }), new Promise<any>(r => setTimeout(() => r(turn(b, sb.id, { text: 'three' })), 40))]);
+    const [x, y, z] = await Promise.all([turn(a, sa.id, { text: 'one' }), turn(a, sa.id, { text: 'two' }), new Promise<any>(r => setTimeout(async () => r(await turn(b, sb.id, { text: 'three' })), 40))]);
     expect([x.status, y.status].sort()).toEqual([200, 409]); expect(z.status).toBe(503); expect(z.body.error).toMatch(/busy/);
     // client disconnects after the first event: state must not advance
     const srv = ctx.app.listen(0); const base = `http://127.0.0.1:${(srv.address() as any).port}`; try {

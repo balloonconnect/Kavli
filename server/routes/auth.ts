@@ -27,7 +27,7 @@ const Reg = z.object({
   if (b.role === 'teacher') { need((b.staff?.subjects?.length ?? 0) > 0, ['staff', 'subjects'], 'Choose at least one subject'); need((b.staff?.classes?.length ?? 0) > 0, ['staff', 'classes'], 'Choose at least one class'); }
   if (b.role === 'school_admin') need(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.staff?.institutionEmail ?? ''), ['staff', 'institutionEmail'], 'Enter your institution email');
 });
-let _dummy: Promise<string> | null = null; const dummyHash = () => (_dummy ??= hashPassword('not-a-real-password'));
+let _dummy: string | null = null; const dummyHash = async () => (_dummy ??= (await hashPassword('not-a-real-password')));
 const Login = z.object({ email: z.string().trim().toLowerCase().min(1).max(254), password: z.string().min(1).max(128) });
 
 export function authRoutes(db: DB) {
@@ -35,45 +35,45 @@ export function authRoutes(db: DB) {
   const setCookie = (res: any, token: string) => res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure, maxAge: 7 * 864e5, path: '/' });
   r.post('/register', rateLimit(10, 600000), wrap(async (req, res) => {
     const b = parse(Reg, req.body);
-    if (q.get(db, 'SELECT 1 FROM users WHERE email=?', b.email)) throw new HttpError(409, 'An account with this email already exists. Try signing in.');
+    if ((await q.get(db, 'SELECT 1 FROM users WHERE email=?', b.email))) throw new HttpError(409, 'An account with this email already exists. Try signing in.');
     // Privileged roles are never self-assigned: teacher and school-admin sign-ups start as "pending" until a platform admin approves them.
     const privileged = b.role === 'teacher' || b.role === 'school_admin'; const dbRole = privileged ? 'pending' : b.role;
-    const link = b.role === 'parent' && b.parent?.linkCode ? J(q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `gcode:${b.parent.linkCode}`)?.value ?? 'null') : null;
+    const link = b.role === 'parent' && b.parent?.linkCode ? J((await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `gcode:${b.parent.linkCode}`))?.value ?? 'null') : null;
     if (b.role === 'parent' && b.parent?.linkCode && (!link || link.exp < Date.now())) throw new HttpError(422, 'That student link code is invalid or has expired. Check it, or leave it blank and link later.');
     const id = uid(); const hash = await hashPassword(b.password); const t = iso();
-    tx(db, () => {
-      q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,consent_at,created_at) VALUES (?,?,?,?,?,?,?)', id, b.email, b.displayName, hash, dbRole, t, t);
-      audit(db, id, 'user.register', 'user', id, { role: dbRole, requested: b.role });
-      if (b.role === 'student') q.run(db, 'INSERT INTO settings VALUES (?,?)', `under13:${id}`, b.under13 ? '1' : '0');
-      if (b.role === 'student' && b.under13) q.run(db, 'INSERT INTO settings VALUES (?,?)', `guardian:${id}`, JSON.stringify({ name: b.guardianName, email: b.guardianEmail }));
+    await tx(db, async () => {
+      await q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,consent_at,created_at) VALUES (?,?,?,?,?,?,?)', id, b.email, b.displayName, hash, dbRole, t, t);
+      await audit(db, id, 'user.register', 'user', id, { role: dbRole, requested: b.role });
+      if (b.role === 'student') await q.run(db, 'INSERT INTO settings VALUES (?,?)', `under13:${id}`, b.under13 ? '1' : '0');
+      if (b.role === 'student' && b.under13) await q.run(db, 'INSERT INTO settings VALUES (?,?)', `guardian:${id}`, JSON.stringify({ name: b.guardianName, email: b.guardianEmail }));
       if (b.role === 'student' && b.student) {
         const st = b.student;
-        q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,preferred_name,class_level,medium,ai_lang,academic_year,school_name,school_ref,subjects,goals,avatar,voice_prefs,guardian_approved,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        await q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,preferred_name,class_level,medium,ai_lang,academic_year,school_name,school_ref,subjects,goals,avatar,voice_prefs,guardian_approved,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
           id, readableId('KM'), b.displayName, null, null, st.classLevel, st.medium, st.aiLang, st.academicYear, st.schoolName || null, null, JSON.stringify(st.subjects), '[]', null, JSON.stringify({ readAloud: false, rate: 1 }), b.under13 ? 0 : 1, t, t);
       }
       if (b.role === 'parent') {
-        if (b.parent?.relationship) q.run(db, 'INSERT INTO settings VALUES (?,?)', `relationship:${id}`, b.parent.relationship);
-        if (link) { q.run(db, 'INSERT INTO guardian_links(parent_id,student_id) VALUES (?,?) ON CONFLICT DO NOTHING', id, link.studentId); q.run(db, 'UPDATE student_profiles SET guardian_approved=1 WHERE user_id=?', link.studentId); q.run(db, 'DELETE FROM settings WHERE key=?', `gcode:${b.parent!.linkCode}`); audit(db, id, 'guardian.link', 'user', link.studentId); }
+        if (b.parent?.relationship) await q.run(db, 'INSERT INTO settings VALUES (?,?)', `relationship:${id}`, b.parent.relationship);
+        if (link) { await q.run(db, 'INSERT INTO guardian_links(parent_id,student_id) VALUES (?,?) ON CONFLICT DO NOTHING', id, link.studentId); await q.run(db, 'UPDATE student_profiles SET guardian_approved=1 WHERE user_id=?', link.studentId); await q.run(db, 'DELETE FROM settings WHERE key=?', `gcode:${b.parent!.linkCode}`); await audit(db, id, 'guardian.link', 'user', link.studentId); }
       }
-      if (privileged) q.run(db, 'INSERT INTO settings VALUES (?,?)', `rolereq:${id}`, JSON.stringify({ requested: b.role, ...b.staff, status: 'pending', at: t }));
+      if (privileged) await q.run(db, 'INSERT INTO settings VALUES (?,?)', `rolereq:${id}`, JSON.stringify({ requested: b.role, ...b.staff, status: 'pending', at: t }));
     });
-    const s = createSession(db, id); setCookie(res, s.token);
+    const s = await createSession(db, id); setCookie(res, s.token);
     res.status(201).json({ user: { id, email: b.email, display_name: b.displayName, role: dbRole }, csrf: s.csrf, needsProfile: b.role === 'student' && !b.student, requestedRole: b.role, pendingApproval: privileged });
   }));
   r.post('/login', rateLimit(15, 600000, req => `${req.ip}:${String(req.body?.email ?? '').toLowerCase()}`), wrap(async (req, res) => {
     const b = parse(Login, req.body);
     const ident = process.env.SEED_DEMO === '0' ? b.email : (DEMO_USERNAMES[b.email] ?? b.email);
-    const u = q.get<any>(db, 'SELECT * FROM users WHERE email=?', ident);
+    const u = (await q.get<any>(db, 'SELECT * FROM users WHERE email=?', ident));
     // always run one password hash, even for unknown accounts, so response time does not reveal which emails exist
     const ok = u ? !u.disabled && await verifyPassword(b.password, u.password_hash) : (await verifyPassword(b.password, await dummyHash()), false);
-    if (!ok) { audit(db, u?.id ?? null, 'auth.login_failed', 'user', u?.id); throw new HttpError(401, 'Email or password is incorrect.'); }
-    const s = createSession(db, u.id); setCookie(res, s.token); audit(db, u.id, 'auth.login', 'user', u.id);
+    if (!ok) { await audit(db, u?.id ?? null, 'auth.login_failed', 'user', u?.id); throw new HttpError(401, 'Email or password is incorrect.'); }
+    const s = await createSession(db, u.id); setCookie(res, s.token); await audit(db, u.id, 'auth.login', 'user', u.id);
     res.json({ user: { id: u.id, email: u.email, display_name: u.display_name, role: u.role }, csrf: s.csrf });
   }));
-  r.post('/logout', wrap(async (req, res) => { const t = parseCookies(req.headers.cookie)[COOKIE]; if (t) destroySession(db, t); res.clearCookie(COOKIE, { path: '/' }); res.json({ ok: true }); }));
+  r.post('/logout', wrap(async (req, res) => { const t = parseCookies(req.headers.cookie)[COOKIE]; if (t) await destroySession(db, t); res.clearCookie(COOKIE, { path: '/' }); res.json({ ok: true }); }));
   r.get('/me', wrap(async (req, res) => {
     if (!req.user) return void res.json({ user: null });
-    const u = req.user; const p = u.role === 'student' ? q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', u.id) : null;
+    const u = req.user; const p = u.role === 'student' ? (await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', u.id)) : null;
     res.json({ user: u, csrf: req.csrf, profile: p ? shapeProfile(p) : null, needsProfile: u.role === 'student' && !p?.completed_at });
   }));
   return r;

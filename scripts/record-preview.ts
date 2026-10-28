@@ -27,7 +27,7 @@ async function pdf(): Promise<Buffer> {
   const get = async (u: string) => { const r = await agent.get('/api' + u); if (r.status !== 200) throw new Error(`GET ${u} -> ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`); return r.body; };
   const post = async (u: string, b: any = {}) => { const r = await agent.post('/api' + u).set('x-csrf-token', csrf).send(b); if (r.status >= 300) throw new Error(`POST ${u} -> ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`); return r.body; };
   const login = await agent.post('/api/auth/login').send({ email: 'meena@demo.kavli.local', password: DEMO_PASSWORD }); csrf = login.body.csrf; out.login = login.body;
-  const key = (id: string) => JSON.parse((db.prepare('SELECT answer FROM questions WHERE id=?').get(id) as any).answer);
+  const key = (id: string) => JSON.parse((await q.get(db, 'SELECT answer FROM questions WHERE id=?', id) as any).answer);
   const ans = (q: any) => { const k = key(q.id); return q.type === 'mcq' || q.type === 'tf' ? k : q.type === 'numeric' ? String(k.value) : k.accept?.[0]; };
 
   for (const p of ['/auth/me', '/config', '/dashboard', '/curriculum?class=8', '/profile', '/practice/options', '/bookmarks', '/certificates', '/reports/me', '/revision-plan', '/assignments', '/materials', '/notifications', '/tests']) out.base[p] = await get(p);

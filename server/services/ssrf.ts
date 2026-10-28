@@ -40,9 +40,9 @@ export async function safeFetch(raw: string, hops = 0): Promise<Fetched> {
   return new Promise<Fetched>((resolve, reject) => {
     const mod = u.protocol === 'https:' ? https : http;
     const req = mod.request({ host: u.hostname.replace(/^\[|\]$/g, ''), port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: 'GET', servername: u.hostname, headers: { 'user-agent': 'KalviMitraBot/1.0 (+educational reader)', accept: 'text/html,text/plain;q=0.9' }, timeout: TIMEOUT,
-      lookup: (_h: string, _o: any, cb: any) => cb(null, ip, net.isIPv6(ip) ? 6 : 4) } as any, res => {
+      lookup: (_h: string, _o: any, cb: any) => cb(null, ip, net.isIPv6(ip) ? 6 : 4) } as any, async res => {
       const loc = res.headers.location;
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc) { res.resume(); safeFetch(new URL(loc, u).toString(), hops + 1).then(resolve, reject); return; }
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc) { res.resume(); await safeFetch(new URL(loc, u).toString(), hops + 1).then(resolve, reject); return; }
       if (!res.statusCode || res.statusCode >= 400) { res.resume(); return reject(new UrlError(`The website responded with an error (${res.statusCode}).`)); }
       const ct = String(res.headers['content-type'] ?? '');
       if (!/^text\/(html|plain)|application\/xhtml/i.test(ct)) { res.resume(); return reject(new UrlError('Only web pages and plain text can be read (not PDFs, videos or downloads).')); }

@@ -23,21 +23,21 @@ export type AuthUser = { id: string; email: string; display_name: string; role: 
 declare global { namespace Express { interface Request { user?: AuthUser; csrf?: string } } }
 
 export const COOKIE = 'kavli_session';
-export function createSession(db: DB, userId: string) {
+export async function createSession(db: DB, userId: string) {
   const token = newToken(32), csrf = newToken(16);
-  q.run(db, 'INSERT INTO sessions(token_hash,user_id,expires_at,csrf) VALUES (?,?,?,?)', sha(token), userId, iso(new Date(clock.now().getTime() + 7 * 864e5)), csrf);
+  await q.run(db, 'INSERT INTO sessions(token_hash,user_id,expires_at,csrf) VALUES (?,?,?,?)', sha(token), userId, iso(new Date(clock.now().getTime() + 7 * 864e5)), csrf);
   return { token, csrf };
 }
-export const destroySession = (db: DB, token: string) => q.run(db, 'DELETE FROM sessions WHERE token_hash=?', sha(token));
+export const destroySession = async (db: DB, token: string) => (await q.run(db, 'DELETE FROM sessions WHERE token_hash=?', sha(token)));
 
 export function parseCookies(h?: string) {
   const o: Record<string, string> = {}; for (const p of (h ?? '').split(';')) { const i = p.indexOf('='); if (i > 0) o[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); } return o;
 }
 export function authMiddleware(db: DB) {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     const t = parseCookies(req.headers.cookie)[COOKIE];
     if (t) {
-      const s = q.get<any>(db, 'SELECT s.user_id, s.expires_at, s.csrf, u.id, u.email, u.display_name, u.role, u.school_id, u.disabled FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?', sha(t));
+      const s = (await q.get<any>(db, 'SELECT s.user_id, s.expires_at, s.csrf, u.id, u.email, u.display_name, u.role, u.school_id, u.disabled FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?', sha(t)));
       if (s && s.expires_at > iso() && !s.disabled) { req.user = { id: s.id, email: s.email, display_name: s.display_name, role: s.role, school_id: s.school_id }; req.csrf = s.csrf; }
     }
     next();
@@ -66,6 +66,6 @@ export function rateLimit(max: number, windowMs: number, keyFn: (r: Request) => 
     next();
   };
 }
-export function audit(db: DB, actor: string | null, action: string, entity?: string, entityId?: string, details: unknown = {}) {
-  q.run(db, 'INSERT INTO audit(actor_id,action,entity,entity_id,details,at) VALUES (?,?,?,?,?,?)', actor, action, entity ?? null, entityId ?? null, JSON.stringify(details), iso());
+export async function audit(db: DB, actor: string | null, action: string, entity?: string, entityId?: string, details: unknown = {}) {
+  await q.run(db, 'INSERT INTO audit(actor_id,action,entity,entity_id,details,at) VALUES (?,?,?,?,?,?)', actor, action, entity ?? null, entityId ?? null, JSON.stringify(details), iso());
 }

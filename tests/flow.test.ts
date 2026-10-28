@@ -1,3 +1,4 @@
+import { q as dq } from '../server/db';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { setup, client, DEMO, profileBody } from './helpers';
 
@@ -14,7 +15,7 @@ describe('registration & profile', () => {
     const c = client(ctx.app);
     const r = await c.register({ displayName: 'Ravi', email: 'ravi@x.com', password: 'Secret123', consent: true });
     expect(r.status).toBe(201); expect(r.body.needsProfile).toBe(true);
-    const row: any = ctx.db.prepare('SELECT password_hash FROM users WHERE email=?').get('ravi@x.com');
+    const row: any = (await dq.get(ctx.db, 'SELECT password_hash FROM users WHERE email=?', 'ravi@x.com'));
     expect(row.password_hash).not.toContain('Secret123');
     expect((await client(ctx.app).register({ displayName: 'R', email: 'ravi@x.com', password: 'Secret123', consent: true })).status).toBe(409);
   });
@@ -41,7 +42,7 @@ describe('priority flow: profile → test → result → certificate → verify'
     const again = await c.post('/api/tests/test-maths-w6/attempts'); expect(again.body.attemptId).toBe(a.body.attemptId);
     const att = (await c.get(`/api/attempts/${a.body.attemptId}`)).body.attempt;
     expect(JSON.stringify(att)).not.toMatch(/"accept"|"rubric"|explanation/);
-    const key: any = {}; for (const q of att.questions) { const k: any = ctx.db.prepare('SELECT answer FROM questions WHERE id=?').get(q.id); key[q.id] = JSON.parse(k.answer); }
+    const key: any = {}; for (const q of att.questions) { const k: any = (await dq.get(ctx.db, 'SELECT answer FROM questions WHERE id=?', q.id)); key[q.id] = JSON.parse(k.answer); }
     const items = att.questions.map((q: any) => ({ questionId: q.id, answer: q.type === 'mcq' || q.type === 'tf' ? key[q.id] : q.type === 'numeric' ? String(key[q.id].value) : key[q.id].accept?.[0] }));
     const s = await c.post(`/api/attempts/${a.body.attemptId}/submit`, { items }); expect(s.status).toBe(200);
     const s2 = await c.post(`/api/attempts/${a.body.attemptId}/submit`, {}); expect(s2.status).toBe(200);
@@ -90,7 +91,7 @@ describe('RBAC & tenant isolation', () => {
   it('parents only see linked children', async () => {
     const p = client(ctx.app); await p.login(DEMO.parent);
     const kids = (await p.get('/api/parent/children')).body.children; expect(kids.length).toBe(1);
-    const arun: any = ctx.db.prepare("SELECT id FROM users WHERE email=?").get(DEMO.arun);
+    const arun: any = (await dq.get(ctx.db, "SELECT id FROM users WHERE email=?", DEMO.arun));
     expect((await p.get(`/api/parent/children/${arun.id}/overview`)).status).toBe(403);
   });
   it('rejects wrong password with a generic message', async () => {
@@ -103,7 +104,7 @@ describe('manual review, revocation', () => {
     const c = client(ctx.app); await c.login(DEMO.student);
     const a = (await c.post('/api/tests/test-maths-w7/attempts')).body.attemptId;
     const att = (await c.get(`/api/attempts/${a}`)).body.attempt;
-    const items = att.questions.map((q: any) => { const k: any = JSON.parse((ctx.db.prepare('SELECT answer FROM questions WHERE id=?').get(q.id) as any).answer); return { questionId: q.id, answer: q.type === 'short' ? 'Let x be the number. 2x+3=17 so x=7' : q.type === 'mcq' || q.type === 'tf' ? k : q.type === 'numeric' ? String(k.value) : k.accept[0] }; });
+    const items = await Promise.all(att.questions.map(async (q: any) => { const k: any = JSON.parse((await dq.get(ctx.db, 'SELECT answer FROM questions WHERE id=?', q.id) as any).answer); return { questionId: q.id, answer: q.type === 'short' ? 'Let x be the number. 2x+3=17 so x=7' : q.type === 'mcq' || q.type === 'tf' ? k : q.type === 'numeric' ? String(k.value) : k.accept[0] }; }));
     await c.post(`/api/attempts/${a}/submit`, { items });
     let res = (await c.get(`/api/attempts/${a}/result`)).body.result; expect(res.status).toBe('pending_review'); expect(res.certificate).toBeNull();
     const t = client(ctx.app); await t.login(DEMO.teacher);
@@ -129,7 +130,7 @@ describe('manual review, revocation', () => {
   });
   it('revoke requires a reason and a staff role', async () => {
     const c = client(ctx.app); await c.login(DEMO.student);
-    const certId = (ctx.db.prepare("SELECT id FROM certificates LIMIT 1").get() as any)?.id; if (!certId) return;
+    const certId = (await dq.get(ctx.db, "SELECT id FROM certificates LIMIT 1") as any)?.id; if (!certId) return;
     expect((await c.post(`/api/certificates/${certId}/revoke`, { reason: 'x' })).status).toBe(403);
   });
 });

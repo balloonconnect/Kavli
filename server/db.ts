@@ -1,27 +1,85 @@
 import { createRequire } from 'node:module';
-import type { DatabaseSync as DS } from 'node:sqlite';
-const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite') as typeof import('node:sqlite');
+import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-export type DB = DS;
-export function openDb(path = process.env.DATABASE_PATH ?? 'data/kavli.db'): DB {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-  db.exec(SCHEMA);
+/**
+ * Database access. One async API, two engines:
+ *  - PostgreSQL (production): set DATABASE_URL=postgres://user:pass@host/db
+ *  - SQLite (local development and fast tests): the default, or DATABASE_PATH / ':memory:'
+ * All SQL in the app is written once with `?` placeholders; the Postgres driver rewrites them to $1, $2, ...
+ */
+type Row = Record<string, any>;
+type Conn = { get(sql: string, p: any[]): Promise<Row | undefined>; all(sql: string, p: any[]): Promise<Row[]>; run(sql: string, p: any[]): Promise<{ changes: number }>; };
+export type DB = {
+  readonly kind: 'sqlite' | 'pg';
+  conn(): Conn; tx<T>(fn: () => Promise<T>): Promise<T>; exec(sql: string): Promise<void>; close(): Promise<void>;
+};
+const als = new AsyncLocalStorage<{ db: DB; conn: Conn }>();
+const active = (db: DB): Conn => { const s = als.getStore(); return s && s.db === db ? s.conn : db.conn(); };
+
+/** Runs fn in one transaction (nested calls join the outer one); rolls back if fn throws. */
+export async function tx<T>(db: DB, fn: () => Promise<T>): Promise<T> { const s = als.getStore(); return s && s.db === db ? (await fn()) : (await db.tx(fn)); }
+export const q = {
+  get: async <T = any>(db: DB, sql: string, ...p: any[]) => (await active(db).get(sql, p)) as T | undefined,
+  all: async <T = any>(db: DB, sql: string, ...p: any[]) => (await active(db).all(sql, p)) as T[],
+  run: (db: DB, sql: string, ...p: any[]) => active(db).run(sql, p),
+};
+
+export async function openDb(target: string = process.env.DATABASE_URL ?? process.env.DATABASE_PATH ?? 'data/kavli.db'): Promise<DB> {
+  const db = /^postgres(ql)?:\/\//.test(target) ? await openPg(target) : openSqlite(target);
+  await db.exec(db.kind === 'pg' ? toPgSchema(SCHEMA) : SCHEMA);
   return db;
 }
-/** Runs fn in an immediate transaction; rolls back on throw. */
-export function tx<T>(db: DB, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE');
-  try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
+
+/* ---------------- SQLite ---------------- */
+function openSqlite(path: string): DB {
+  const { DatabaseSync: DS } = createRequire(import.meta.url)('node:sqlite') as typeof import('node:sqlite');
+  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
+  const raw: DatabaseSync = new DS(path); raw.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+  // One connection: while a transaction is open, statements from other requests wait, so they never join (or get rolled back with) it.
+  let txActive = false; let waiters: (() => void)[] = []; let chain: Promise<void> = Promise.resolve();
+  const gate = async () => { while (txActive && !als.getStore()) await new Promise<void>(r => waiters.push(r)); };
+  const conn: Conn = {
+    async get(sql, p) { await gate(); return raw.prepare(sql).get(...p) as Row | undefined; },
+    async all(sql, p) { await gate(); return raw.prepare(sql).all(...p) as Row[]; },
+    async run(sql, p) { await gate(); const r = raw.prepare(sql).run(...p); return { changes: Number(r.changes) }; },
+  };
+  const db: DB = {
+    kind: 'sqlite', conn: () => conn, async exec(sql) { await gate(); raw.exec(sql); }, async close() { raw.close(); },
+    tx<T>(fn: () => Promise<T>) {
+      const run = async () => { txActive = true; raw.exec('BEGIN IMMEDIATE'); try { const r = await als.run({ db, conn }, fn); raw.exec('COMMIT'); return r; } catch (e) { raw.exec('ROLLBACK'); throw e; } finally { txActive = false; const w = waiters; waiters = []; w.forEach(f => f()); } };
+      const res = chain.then(run, run); chain = res.then(() => undefined, () => undefined); return res;
+    },
+  };
+  return db;
 }
-export const q = {
-  get: <T = any>(db: DB, sql: string, ...p: any[]) => db.prepare(sql).get(...p) as T | undefined,
-  all: <T = any>(db: DB, sql: string, ...p: any[]) => db.prepare(sql).all(...p) as T[],
-  run: (db: DB, sql: string, ...p: any[]) => db.prepare(sql).run(...p),
-};
+
+/* ---------------- PostgreSQL ---------------- */
+/** `?` → `$1, $2 …`, leaving anything inside single-quoted SQL strings alone. */
+/** `?` -> `$n`; SQLite's implicit `rowid` (only used to order chat messages) -> the explicit `seq` column. */
+export function toPgSql(sql: string) { let n = 0, out = '', inStr = false; for (const ch of sql) { if (ch === "'") inStr = !inStr; out += ch === '?' && !inStr ? `$${++n}` : ch; } return out.replace(/\browid\b/g, 'seq'); }
+/** PostgreSQL text cannot hold NUL bytes (SQLite can); strip them from bound strings. */
+const pgParams = (p: any[]) => p.map(v => (typeof v === 'string' && v.includes('\u0000') ? v.replace(/\u0000/g, '') : v));
+export function toPgSchema(s: string) { return s.replace(/(CREATE TABLE IF NOT EXISTS messages \([^;]*?)\);/, '$1, seq BIGSERIAL);').replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'BIGSERIAL PRIMARY KEY').replace(/\bREAL\b/g, 'DOUBLE PRECISION').replace(/\bBLOB\b/g, 'BYTEA'); }
+async function openPg(url: string): Promise<DB> {
+  const pg = (await import('pg')).default;
+  pg.types.setTypeParser(20, v => Number(v)); pg.types.setTypeParser(1700, v => Number(v)); // bigint / numeric (COUNT, SUM) come back as numbers, as in SQLite
+  const pool = new pg.Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL ?? 10), ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: process.env.DATABASE_SSL_STRICT !== '0' } : undefined, idleTimeoutMillis: Number(process.env.DATABASE_IDLE_MS ?? 30000), connectionTimeoutMillis: 10000 });
+  pool.on('error', () => { /* idle client dropped; the pool reconnects on next use */ });
+  const mk = (c: { query: (q: string, p?: any[]) => Promise<any> }): Conn => ({
+    async get(sql, p) { return (await c.query(toPgSql(sql), pgParams(p))).rows[0]; },
+    async all(sql, p) { return (await c.query(toPgSql(sql), pgParams(p))).rows; },
+    async run(sql, p) { const r = await c.query(toPgSql(sql), pgParams(p)); return { changes: r.rowCount ?? 0 }; },
+  });
+  const base = mk(pool);
+  const db: DB = {
+    kind: 'pg', conn: () => base, async exec(sql) { await pool.query(sql); }, async close() { await pool.end(); },
+    async tx<T>(fn: () => Promise<T>) { const c = await pool.connect(); try { await c.query('BEGIN'); const r = await als.run({ db, conn: mk(c) }, fn); await c.query('COMMIT'); return r; } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); } },
+  };
+  await pool.query('SELECT 1'); return db;
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS schools (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL);

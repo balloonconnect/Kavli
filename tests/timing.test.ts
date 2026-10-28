@@ -1,3 +1,4 @@
+import { q as dq } from '../server/db';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setup, client, DEMO } from './helpers';
 import { clock } from '../server/clock';
@@ -10,7 +11,7 @@ describe('server-authoritative timing', () => {
     const c = client(ctx.app); await c.login(DEMO.student);
     const id = (await c.post('/api/tests/test-maths-w6/attempts')).body.attemptId;
     const a = (await c.get(`/api/attempts/${id}`)).body.attempt; const first = a.questions[0];
-    const key: any = JSON.parse((ctx.db.prepare('SELECT answer FROM questions WHERE id=?').get(first.id) as any).answer);
+    const key: any = JSON.parse((await dq.get(ctx.db, 'SELECT answer FROM questions WHERE id=?', first.id) as any).answer);
     expect((await c.put(`/api/attempts/${id}/answers`, { items: [{ questionId: first.id, answer: key }] })).status).toBe(200);
     clock.advance(46 * 60 * 1000); // 45-minute test, 46 minutes later (beyond the 15 s grace)
     expect((await c.put(`/api/attempts/${id}/answers`, { items: [{ questionId: a.questions[1].id, answer: 0 }] })).status).toBe(409);
@@ -27,7 +28,7 @@ describe('server-authoritative timing', () => {
   });
   it('hides answer review when the test rule says so', async () => {
     const c = client(ctx.app); await c.login(DEMO.arun);
-    ctx.db.prepare("UPDATE tests SET show_review=2 WHERE id='test-maths-w6'").run();
+    await dq.run(ctx.db, "UPDATE tests SET show_review=2 WHERE id='test-maths-w6'");
     const id = (await c.post('/api/tests/test-maths-w6/attempts')).body.attemptId; await c.post(`/api/attempts/${id}/submit`, {});
     expect((await c.get(`/api/attempts/${id}/review`)).status).toBe(403);
     clock.advance(6 * 864e5); expect((await c.get(`/api/attempts/${id}/review`)).status).toBe(200);

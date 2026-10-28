@@ -21,28 +21,28 @@ const Profile = z.object({
 });
 export function profileRoutes(db: DB) {
   const r = Router();
-  r.get('/', requireRole('student'), wrap(async (req, res) => { const p = q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', req.user!.id); res.json({ profile: p ? shapeProfile(p) : null, under13: q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${req.user!.id}`)?.value === '1' }); }));
+  r.get('/', requireRole('student'), wrap(async (req, res) => { const p = (await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', req.user!.id)); res.json({ profile: p ? shapeProfile(p) : null, under13: (await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${req.user!.id}`))?.value === '1' }); }));
   r.put('/', requireRole('student'), wrap(async (req, res) => {
-    const b = parse(Profile, req.body); const id = req.user!.id; const cur = q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id);
+    const b = parse(Profile, req.body); const id = req.user!.id; const cur = (await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id));
     if (cur?.school_managed && (cur.class_level !== b.classLevel || cur.academic_year !== b.academicYear)) throw new HttpError(403, 'Your class and academic year are managed by your school. Please ask your teacher to change them.');
     if (cur?.completed_at && cur.class_level !== b.classLevel && !b.confirmChange) throw new HttpError(409, 'Changing your class updates your lessons. Past test results keep their original class. Please confirm to continue.');
-    const under13 = q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${id}`)?.value === '1';
+    const under13 = (await q.get<any>(db, 'SELECT value FROM settings WHERE key=?', `under13:${id}`))?.value === '1';
     const vals = [b.fullName, b.fullNameTa || null, b.preferredName || null, b.classLevel, b.medium, b.aiLang, b.academicYear, b.schoolName || null, b.schoolRef || null, JSON.stringify(b.subjects), JSON.stringify(b.goals), b.avatar || null, JSON.stringify(b.voicePrefs), iso()];
-    if (cur) q.run(db, 'UPDATE student_profiles SET full_name=?,full_name_ta=?,preferred_name=?,class_level=?,medium=?,ai_lang=?,academic_year=?,school_name=?,school_ref=?,subjects=?,goals=?,avatar=?,voice_prefs=?,updated_at=?, completed_at=COALESCE(completed_at, ?) WHERE user_id=?', ...vals, iso(), id);
-    else q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,preferred_name,class_level,medium,ai_lang,academic_year,school_name,school_ref,subjects,goals,avatar,voice_prefs,guardian_approved,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, readableId('KM'), ...vals.slice(0, 13), under13 ? 0 : 1, iso(), iso());
-    audit(db, id, cur ? 'profile.update' : 'profile.create', 'profile', id);
-    res.json({ profile: shapeProfile(q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id)) });
+    if (cur) await q.run(db, 'UPDATE student_profiles SET full_name=?,full_name_ta=?,preferred_name=?,class_level=?,medium=?,ai_lang=?,academic_year=?,school_name=?,school_ref=?,subjects=?,goals=?,avatar=?,voice_prefs=?,updated_at=?, completed_at=COALESCE(completed_at, ?) WHERE user_id=?', ...vals, iso(), id);
+    else await q.run(db, 'INSERT INTO student_profiles(user_id,ref_no,full_name,full_name_ta,preferred_name,class_level,medium,ai_lang,academic_year,school_name,school_ref,subjects,goals,avatar,voice_prefs,guardian_approved,completed_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, readableId('KM'), ...vals.slice(0, 13), under13 ? 0 : 1, iso(), iso());
+    await audit(db, id, cur ? 'profile.update' : 'profile.create', 'profile', id);
+    res.json({ profile: shapeProfile((await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id))) });
   }));
   /** Guardian link code (student → parent), 6 characters, valid 7 days. */
   r.post('/guardian-code', requireRole('student'), wrap(async (req, res) => {
-    const code = uid().replace(/-/g, '').slice(0, 6).toUpperCase(); q.run(db, 'INSERT INTO settings VALUES (?,?)', `gcode:${code}`, JSON.stringify({ studentId: req.user!.id, exp: Date.now() + 7 * 864e5 }));
+    const code = uid().replace(/-/g, '').slice(0, 6).toUpperCase(); await q.run(db, 'INSERT INTO settings VALUES (?,?)', `gcode:${code}`, JSON.stringify({ studentId: req.user!.id, exp: Date.now() + 7 * 864e5 }));
     res.json({ code });
   }));
   r.delete('/', requireRole('student'), wrap(async (req, res) => {
     // Data deletion workflow: removes the student account and all personal records (cascade).
-    const id = req.user!.id; audit(db, id, 'user.delete_self', 'user', id);
-    const files = q.all<any>(db, 'SELECT file_path FROM materials WHERE user_id=? AND file_path IS NOT NULL', id);
-    tx(db, () => { q.run(db, 'DELETE FROM certificates WHERE student_id=?', id); q.run(db, 'DELETE FROM attempts WHERE student_id=?', id); q.run(db, 'DELETE FROM users WHERE id=?', id); });
+    const id = req.user!.id; await audit(db, id, 'user.delete_self', 'user', id);
+    const files = (await q.all<any>(db, 'SELECT file_path FROM materials WHERE user_id=? AND file_path IS NOT NULL', id));
+    await tx(db, async () => { await q.run(db, 'DELETE FROM certificates WHERE student_id=?', id); await q.run(db, 'DELETE FROM attempts WHERE student_id=?', id); await q.run(db, 'DELETE FROM users WHERE id=?', id); });
     for (const f of files) { try { unlinkSync(f.file_path); } catch { /* already gone */ } }
     res.json({ ok: true });
   }));

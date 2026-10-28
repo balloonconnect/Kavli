@@ -77,9 +77,9 @@ const CMD = new Set('revise revision teach explain start begin topic lesson chap
 /** “Revise this topic”, “start”, “teach me” and so on name no subject matter: inside a lesson they mean the lesson itself. */
 export const isGeneric = (t: string) => !tokens(t).filter(w => !CMD.has(w)).length;
 
-function planFromLesson(db: DB, ctx: Ctx, text: string): Plan | null {
-  const rows = ctx.lessonId ? q.all<any>(db, "SELECT * FROM lessons WHERE id=?", ctx.lessonId) : [];
-  const l = rows[0]; const all = lessonPassages(db, ctx.classLevel, ctx.subjectId ?? l?.subject_id);
+async function planFromLesson(db: DB, ctx: Ctx, text: string): Promise<Plan | null> {
+  const rows = ctx.lessonId ? (await q.all<any>(db, "SELECT * FROM lessons WHERE id=?", ctx.lessonId)) : [];
+  const l = rows[0]; const all = await lessonPassages(db, ctx.classLevel, ctx.subjectId ?? l?.subject_id);
   const own = l ? all.filter(p => p.lessonId === l.id) : [];
   const cand = (own.length ? own : all).map(p => ({ text: `${p.bi.en} ${p.bi.ta}`, source: p.label, p }));
   let picked: typeof cand = [];
@@ -91,15 +91,15 @@ function planFromLesson(db: DB, ctx: Ctx, text: string): Plan | null {
   return { topic: l ? bi(l.title_en, l.title_ta) : bi(text.slice(0, 60), text.slice(0, 60)), grounded: 'lesson', sources: sourcesAll, refs: [], steps };
 }
 
-function planFromTextbook(db: DB, ctx: Ctx, text: string): Plan | null {
-  if (!text.trim() || isGeneric(text)) return null; const hits = textbookHits(db, ctx.classLevel, ctx.subjectId, text, 4); if (!hits.length) return null;
+async function planFromTextbook(db: DB, ctx: Ctx, text: string): Promise<Plan | null> {
+  if (!text.trim() || isGeneric(text)) return null; const hits = await textbookHits(db, ctx.classLevel, ctx.subjectId, text, 4); if (!hits.length) return null;
   const steps: TStep[] = hits.map((h, i) => { const t = h.text; return { n: i + 1, en: t, ta: t, check: makeCloze(t, t, 'en') ?? { kind: 'ack' as const } }; });
   return { topic: bi(text.slice(0, 60), text.slice(0, 60)), grounded: 'textbook', sources: [...new Set(hits.map(h => `${h.source}, page ${h.page}`))], refs: hits.map(h => ({ bookId: h.bookId, page: h.page as number })), steps };
 }
 
-export function buildPlan(db: DB, ctx: Ctx, text: string): Plan | null {
+export async function buildPlan(db: DB, ctx: Ctx, text: string): Promise<Plan | null> {
   const sol = text.trim() ? solveLinearFromText(text) : null; if (sol && sol.x) return planFromSolution(sol, text);
-  return planFromLesson(db, ctx, text) ?? planFromTextbook(db, ctx, text);
+  return (await planFromLesson(db, ctx, text)) ?? (await planFromTextbook(db, ctx, text));
 }
 
 const ASK: Bi = bi('What would you like to learn? Ask a question — for example “What is an equation?” or “Solve 3x + 5 = 20” — or choose a chapter and press Continue.', 'எதைக் கற்க விரும்புகிறீர்கள்? ஒரு கேள்வியைக் கேளுங்கள் — எ.கா. “சமன்பாடு என்றால் என்ன?” அல்லது “3x + 5 = 20 ஐத் தீர்க்க” — அல்லது ஒரு பாடத்தைத் தேர்ந்தெடுத்து தொடரவும்.');
@@ -134,17 +134,17 @@ function summaryChunk(plan: Plan): TurnEvent {
   return { type: 'chunk', kind: 'summary', en: `Summary of what we learned — ${plan.topic.en}:\n${lines.join('\n')}`, ta: `நாம் கற்றதன் சுருக்கம் — ${plan.topic.ta}:\n${tl.join('\n')}`, say: bi(`Well done. Here is a summary of ${plan.topic.en}. ${plan.steps.length} steps covered.`, `நன்று. ${plan.topic.ta} பற்றிய சுருக்கம். ${plan.steps.length} படிகளை முடித்தோம்.`) };
 }
 
-function pickQuestion(db: DB, ctx: Ctx, asked: string[]) {
-  const subj = ctx.subjectId ?? q.get<any>(db, 'SELECT subject_id FROM lessons WHERE id=?', ctx.lessonId ?? '')?.subject_id ?? 'maths';
-  const rows = q.all<any>(db, "SELECT * FROM questions WHERE origin='practice' AND status='published' AND class_level=? AND subject_id=? AND type!='short'", ctx.classLevel, subj);
+async function pickQuestion(db: DB, ctx: Ctx, asked: string[]) {
+  const subj = ctx.subjectId ?? (await q.get<any>(db, 'SELECT subject_id FROM lessons WHERE id=?', ctx.lessonId ?? ''))?.subject_id ?? 'maths';
+  const rows = (await q.all<any>(db, "SELECT * FROM questions WHERE origin='practice' AND status='published' AND class_level=? AND subject_id=? AND type!='short'", ctx.classLevel, subj));
   const pool = rows.filter(r => !asked.includes(r.id)); return pool.length ? pool[0] : null;
 }
 function presentQ(row: any): Bi {
   const opts = J(row.options) as string[]; const L = ['A', 'B', 'C', 'D']; const f = (t: string) => `${t}${opts.length ? '\n' + opts.map((o, k) => `${L[k]}. ${o}`).join('\n') : ''}`;
   return bi(f(row.text_en), f(row.text_ta ?? row.text_en));
 }
-function askQuestion(ctx: Ctx, st: State): TurnEvent[] {
-  const qz = st.quiz!; const row = pickQuestion(ctx.db, ctx, qz.asked);
+async function askQuestion(ctx: Ctx, st: State): Promise<TurnEvent[]> {
+  const qz = st.quiz!; const row = await pickQuestion(ctx.db, ctx, qz.asked);
   if (!row || qz.total >= qz.limit) {
     st.awaiting = null; st.done = true; const pct = qz.total ? Math.round((qz.correct / qz.total) * 100) : 0;
     return [{ type: 'chunk', kind: 'summary', en: `That is the end of the quiz. You got ${qz.correct} of ${qz.total} (${pct}%).${qz.correct < qz.total ? ' Ask me to “revise this topic” to go over the ones you missed.' : ' Excellent!'}`, ta: `வினாடி வினா முடிந்தது. ${qz.total} இல் ${qz.correct} சரி (${pct}%).${qz.correct < qz.total ? ' தவறியவற்றை மீண்டும் பார்க்க “இந்தப் பாடத்தைத் திருப்பு” என்று கேளுங்கள்.' : ' மிகச் சிறப்பு!'}`, say: bi(`That is the end of the quiz. You got ${qz.correct} of ${qz.total}.`, `வினாடி வினா முடிந்தது. ${qz.total} இல் ${qz.correct} சரி.`) }];
@@ -152,16 +152,16 @@ function askQuestion(ctx: Ctx, st: State): TurnEvent[] {
   qz.qid = row.id; qz.asked.push(row.id); qz.wrong = 0; st.awaiting = 'practice'; const p = presentQ(row);
   return [{ type: 'chunk', kind: 'question', en: `Question ${qz.total + 1}: ${p.en}`, ta: `கேள்வி ${qz.total + 1}: ${p.ta}`, say: bi(`Question ${qz.total + 1}. ${speakable(row.text_en, 'en')}`, `கேள்வி ${qz.total + 1}. ${speakable(row.text_ta ?? row.text_en, 'ta')}`), math: equationsIn(row.text_en), grounded: 'bank', sources: ['Practice question bank'] }];
 }
-function gradeQuiz(ctx: Ctx, st: State, text: string): TurnEvent[] {
-  const qz = st.quiz!; const row = q.get<any>(ctx.db, 'SELECT * FROM questions WHERE id=?', qz.qid);
+async function gradeQuiz(ctx: Ctx, st: State, text: string): Promise<TurnEvent[]> {
+  const qz = st.quiz!; const row = (await q.get<any>(ctx.db, 'SELECT * FROM questions WHERE id=?', qz.qid));
   if (!row) return askQuestion(ctx, st);
   const g = gradeAnswer(row.type, J(row.answer), parseGiven(row, text), 1); const ok = g.kind === 'auto' && g.correct;
-  const rec = (c: boolean) => q.run(ctx.db, 'INSERT INTO voice_quiz(session_id,user_id,question_id,topic,given,correct,at) VALUES (?,?,?,?,?,?,?)', ctx.sessionId ?? '', ctx.userId, row.id, row.topic ?? null, text.slice(0, 80), c ? 1 : 0, new Date().toISOString());
-  if (ok) { rec(true); qz.total++; qz.correct++; const p = praise(qz.total); return [{ type: 'chunk', kind: 'feedback', en: `${p.en} ${row.explanation_en ?? ''}`.trim(), ta: `${p.ta} ${row.explanation_ta ?? ''}`.trim(), say: sayOf(bi(`${p.en} ${row.explanation_en ?? ''}`, `${p.ta} ${row.explanation_ta ?? ''}`)) }, ...askQuestion(ctx, st)]; }
+  const rec = async (c: boolean) => (await q.run(ctx.db, 'INSERT INTO voice_quiz(session_id,user_id,question_id,topic,given,correct,at) VALUES (?,?,?,?,?,?,?)', ctx.sessionId ?? '', ctx.userId, row.id, row.topic ?? null, text.slice(0, 80), c ? 1 : 0, new Date().toISOString()));
+  if (ok) { await rec(true); qz.total++; qz.correct++; const p = praise(qz.total); return [{ type: 'chunk', kind: 'feedback', en: `${p.en} ${row.explanation_en ?? ''}`.trim(), ta: `${p.ta} ${row.explanation_ta ?? ''}`.trim(), say: sayOf(bi(`${p.en} ${row.explanation_en ?? ''}`, `${p.ta} ${row.explanation_ta ?? ''}`)) }, ...(await askQuestion(ctx, st))]; }
   qz.wrong++;
   if (qz.wrong === 1) return [{ type: 'chunk', kind: 'hint', en: `Not quite. Here is a hint: ${hintFor(row, 'en')} Try again, or say “show the answer”.`, ta: `சரியில்லை. ஒரு குறிப்பு: ${hintFor(row, 'ta')} மீண்டும் முயலுங்கள், அல்லது “விடையைக் காட்டு” என்று சொல்லுங்கள்.`, say: sayOf(bi(`Not quite. Here is a hint. ${hintFor(row, 'en')}`, `சரியில்லை. ஒரு குறிப்பு. ${hintFor(row, 'ta')}`)) }];
-  rec(false); qz.total++; const ans = row.type === 'mcq' || row.type === 'tf' ? (J(row.options) as string[])[J(row.answer)] : row.type === 'numeric' ? String(J(row.answer).value) : (J(row.answer).accept as string[])[0];
-  return [{ type: 'chunk', kind: 'feedback', en: `The answer is ${ans}. ${row.explanation_en ?? ''}`.trim(), ta: `விடை: ${ans}. ${row.explanation_ta ?? ''}`.trim(), say: sayOf(bi(`The answer is ${ans}. ${row.explanation_en ?? ''}`, `விடை ${ans}. ${row.explanation_ta ?? ''}`)) }, ...askQuestion(ctx, st)];
+  await rec(false); qz.total++; const ans = row.type === 'mcq' || row.type === 'tf' ? (J(row.options) as string[])[J(row.answer)] : row.type === 'numeric' ? String(J(row.answer).value) : (J(row.answer).accept as string[])[0];
+  return [{ type: 'chunk', kind: 'feedback', en: `The answer is ${ans}. ${row.explanation_en ?? ''}`.trim(), ta: `விடை: ${ans}. ${row.explanation_ta ?? ''}`.trim(), say: sayOf(bi(`The answer is ${ans}. ${row.explanation_en ?? ''}`, `விடை ${ans}. ${row.explanation_ta ?? ''}`)) }, ...(await askQuestion(ctx, st))];
 }
 const startQuiz = (limit: number): State['quiz'] => ({ qid: '', wrong: 0, asked: [], correct: 0, total: 0, limit });
 
@@ -210,7 +210,7 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
   // Answer to a pending question
   if (st.awaiting === 'practice' && st.quiz && text && !action.startsWith('mode:')) {
     const giveUp = /^(show (me )?the answer|விடையைக் காட்டு)/i.test(text); if (giveUp) st.quiz.wrong = 1;
-    yield* emit(gradeQuiz(ctx, st, giveUp ? '\u0000' : text)); yield fin('bank'); return;
+    yield* emit(await gradeQuiz(ctx, st, giveUp ? '\u0000' : text)); yield fin('bank'); return;
   }
   if (st.awaiting === 'check' && st.plan && (text || action === 'next') && !action.startsWith('mode:')) {
     const plan = st.plan, i = st.idx, step = plan.steps[i], c = step.check;
@@ -237,22 +237,22 @@ async function* ruleTurn(ctx: Ctx, input: TurnInput): AsyncGenerator<TurnEvent> 
   // Starting something new
   if (mode === 'practice' || mode === 'revise') {
     if (mode === 'revise') {
-      const plan = buildPlan(ctx.db, ctx, text); st.plan = plan;
+      const plan = await buildPlan(ctx.db, ctx, text); st.plan = plan;
       if (!plan) { const m = text && !isGeneric(text) ? NO_SOURCE : ASK; yield { type: 'chunk', kind: text && !isGeneric(text) ? 'notice' : 'info', en: m.en, ta: m.ta, say: m, grounded: 'none' }; yield fin('none'); return; }
       const bullets = plan.steps.map((s, i) => `${i + 1}. ${s.en.split(/(?<=[.:])\s/)[0]}`).join('\n'); const bt = plan.steps.map((s, i) => `${i + 1}. ${s.ta.split(/(?<=[.:।])\s/)[0]}`).join('\n');
       yield { type: 'chunk', kind: 'summary', en: `Quick revision — ${plan.topic.en}:\n${bullets}`, ta: `விரைவுத் திருப்புதல் — ${plan.topic.ta}:\n${bt}`, say: bi(`Quick revision of ${plan.topic.en}. Here are the key points, then a short quiz.`, `${plan.topic.ta} பற்றிய விரைவுத் திருப்புதல். முக்கியக் குறிப்புகள், பிறகு ஒரு சிறு வினாடி வினா.`), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
       st.quiz = startQuiz(3);
     } else st.quiz = startQuiz(5);
-    if (!pickQuestion(ctx.db, ctx, [])) { yield { type: 'chunk', kind: 'notice', en: 'I do not have practice questions for this subject and class yet.', ta: 'இந்த வகுப்பு மற்றும் பாடத்திற்கான பயிற்சிக் கேள்விகள் இன்னும் இல்லை.', say: bi('I do not have practice questions for this subject and class yet.', 'இந்த வகுப்பு மற்றும் பாடத்திற்கான பயிற்சிக் கேள்விகள் இன்னும் இல்லை.') }; yield fin('none'); return; }
-    yield* emit(askQuestion(ctx, st)); yield fin('bank', st.done); return;
+    if (!(await pickQuestion(ctx.db, ctx, []))) { yield { type: 'chunk', kind: 'notice', en: 'I do not have practice questions for this subject and class yet.', ta: 'இந்த வகுப்பு மற்றும் பாடத்திற்கான பயிற்சிக் கேள்விகள் இன்னும் இல்லை.', say: bi('I do not have practice questions for this subject and class yet.', 'இந்த வகுப்பு மற்றும் பாடத்திற்கான பயிற்சிக் கேள்விகள் இன்னும் இல்லை.') }; yield fin('none'); return; }
+    yield* emit(await askQuestion(ctx, st)); yield fin('bank', st.done); return;
   }
   if (mode === 'hint') {
-    if (text) { st.plan = buildPlan(ctx.db, ctx, text); st.hintLevel = 0; st.idx = 0; }
+    if (text) { st.plan = (await buildPlan(ctx.db, ctx, text)); st.hintLevel = 0; st.idx = 0; }
     if (!st.plan) { yield { type: 'chunk', kind: 'notice', en: text ? NO_SOURCE.en : 'Tell me the question you want a hint for — for example an equation like 3x + 5 = 20.', ta: text ? NO_SOURCE.ta : 'எந்தக் கேள்விக்குக் குறிப்பு வேண்டும் என்று சொல்லுங்கள் — எடுத்துக்காட்டாக 3x + 5 = 20.', say: text ? NO_SOURCE : bi('Tell me the question you want a hint for.', 'எந்தக் கேள்விக்குக் குறிப்பு வேண்டும் என்று சொல்லுங்கள்.'), grounded: 'none' }; yield fin('none'); return; }
     yield* emit(hintChunks(ctx, st)); yield fin(); return;
   }
   // teach / explain
-  const plan = text ? buildPlan(ctx.db, ctx, text) : (st.plan ?? buildPlan(ctx.db, ctx, '')); st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null;
+  const plan = text ? (await buildPlan(ctx.db, ctx, text)) : (st.plan ?? (await buildPlan(ctx.db, ctx, ''))); st.plan = plan; st.idx = 0; st.wrong = 0; st.hintLevel = 0; st.done = false; st.quiz = null;
   if (!plan) { st.awaiting = null; const m = text && !isGeneric(text) ? NO_SOURCE : ASK; yield { type: 'chunk', kind: text && !isGeneric(text) ? 'notice' : 'info', en: m.en, ta: m.ta, say: m, grounded: 'none' }; yield fin('none'); return; }
   yield { type: 'chunk', kind: 'info', en: `${plan.grounded === 'solver' ? 'Let us work through this' : `From ${plan.grounded === 'lesson' ? 'your class lesson' : 'your class book'}`}: ${plan.topic.en}`, ta: `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : plan.grounded === 'lesson' ? 'உங்கள் வகுப்புப் பாடத்திலிருந்து' : 'உங்கள் வகுப்புப் புத்தகத்திலிருந்து'}: ${plan.topic.ta}`, say: sayOf(bi(`${plan.grounded === 'solver' ? 'Let us work through this' : 'From your class material'}: ${plan.topic.en}`, `${plan.grounded === 'solver' ? 'இதைப் படிப்படியாகப் பார்ப்போம்' : 'உங்கள் வகுப்புப் பொருளிலிருந்து'}: ${plan.topic.ta}`)), grounded: plan.grounded, sources: plan.sources, refs: plan.refs };
   if (mode === 'explain') {

@@ -14,12 +14,12 @@ describe('Class 8 English textbook lessons', () => {
     for (const l of ls) { expect(l.class_level).toBe(8); expect(l.subject_id).toBe('english'); expect(l.source).toMatch(/Samacheer Kalvi.*starts on page \d+/); expect(l.content.sections.length).toBeGreaterThan(0); for (const s of l.content.sections) { expect(s.en.length).toBeGreaterThan(20); expect(s.ta).toBeUndefined(); } }
   });
   it('is loaded by seed, and re-importing is idempotent and keeps student data', async () => {
-    const n = (sql: string) => (q.get<any>(ctx.db, sql)!).n;
-    const before = n("SELECT COUNT(*) n FROM lessons WHERE subject_id='english' AND class_level=8");
+    const n = async (sql: string) => ((await q.get<any>(ctx.db, sql))!).n;
+    const before = await n("SELECT COUNT(*) n FROM lessons WHERE subject_id='english' AND class_level=8");
     const c = client(ctx.app); await c.login(DEMO.student); await c.post('/api/lessons/c8-english-u1-prose/open');
-    expect(upsertTextbookLessons(ctx.db)).toBe(ids().length);
-    expect(n("SELECT COUNT(*) n FROM lessons WHERE subject_id='english' AND class_level=8")).toBe(before);
-    expect(n("SELECT COUNT(*) n FROM lesson_progress WHERE lesson_id='c8-english-u1-prose'")).toBe(1);
+    expect(await upsertTextbookLessons(ctx.db)).toBe(ids().length);
+    expect(await n("SELECT COUNT(*) n FROM lessons WHERE subject_id='english' AND class_level=8")).toBe(before);
+    expect(await n("SELECT COUNT(*) n FROM lesson_progress WHERE lesson_id='c8-english-u1-prose'")).toBe(1);
   });
   it('appears in the Class 8 curriculum and opens as a lesson', async () => {
     const c = client(ctx.app); await c.login(DEMO.student);
