@@ -54,6 +54,8 @@ Verified by tests (68 passing) and a 375 px browser check of the preview build (
 - Network: request timeouts (15 s GET / 45 s write), GET retried twice, writes never auto-retried, offline banner.
 - Security tests (`tests/security.test.ts`): auth required; cross-student access to conversations, materials, attempts and certificates denied; no answers leaked during an attempt; upload content-sniffing; idempotent server-side scoring and no forged score; no certificate for failed attempts; built bundle contains no API keys.
 
+- Lesson page has a sixth **Textbook** tab: only the few book pages of the student's own class that relate to that lesson (excerpt + "Open page N in a new tab"), not the whole book. API: `GET /api/textbooks/for-lesson/:lessonId`.
+
 ## Class books (upload → class-scoped chatbot → open at cited page)
 - Only the platform admin uploads/removes a PDF (class, subject, medium) at `/admin/books`; teachers get a read-only list at `/teacher/books` and the upload/delete API returns 403 for them. The server stores the PDF (`TEXTBOOK_DIR`, default `data/textbooks`) and per-page text.
 - Students see/open only books of their own class (`/app/books`, `/app/textbook/:id?page=N`); other classes' books return 404 on list, file and page endpoints.

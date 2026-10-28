@@ -73,6 +73,7 @@ export async function previewApi(method: string, url: string, body: any): Promis
   }
   if (path.startsWith('/tutor/messages/')) return { ok: true };
   if (method === 'GET' && url === '/textbooks') return { textbooks: [] };
+  if (method === 'GET' && url.startsWith('/textbooks/for-lesson/')) return { pages: [] };
   throw new PErr(404, 'Not available in UI preview.');
 }
 export { PErr };

@@ -8,6 +8,7 @@ import { rateLimit, requireAuth, requireRole, uid } from '../security';
 import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
+import { textbookHits } from '../services/tutor';
 
 const DIR = process.env.TEXTBOOK_DIR ?? 'data/textbooks';
 const MAX = 60 * 1024 * 1024;
@@ -50,6 +51,18 @@ export function textbookRoutes(db: DB) {
     q.run(db, 'INSERT INTO textbooks(id,title,class_level,subject_id,medium,file_path,size,page_count,status,note,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', id, b.title, b.classLevel, subject, b.medium, path, f.size, pages.length, status, note, req.user!.id, iso());
     for (const p of withText) q.run(db, 'INSERT INTO textbook_pages(textbook_id,page,text) VALUES (?,?,?)', id, p.page, p.text.slice(0, 20000));
     res.status(201).json({ textbook: view(get(id)) });
+  }));
+
+  /** Pages of the student's own class books that relate to one lesson (a few excerpts, never the whole book). */
+  r.get('/for-lesson/:lessonId', requireAuth, wrap(async (req, res) => {
+    const u = req.user!; const l = q.get<any>(db, 'SELECT id,class_level,subject_id,title_en,content FROM lessons WHERE id=?', req.params.lessonId);
+    if (!l) throw new HttpError(404, 'Lesson not found.');
+    if (u.role === 'student' ? studentClass(u.id) !== l.class_level : !STAFF.includes(u.role)) return res.json({ pages: [] });
+    let c: any = {}; try { c = JSON.parse(l.content); } catch { /* ignore */ }
+    const query = [l.title_en, ...(c.sections ?? []).map((x: any) => `${x.h_en} ${x.en}`), ...(c.vocab ?? []).map((v: any) => v.en ?? v.term_en ?? '')].join(' ');
+    const seen = new Set<string>(); const pages: any[] = [];
+    for (const h of textbookHits(db, l.class_level, l.subject_id, query, 12)) { const k = `${h.bookId}:${h.page}`; if (seen.has(k) || pages.length >= 4) continue; seen.add(k); pages.push({ bookId: h.bookId, book: h.source, page: h.page, excerpt: h.text.slice(0, 320) }); }
+    res.json({ pages });
   }));
 
   r.get('/:id', requireAuth, wrap(async (req, res) => { const b = get(req.params.id); if (!allowed(req, b)) throw new HttpError(404, 'Book not found.'); res.json({ textbook: view(b) }); }));

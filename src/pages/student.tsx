@@ -105,7 +105,8 @@ function ReadAloud({ en, ta, rate }: { en: string; ta: string; rate: number }) {
 }
 
 import { MindMapView, RevisionList } from '../components/MindMap';
-const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision']];
+import { LessonBook } from './books';
+const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision'], ['book', 'Textbook']];
 export function Lesson() {
   const { id } = useParams(); const nav = useNavigate(); const [sp, setSp] = useSearchParams(); const rawTab = sp.get('tab') ?? 'explain'; const tab = TABS.some(t => t[0] === rawTab) ? rawTab : 'explain';
   const goTab = (t: string, el?: string | null) => { const n = new URLSearchParams(sp); n.set('tab', t); setSp(n, { replace: true }); if (el) setTimeout(() => document.getElementById(el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80); else window.scrollTo({ top: 0 });}; const toast = useToast(); const { profile } = useAuth(); const { lang } = useLang();
@@ -129,6 +130,7 @@ export function Lesson() {
       <div role="tabpanel" id="lesson-panel" aria-labelledby={`tab-${tab}`} className="col">
       {tab === 'map' && <MindMapView lessonId={l.id} subjectId={l.subject_id} onOpenLesson={a => goTab(a.tab, a.el)} />}
       {tab === 'revision' && <RevisionList lessonId={l.id} />}
+      {tab === 'book' && <LessonBook lessonId={l.id} />}
       {tab === 'explain' && <>
       <Card className="col"><h2><Bi en="What you will learn" ta="இதில் நீங்கள் கற்பது" /></h2>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ul>{c.objectives.en.map((o: string) => <li key={o}>{o}</li>)}</ul>}{lang !== 'en' && <ul lang="ta" className="ta">{c.objectives.ta.map((o: string) => <li key={o}>{o}</li>)}</ul>}</div></Card>

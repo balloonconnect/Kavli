@@ -53,3 +53,13 @@ export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
     <Async s={s}>{d => !d.textbooks.length ? <Empty title="No books yet" text="Uploaded books appear here." /> : <Card className="col"><h2>{canEdit ? 'Uploaded books' : 'Class books'}</h2>{d.textbooks.map((b: any) => <div key={b.id} className="row wrap listrow"><div className="grow"><b>{b.title}</b><div className="muted small">Class {b.class_level} · {subjName(b.subject_id)} · {b.medium} · {b.page_count} pages</div>{b.note && <div className="muted small">{b.note}</div>}</div><Badge tone={b.status === 'ready' ? 'success' : 'warning'}>{b.status === 'ready' ? 'Ready' : 'Needs OCR'}</Badge>
       {canEdit && <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button>}</div>)}</Card>}</Async></div>;
 }
+
+/** Lesson "Textbook" tab: only the book pages related to this lesson, each opening in a new tab. */
+export function LessonBook({ lessonId }: { lessonId: string }) {
+  const s = useLoad(() => get(`/textbooks/for-lesson/${lessonId}`), [lessonId]);
+  return <Async s={s}>{d => !d.pages.length
+    ? <Empty title="No related textbook pages yet" text="Either no book has been added for your class, or nothing in it matches this lesson. The lesson, mind map and practice still work." />
+    : <div className="col"><p className="muted small">Pages from your class book that relate to this lesson. Only short excerpts are shown here — open the page to read it in the book.</p>
+      {d.pages.map((p: any) => <Card key={`${p.bookId}-${p.page}`} className="col"><div className="row wrap"><b className="grow">{p.book}</b><Badge tone="info">Page {p.page}</Badge></div>
+        <p>{p.excerpt}</p><div className="row"><Link className="btn secondary" to={`/app/textbook/${p.bookId}?page=${p.page}`} target="_blank" rel="noreferrer">Open page {p.page} in a new tab</Link></div></Card>)}</div>}</Async>;
+}

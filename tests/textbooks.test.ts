@@ -49,3 +49,13 @@ describe('teacher read-only', () => { it('a teacher can list books but cannot de
   const t = await login(DEMO.teacher); expect((await t.c.get('/api/textbooks')).body.textbooks).toHaveLength(1);
   expect((await t.c.agent.delete(`/api/textbooks/${id}`).set('x-csrf-token', t.csrf)).status).toBe(403);
   expect((await a.c.agent.delete(`/api/textbooks/${id}`).set('x-csrf-token', a.csrf)).status).toBe(200); }); });
+
+describe('lesson textbook tab', () => {
+  it('returns only related pages of the student\'s own class book', async () => {
+    const a = await login(DEMO.admin); await addBook(a, 'Class 8 Maths', 8, ['Solving linear equations means finding the value of the variable. A linear equation has the variable only to the power one, and we keep both sides balanced.', 'Unrelated page about volcanoes and obsidian glass formed when lava cools.']);
+    await addBook(a, 'Class 10 Physics', 10, P10);
+    const s = await login(DEMO.student); const r = await s.c.get('/api/textbooks/for-lesson/c8-maths-linear'); expect(r.status).toBe(200);
+    expect(r.body.pages.length).toBeGreaterThan(0); expect(r.body.pages.every((p: any) => p.book === 'Class 8 Maths')).toBe(true); expect(JSON.stringify(r.body)).not.toMatch(/marmalade/);
+    expect((await s.c.get('/api/textbooks/for-lesson/c10-nope')).status).toBe(404);
+  });
+});
