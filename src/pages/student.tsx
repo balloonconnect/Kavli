@@ -55,11 +55,11 @@ function StudentDashboard() {
 
 export function Learn() {
   const [sp, setSp] = useSearchParams(); const q = sp.get('q') ?? ''; const subject = sp.get('subject') ?? '';
-  const { profile } = useAuth(); const [cls, setCls] = useState<number>(profile?.class_level ?? 8);
+  const { profile } = useAuth(); const cls: number = profile?.class_level ?? 8; // the student's own class
   const s = useLoad(() => get(`/curriculum?class=${cls}`), [cls]);
   return (
     <div className="col">
-      <PageTitle title={<Bi en="Learn" ta="பாடங்கள்" />} sub={s.data?.fromBooks?.length ? "Tamil Nadu State Board (Samacheer Kalvi) · lessons from your class books where uploaded, sample lessons elsewhere" : "Tamil Nadu State Board (Samacheer Kalvi) · sample lessons for this prototype"} right={<div className="field"><label className="sr" htmlFor="c">Class</label><select id="c" value={cls} onChange={e => setCls(Number(e.target.value))}>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <option key={c} value={c}>Class {c}</option>)}</select></div>} />
+      <PageTitle title={<Bi en="Learn" ta="பாடங்கள்" />} sub={s.data?.fromBooks?.length ? "Tamil Nadu State Board (Samacheer Kalvi) · lessons from your class books where uploaded, sample lessons elsewhere" : "Tamil Nadu State Board (Samacheer Kalvi) · sample lessons for this prototype"} />
       <div className="row wrap"><div className="field grow" style={{ maxWidth: 360 }}><label className="sr" htmlFor="lq">Search lessons</label><input id="lq" placeholder="Search lessons…" value={q} onChange={e => { const n = new URLSearchParams(sp); e.target.value ? n.set('q', e.target.value) : n.delete('q'); setSp(n, { replace: true }); }} /></div>
         <div className="row wrap" role="group" aria-label="Subject filter"><button className={`pill ${!subject ? 'on' : ''}`} onClick={() => { const n = new URLSearchParams(sp); n.delete('subject'); setSp(n); }}>All</button>
           {(s.data?.subjects ?? []).map((x: any) => <button key={x.id} className={`pill ${subject === x.id ? 'on' : ''}`} onClick={() => { const n = new URLSearchParams(sp); n.set('subject', x.id); setSp(n); }}>{x.name_en}</button>)}</div></div>
