@@ -24,14 +24,6 @@ function AskKavli() {
       <Button type="submit">Ask</Button></form>
     <div className="row wrap"><Link to="/app/tutor" className="link">Open full tutor</Link><Link to="/app/material" className="link">Ask about my own material</Link></div></Card>;
 }
-function RecentMaps({ continueId }: { continueId?: string }) {
-  const s = useLoad(() => get('/mindmaps/recent'), []);
-  return <Card className="col"><h2>Mind maps</h2>
-    {s.loading ? <p className="muted small" role="status">Loading…</p> : s.error ? <p className="muted small">Your recent mind maps could not be loaded. <button className="link" onClick={s.reload}>Try again</button></p>
-      : !s.data?.recent.length ? <><p className="muted">You have not opened a mind map yet. Open any lesson and choose the Mind Map tab to see it as a map.</p>{continueId && <Button tone="secondary" to={`/app/learn/${continueId}?tab=map`}>Try a mind map</Button>}</>
-      : s.data.recent.slice(0, 4).map((m: any) => <div className="row wrap listrow" key={m.lessonId}><div className="grow"><b><Bi en={m.title_en} ta={m.title_ta} block /></b><div className="muted small">{m.understood} understood · {m.revision} to revise</div></div><Button tone="secondary" to={`/app/learn/${m.lessonId}?tab=map`}>Open</Button></div>)}
-  </Card>;
-}
 function StudentDashboard() {
   const s = useLoad(() => get('/dashboard'));
   return <Async s={s}>{d => {
@@ -50,29 +42,13 @@ function StudentDashboard() {
           {d.recommendedPractice && <Button tone="secondary" to="/app/practice">Go to practice</Button>}
         </Card>
       </div>
+      <Card className="col"><div className="row"><h2 className="grow">Your subjects</h2><Link to="/app/learn" className="link">All lessons</Link></div>
+        <div className="grid g3">{d.subjects.map((s: any, i: number) => { const [bg, fg] = subjColor(i); return (
+          <Link key={s.id} to={`/app/learn?subject=${s.id}`} className="subjcard"><div className="row"><IconBox name={SUBJ_ICON[s.id] ?? 'book'} bg={bg} fg={fg} /><div className="grow"><b><Bi en={s.name_en} ta={s.name_ta} block /></b><span className="muted small">{s.completed}/{s.lessons} lessons</span></div></div><Progress pct={s.pct} color={fg} label={`${s.name_en} progress`} /></Link>); })}</div></Card>
       <nav aria-label="Learning tools" className="grid g4 quick">
         {([['book', 'Class books', 'Open your textbook pages', '/app/books', 'var(--primary-soft)', 'var(--primary)'], ['layers', 'Lessons & mind maps', 'Learn in Tamil or English', '/app/learn', 'var(--primary-soft)', 'var(--primary)'], ['target', 'Practice', 'Hints and explanations', '/app/practice', 'var(--accent-soft)', 'var(--accent)'], ['test', 'Weekly tests', d.toComplete ? `${d.toComplete} to complete` : 'None open now', '/app/tests', 'var(--warning-soft)', 'var(--warning)'], ['chart', 'My progress', d.passRate === null ? 'No finished tests yet' : `${d.passRate}% pass rate`, '/app/progress', 'var(--success-soft)', 'var(--success)']] as const).map(([i, t, sub, to, bg, fg]) => (
           <Link key={t} to={to} className="quicklink"><IconBox name={i} bg={bg} fg={fg} /><span><b>{t}</b><span className="muted small" style={{ display: 'block' }}>{sub}</span></span></Link>))}
       </nav>
-      <div className="grid g2 split">
-        <RecentMaps continueId={cl?.id} />
-        <Card className="col"><h2>Today’s goals</h2>
-          {d.goals.map((g: any) => <div className="row" key={g.id}><span className={`tick ${g.done ? 'on' : ''}`} aria-hidden>{g.done ? '✓' : ''}</span><span className={g.done ? 'muted' : 'semi'}><Bi en={g.label_en} ta={g.label_ta} /></span><span className="sr">{g.done ? 'Done' : 'Not done yet'}</span></div>)}
-          <div className="row wrap"><Link to="/app/certificates" className="link">{d.certificates} certificate{d.certificates === 1 ? '' : 's'}</Link><Link to="/app/bookmarks" className="link">{d.bookmarks.length} saved item{d.bookmarks.length === 1 ? '' : 's'}</Link></div>
-        </Card>
-      </div>
-      <Card className="col"><div className="row"><h2 className="grow">Your subjects</h2><Link to="/app/learn" className="link">All lessons</Link></div>
-        <div className="grid g3">{d.subjects.map((s: any, i: number) => { const [bg, fg] = subjColor(i); return (
-          <Link key={s.id} to={`/app/learn?subject=${s.id}`} className="subjcard"><div className="row"><IconBox name={SUBJ_ICON[s.id] ?? 'book'} bg={bg} fg={fg} /><div className="grow"><b><Bi en={s.name_en} ta={s.name_ta} block /></b><span className="muted small">{s.completed}/{s.lessons} lessons</span></div></div><Progress pct={s.pct} color={fg} label={`${s.name_en} progress`} /></Link>); })}</div></Card>
-      <div className="grid g2 split">
-        <Card className="col"><div className="row"><h2 className="grow">Upcoming tests</h2><Link to="/app/tests" className="link">View all</Link></div>
-          {!d.upcoming.length ? <p className="muted">No tests are open right now.</p> : d.upcoming.map((t: any) => (
-            <div className="row wrap listrow" key={t.id}><div className="grow"><b>{t.title}</b><div className="muted small">{t.status === 'Upcoming' ? `Opens ${fmtDT(t.opens_at)}` : `Closes ${fmtDT(t.closes_at)}`}{t.duration_min ? ` · ${t.duration_min} min` : ''}</div></div><Badge tone={t.status === 'Upcoming' ? 'neutral' : 'info'}>{t.status}</Badge><Button tone="secondary" to={`/app/tests/${t.id}`}>View</Button></div>))}</Card>
-        <Card className="col"><div className="row"><h2 className="grow">Latest results</h2><Link to="/app/progress" className="link">Progress</Link></div>
-          {!d.latestResults.length ? <p className="muted">You have not finished a test yet. Your results will appear here.</p> : d.latestResults.map((r: any) => (
-            <div className="row wrap listrow" key={r.attempt_id}><div className="grow"><b>{r.title}</b><div className="muted small">{fmtDT(r.submitted_at)}</div></div>
-              {r.status === 'pending_review' ? <Badge tone="warning">Pending review</Badge> : <><b>{r.marks}/{r.total}</b><Badge tone={r.status === 'passed' ? 'success' : 'danger'}>{r.status === 'passed' ? 'Passed' : 'Not passed'}</Badge></>}<Button tone="secondary" to={`/app/result/${r.attempt_id}`}>Open</Button></div>))}</Card>
-      </div>
       {!!d.revision.length && <Card className="col"><h2>Topics to revise</h2><p className="muted small">Based on your finished tests.</p><div className="row wrap">{d.revision.map((t: any) => <Badge key={t.topic} tone="warning">{t.topic} · {t.pct}%</Badge>)}</div><Button tone="secondary" to="/app/progress">See revision plan</Button></Card>}
     </div>); }}</Async>;
 }
