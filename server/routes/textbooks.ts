@@ -31,7 +31,7 @@ export function textbookRoutes(db: DB) {
   }));
 
   r.post('/', admin, rateLimit(10, 600000, req => req.user!.id), upload.single('file'), wrap(async (req, res) => {
-    const b = parse(z.object({ title: z.string().trim().min(2).max(120), classLevel: z.coerce.number().int().min(1).max(12), subjectId: z.string().trim().max(40).optional(), medium: z.enum(['English', 'Tamil']).default('English') }), req.body);
+    const b = parse(z.object({ title: z.string().trim().min(2).max(120), classLevel: z.coerce.number().int().min(1).max(12), subjectId: z.string().trim().max(40).optional(), medium: z.enum(['English', 'Tamil', 'Both']).default('English') }), req.body);
     const f = req.file; if (!f) throw new HttpError(400, 'Choose a PDF file first.');
     if (f.buffer.subarray(0, 5).toString() !== '%PDF-') throw new HttpError(415, 'Please choose a PDF file.');
     let subject: string | null = null;

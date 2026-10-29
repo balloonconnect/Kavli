@@ -16,7 +16,7 @@ export async function extractAll(buf: Buffer): Promise<PageText[]> {
 }
 
 export const ocrQueue = new JobQueue(Number(process.env.OCR_CONCURRENCY ?? 1));
-export const langFor = (medium: string) => (medium === 'Tamil' ? process.env.OCR_LANG_TAMIL ?? 'tam+eng' : process.env.OCR_LANG_ENGLISH ?? 'eng');
+export const langFor = (medium: string) => (medium === 'Tamil' || medium === 'Both' ? process.env.OCR_LANG_TAMIL ?? 'tam+eng' : process.env.OCR_LANG_ENGLISH ?? 'eng');
 const MIN_PAGE_CHARS = 20;
 
 export async function putPages(db: DB, bookId: string, pages: PageText[]) {
@@ -24,7 +24,7 @@ export async function putPages(db: DB, bookId: string, pages: PageText[]) {
 }
 
 /** Splits the PDF's own text layer into pages we can trust and pages that need OCR. */
-export function triage(pages: PageText[], medium: 'English' | 'Tamil') {
+export function triage(pages: PageText[], medium: 'English' | 'Tamil' | 'Both') {
   const good = pages.filter(p => textQuality(p.text, medium).ok); const ok = new Set(good.map(p => p.page));
   return { good, bad: pages.filter(p => !ok.has(p.page)).map(p => p.page) };
 }

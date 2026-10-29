@@ -25,3 +25,13 @@ describe('book-only mode', () => {
     await purgeSampleContent(db); // safe to repeat
   });
 });
+
+describe('textbook medium "Both"', () => {
+  it('reads with Tamil and English text recognition and accepts either language per page', async () => {
+    const { langFor } = await import('../server/services/textbookIngest');
+    const { textQuality } = await import('../server/services/ocr');
+    expect(langFor('Both')).toBe('tam+eng'); expect(langFor('English')).toBe('eng');
+    expect(textQuality('The students read the lesson and then they answer the questions in the book with the teacher.', 'Both').ok).toBe(true);
+    expect(textQuality('அறம் என்பது நல்ல செயல்களைச் செய்வதாகும் என்று வள்ளுவர் கூறுகிறார் அதனால் நாம் அதைப் பின்பற்ற வேண்டும்', 'Both').ok).toBe(true);
+  });
+});

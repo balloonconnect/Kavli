@@ -45,4 +45,5 @@ export const BOOK: Record<string, string> = {
   'Mark as learned': 'கற்றேன் எனக் குறி',
   'Writing…': 'எழுதுகிறது…',
   'AI Tutor sections': 'AI ஆசிரியர் பிரிவுகள்',
+  'Both (Tamil + English)': 'இரண்டும் (தமிழ் + ஆங்கிலம்)',
 };

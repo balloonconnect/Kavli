@@ -113,7 +113,7 @@ export async function syncChapterLessons(db: DB, bookId: string): Promise<number
       sections,
       structure: buildStructure(pages),
       vocab: [], examples: [], mistakes: [],
-      fromBook: { quality: Math.round(quality * 100) / 100, textbookId: bookId, chapterOrd: ch.ord, startPage: ch.start_page, endPage: ch.end_page, language: tamilBook ? 'ta' : 'en', verified: !!ch.verified },
+      fromBook: { quality: Math.round(quality * 100) / 100, textbookId: bookId, chapterOrd: ch.ord, startPage: ch.start_page, endPage: ch.end_page, language: tamilBook || (book.medium === 'Both' && isTamil(text)) ? 'ta' : 'en', verified: !!ch.verified },
     };
     const source = `${BOOK_SOURCE_PREFIX} ${book.title}, ${range}. Read from the textbook PDF${book.status === 'ready' ? '' : ' (still being read)'}; scanned text can contain a few wrong letters.`;
     const title = ch.title;

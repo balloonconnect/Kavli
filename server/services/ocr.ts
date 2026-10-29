@@ -95,7 +95,7 @@ const TAMIL = /[஀-௿]/g; const LETTER = /\p{L}/gu;
  * Is this page's embedded text layer trustworthy? Old Tamil PDFs often carry legacy-font text that looks like Tamil but is corrupted
  * (doubled virama "்்", replacement characters, letters spaced apart) — retrieval and the tutor must not be fed that.
  */
-export function textQuality(text: string, medium: 'English' | 'Tamil'): { ok: boolean; reason?: string } {
+export function textQuality(text: string, medium: 'English' | 'Tamil' | 'Both'): { ok: boolean; reason?: string } {
   const t = text.replace(/\s+/g, ' ').trim(); if (t.length < 20) return { ok: false, reason: 'no text' };
   const letters = (t.match(LETTER) ?? []).length; if (letters < 15) return { ok: false, reason: 'no text' };
   const bad = (t.match(/�|்்|ாா|ெெ|ொொ|ோோ/g) ?? []).length; if (bad / Math.max(1, t.length / 100) > 1.5) return { ok: false, reason: 'corrupted encoding' };
@@ -105,7 +105,7 @@ export function textQuality(text: string, medium: 'English' | 'Tamil'): { ok: bo
   if (taN >= 20 && illFormedTamil(t) > 2) return { ok: false, reason: 'corrupted encoding' };
   const singles = t.split(' ').filter(w => w.length <= 2).length / Math.max(1, t.split(' ').length); if (singles > 0.6) return { ok: false, reason: 'spaced-out letters' };
   const ta = (t.match(TAMIL) ?? []).length;
-  if (medium === 'Tamil' && ta / letters < 0.25 && letters > 60) {
+  if (medium !== 'English' && ta / letters < 0.25 && letters > 60) {
     // Latin text on a Tamil-medium page is either genuine English or legacy-font Tamil shown as Latin gibberish; real English is full of function words.
     const words = t.toLowerCase().match(/[a-z]+/g) ?? []; const fn = words.filter(w => EN_FUNCTION.has(w)).length;
     if (fn / Math.max(1, words.length) < 0.12) return { ok: false, reason: 'not Tamil text' };
