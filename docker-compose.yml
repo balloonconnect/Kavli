@@ -1,0 +1,47 @@
+# Local stack that looks like production: the app, PostgreSQL, and an S3-compatible bucket (MinIO).
+#   docker compose up --build            then open http://localhost:3001
+#   node scripts/smoke.mjs               end-to-end check against it (admin: admin@demo.kavli.local / demo@12345)
+# Demo accounts are ON here so you can sign in at once. For a real deployment use docs/DEPLOYMENT.md (SEED_DEMO=0, your own secrets).
+# Add ANTHROPIC_API_KEY, AZURE_SPEECH_KEY/REGION, RESEND_API_KEY etc. in a `.env` file next to this one to try the real services.
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: kavli, POSTGRES_PASSWORD: kavli, POSTGRES_DB: kavli }
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U kavli"], interval: 3s, timeout: 3s, retries: 20 }
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment: { MINIO_ROOT_USER: kavli-local, MINIO_ROOT_PASSWORD: kavli-local-secret }
+    volumes: [miniodata:/data]
+    ports: ["9001:9001"]   # console: http://localhost:9001
+    healthcheck: { test: ["CMD", "mc", "ready", "local"], interval: 3s, timeout: 3s, retries: 20 }
+
+  bucket:
+    image: minio/mc:latest
+    depends_on: { minio: { condition: service_healthy } }
+    entrypoint: ["/bin/sh", "-c", "mc alias set m http://minio:9000 kavli-local kavli-local-secret && mc mb --ignore-existing m/kavli-books"]
+    restart: "no"
+
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+      bucket: { condition: service_completed_successfully }
+    env_file: [{ path: .env, required: false }]
+    environment:
+      NODE_ENV: development          # plain http on localhost: cookies are not marked secure
+      PORT: "3001"
+      PUBLIC_URL: http://localhost:3001
+      SEED_DEMO: "1"
+      DATABASE_URL: postgres://kavli:kavli@db:5432/kavli
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: kavli-books
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: kavli-local
+      S3_SECRET_ACCESS_KEY: kavli-local-secret
+    ports: ["3001:3001"]
+
+volumes: { dbdata: {}, miniodata: {} }

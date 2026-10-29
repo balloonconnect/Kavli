@@ -12,7 +12,11 @@
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "test": "vitest run",
     "migrate": "tsx scripts/migrate.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "coverage": "vitest run --coverage",
+    "smoke": "node scripts/smoke.mjs",
+    "import-book": "node scripts/import-book.mjs",
+    "local:pg": "node scripts/local-pg.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1158.0",
@@ -28,7 +32,7 @@
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
+    "react-router-dom": "^7.18.5",
     "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
@@ -47,6 +51,7 @@
     "@types/smtp-server": "^3.5.13",
     "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "axe-core": "^4.14.0",
     "concurrently": "^10.0.6",
     "embedded-postgres": "^18.4.0-beta.17",

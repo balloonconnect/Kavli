@@ -8,8 +8,7 @@ import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { textbookHits } from '../services/tutor';
-import { detectAndStoreChapters, extractAll, listChapters, ocrQueue, putPages, replaceChapters, runOcr, triage } from '../services/textbookIngest';
-import { getOcrEngine } from '../services/ocr';
+import { detectAndStoreChapters, extractAll, listChapters, ocrQueue, ocrUsable, putPages, replaceChapters, runOcr, triage } from '../services/textbookIngest';
 
 const MAX = 60 * 1024 * 1024;
 const STAFF = ['teacher', 'school_admin', 'admin'];
@@ -40,9 +39,9 @@ export function textbookRoutes(db: DB) {
     try { pages = await extractAll(f.buffer); } catch { status = 'failed'; note = 'This PDF could not be read. It may be damaged or password protected.'; }
     if (status === 'failed') throw new HttpError(422, note!);
     // Use the PDF's own text only where it is trustworthy; scanned or badly-encoded pages (common in older Tamil books) go to OCR.
-    const { good, bad } = triage(pages, b.medium); const engine = bad.length ? await getOcrEngine() : null;
-    if (bad.length && engine) { status = 'processing'; note = `Reading ${bad.length} page${bad.length > 1 ? 's' : ''} with OCR. The book opens now; the tutor can use it as the pages finish.`; }
-    else if (bad.length && good.length < Math.max(1, Math.floor(pages.length / 4))) { status = 'needs_ocr'; note = 'Most pages are scanned images or use an unreadable text encoding, and OCR is not available on this server. Students can open this book, but the tutor cannot answer from it yet.'; }
+    const { good, bad } = triage(pages, b.medium); const ocr = bad.length ? await ocrUsable(b.medium) : null;
+    if (bad.length && ocr?.ok) { status = 'processing'; note = `Reading ${bad.length} page${bad.length > 1 ? 's' : ''} with OCR. The book opens now; the tutor can use it as the pages finish.`; }
+    else if (bad.length && good.length < Math.max(1, Math.floor(pages.length / 4))) { status = 'needs_ocr'; note = 'Most pages are scanned images or use an unreadable text encoding, and OCR cannot run on this server' + (ocr && !ocr.ok ? ` (${ocr.why})` : '') + '. Students can open this book, but the tutor cannot answer from it yet.'; }
     else if (bad.length) note = `${bad.length} page${bad.length > 1 ? 's' : ''} have no readable text (images or unusual encoding) and are skipped by the tutor.`;
     const id = uid(); const path = storage().newKey('textbooks', 'pdf'); await storage().put(path, f.buffer, 'application/pdf');
     await q.run(db, 'INSERT INTO textbooks(id,title,class_level,subject_id,medium,file_path,size,page_count,status,note,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', id, b.title, b.classLevel, subject, b.medium, path, f.size, pages.length, status, note, req.user!.id, iso());
@@ -92,7 +91,7 @@ export function textbookRoutes(db: DB) {
   /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed). */
   r.post('/:id/ocr', admin, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
     const b = await get(req.params.id); if (b.status === 'processing') throw new HttpError(409, 'This book is already being read.');
-    if (!(await getOcrEngine())) throw new HttpError(501, 'OCR is not available on this server.');
+    const usable = await ocrUsable(b.medium); if (!usable.ok) throw new HttpError(501, usable.why);
     const have = new Set((await q.all<any>(db, 'SELECT page FROM textbook_pages WHERE textbook_id=?', b.id)).map(r => r.page as number));
     const todo = Array.from({ length: b.page_count }, (_, i) => i + 1).filter(n => !have.has(n)); if (!todo.length) throw new HttpError(409, 'Every page already has text.');
     await q.run(db, "UPDATE textbooks SET status='processing', note=? WHERE id=?", `Reading ${todo.length} pages with OCR.`, b.id); ocrQueue.add(() => runOcr(db, b.id, todo));

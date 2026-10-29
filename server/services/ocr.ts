@@ -36,7 +36,7 @@ export function tesseractEngine(opts: { tessdata?: string } = {}): OcrEngine {
 let override: OcrEngine | null | undefined;
 /** Tests (and alternative providers) can replace the engine; `null` means "no OCR available". */
 export const setOcrEngine = (e: OcrEngine | null | undefined) => { override = e; };
-let probed: Promise<OcrEngine | null> | undefined;
+let probed: Promise<OcrEngine | null> | undefined; let installed: Set<string> | undefined;
 export async function getOcrEngine(): Promise<OcrEngine | null> {
   if (override !== undefined) return override;
   if (process.env.OCR_ENGINE === 'off') return null;
@@ -45,13 +45,19 @@ export async function getOcrEngine(): Promise<OcrEngine | null> {
       const langs = await run('tesseract', ['--list-langs'], undefined, tessEnv());
       if (langs.code !== 0 || !/\beng\b/.test(langs.out.toString())) return null;
       await run('pdftoppm', ['-v']); // throws if poppler is missing
+      installed = new Set(langs.out.toString().split('\n').map(s => s.trim()).filter(l => /^[a-z_]{2,12}$/.test(l)));
       return tesseractEngine();
     } catch { return null; }
   })();
   return probed;
 }
 export const ocrAvailable = async () => !!(await getOcrEngine());
-export const resetOcrProbe = () => { probed = undefined; };
+export const resetOcrProbe = () => { probed = undefined; installed = undefined; };
+/** Languages of `lang` ("tam+eng") whose Tesseract data is not installed. Tesseract does NOT fail when `tam` is missing: it reads Tamil as English and returns plausible-looking junk, so this must be checked. */
+export async function ocrMissingLangs(lang: string): Promise<string[]> { const e = await getOcrEngine(); if (!e || e.name !== 'tesseract' || !installed) return []; return lang.split('+').filter(l => !installed!.has(l)); }
+/** Tests only: pretend these Tesseract languages are installed (undefined = ask the real tesseract). */
+export const setInstalledOcrLangs = (l?: string[]) => { installed = l ? new Set(l) : undefined; };
+export const ocrInstalledLangs = () => (installed ? [...installed].filter(l => l !== 'osd').sort() : []);
 
 /** Renders one PDF page to a PNG (poppler). */
 export async function renderPage(pdf: Buffer, page: number, dpi = 200): Promise<Buffer> {

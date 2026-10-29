@@ -1,6 +1,6 @@
 # Kavli — Tamil Nadu State Board AI Teaching Bot (Classes 1–12)
 
-A full-stack web app: Express + SQLite API and a Vite/React/TypeScript front end.
+A full-stack web app: an Express API (PostgreSQL in production, SQLite for development) and a Vite/React/TypeScript front end.
 Students learn in Tamil / English / both, ask an AI tutor, learn from their own material,
 practise, take weekly tests, and earn verifiable PDF certificates. Parents, teachers,
 school admins and platform admins have their own screens.
@@ -15,27 +15,40 @@ The web app exposes the student flow from the Figma “Flow 1” page — public
 ## UI-preview mode (no backend)
 `.env.production` sets `VITE_UI_PREVIEW=1`, so production builds (e.g. on Vercel) run entirely in the browser with a fixed demo login and canned tutor replies (`src/preview.ts`). Lessons, tests, results, certificates (incl. a real generated PDF), practice and the material screens replay responses recorded from the real API (`npx tsx scripts/record-preview.ts` → `src/preview-data.json`, `public/preview/certificate.pdf`); answers you enter are not graded in preview, the recorded passing result is shown. Nothing is stored on a server. **Delete `.env.production` (or set it to 0) once the real backend is hosted.**
 
-## Quick start
-Requires Node 22+ (uses built-in `node:sqlite`).
-```bash
-npm install
-cp .env.example .env     # optional; defaults work for local dev
-npm run dev              # API :3001 + web :5173 (proxied /api)
-```
-Open http://localhost:5173.
+## Run it on your computer
+Needs **Node 22+** (and optionally Docker). Pick one:
+
+| Way | Commands | You get |
+|---|---|---|
+| **A. Fastest** (SQLite, no extras) | `npm install` then `npm run dev` | API :3001 + web :5173 (open http://localhost:5173). Demo accounts. Rule-based tutor. |
+| **B. Like production** (Docker) | `docker compose up --build` | App :3001 + PostgreSQL + an S3-compatible bucket (MinIO console :9001), Tesseract OCR inside the image. |
+| **C. Postgres without Docker** | terminal 1: `npm run local:pg`; terminal 2: `npm run build` then `DATABASE_URL=postgres://postgres:pw@localhost:54329/kavli SEED_DEMO=1 npx tsx server/index.ts`, and open http://localhost:3001 | A real PostgreSQL via the embedded dev binaries. |
+
+Copy `.env.example` to `.env` to switch on the real services (tutor model key, Azure voice, email). Everything is optional; without a key the labelled rule-based tutor and the browser voice are used.
+
+**Check that it works end to end** (server running): `npm run smoke`. It uploads a scanned PDF, waits for real OCR, signs up a student, asks the tutor, and checks the answer is cited to the uploaded page.
+
+**Add a real textbook** (server running; admin account): `ADMIN_EMAIL=... ADMIN_PASSWORD=... npm run import-book -- path/to/book.pdf --class 8 --subject tamil --medium Tamil`. The same thing is available in the app at Admin -> Class books.
+
+**Check the real tutor model** once you have a key: `ANTHROPIC_API_KEY=... npx tsx scripts/check-tutor.ts --limit 10`.
 
 ## Scripts
 | Script | Purpose |
 |---|---|
 | `npm run dev` | API (tsx watch) + Vite together |
-| `npm run build` | type-check + production front-end build to `dist/` |
-| `npm start` | production server (serves `dist/` + API) |
-| `npm run typecheck` | front-end + server type-check |
-| `npm test` | vitest (API, grading, timing, certificates, SSRF, materials) |
+| `npm run build` / `npm start` | production front-end build to `dist/` / production server (API + `dist/`) |
+| `npm run lint` / `npm run typecheck` | ESLint (bug-finding rules) / front-end + server type-check |
+| `npm test` / `npm run coverage` | vitest (234 tests; `node scripts/test-pg.mjs` runs them on PostgreSQL) / with a coverage report |
+| `npm run smoke` / `npm run import-book` | end-to-end check of a running server / add a textbook PDF |
+| `npm run migrate -- status` | database migration status (`docs/MIGRATIONS.md`) |
+| `npm run local:pg` | a local PostgreSQL without Docker |
 
 ## Demo accounts (development only, password `demo@12345`)
-Username `vikikalvi` (student). Other role usernames exist on the server but the UI rejects non-student accounts (also `arun`, `divya`, `karthik`).
-Set `SEED_DEMO=0` in production so none of these are created.
+`meena@demo.kavli.local` (student), `parent@`, `teacher@`, `school@`, `admin@demo.kavli.local` (platform admin), and the older usernames such as `vikikalvi`. Set `SEED_DEMO=0` in production so none of these are created.
+
+## What is real and what is not
+Real and tested here: sign-in and roles, tests/results/certificates, textbook upload with real OCR (Tamil + English), chapters, retrieval measured on the real Class 8 Tamil book, admin People screen, email (against mock servers), migrations, PostgreSQL and SQLite, CI.
+Needs your accounts and has **only been tested against mocks**: the tutor model, Azure voice, S3, Resend/SMTP. See [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before putting real students on it.
 
 ## Architecture
 - `server/` — Express app (`app.ts`), SQLite (`db.ts`), auth/CSRF/rate limit (`security.ts`),
@@ -51,4 +64,4 @@ Set `SEED_DEMO=0` in production so none of these are created.
 - Certificates: A4 landscape PDF with Tamil text, QR + public verify page (minimal data), revoke/reissue with reasons and audit trail.
 - Learn from Your Material: private storage, magic-byte checks, SSRF-safe URL fetch, material treated as untrusted text.
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/TESTING.md](docs/TESTING.md).
+Docs: [DEPLOYMENT](docs/DEPLOYMENT.md) · [TESTING](docs/TESTING.md) · [MIGRATIONS](docs/MIGRATIONS.md) · [VOICE_TUTOR](docs/VOICE_TUTOR.md) · [KNOWN_LIMITATIONS](docs/KNOWN_LIMITATIONS.md) · [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).

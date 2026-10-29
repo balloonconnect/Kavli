@@ -1,6 +1,6 @@
 import { DB, q } from '../db';
 import { JobQueue } from './jobs';
-import { getOcrEngine, ocrPages, textQuality } from './ocr';
+import { getOcrEngine, ocrMissingLangs, ocrPages, textQuality } from './ocr';
 import { storage } from './storage';
 import { detectChapters } from './chapters';
 import { randomUUID } from 'node:crypto';
@@ -15,7 +15,7 @@ export async function extractAll(buf: Buffer): Promise<PageText[]> {
 }
 
 export const ocrQueue = new JobQueue(Number(process.env.OCR_CONCURRENCY ?? 1));
-const langFor = (medium: string) => (medium === 'Tamil' ? process.env.OCR_LANG_TAMIL ?? 'tam+eng' : process.env.OCR_LANG_ENGLISH ?? 'eng');
+export const langFor = (medium: string) => (medium === 'Tamil' ? process.env.OCR_LANG_TAMIL ?? 'tam+eng' : process.env.OCR_LANG_ENGLISH ?? 'eng');
 const MIN_PAGE_CHARS = 20;
 
 export async function putPages(db: DB, bookId: string, pages: PageText[]) {
@@ -29,11 +29,18 @@ export function triage(pages: PageText[], medium: 'English' | 'Tamil') {
 }
 
 /** Background job: OCR the listed pages of a stored book, saving each page as it is read, then settle the book's status. */
+/** Can this book's pages be OCR'd here? Says why not in words an admin can act on. */
+export async function ocrUsable(medium: string): Promise<{ ok: true } | { ok: false; why: string }> {
+  if (!(await getOcrEngine())) return { ok: false, why: 'OCR is not available on this server.' };
+  const missing = await ocrMissingLangs(langFor(medium));
+  if (missing.length) return { ok: false, why: `OCR language data is missing on this server (${missing.join(', ')}). Reading would produce wrong text, so it was not started. Install it (Debian/Ubuntu: tesseract-ocr-${missing[0]}; the Docker image already has it) and press "Read pages (OCR)".` };
+  return { ok: true };
+}
 export async function runOcr(db: DB, bookId: string, pageNos: number[]) {
   const book = await q.get<any>(db, 'SELECT * FROM textbooks WHERE id=?', bookId); if (!book) return;
-  const engine = await getOcrEngine();
+  const engine = await getOcrEngine(); const usable = await ocrUsable(book.medium);
   const settle = async (status: string, note: string | null) => { await q.run(db, 'UPDATE textbooks SET status=?, note=? WHERE id=?', status, note, bookId); };
-  if (!engine) return settle('needs_ocr', 'OCR is not available on this server, so scanned pages cannot be read yet.');
+  if (!engine || !usable.ok) return settle('needs_ocr', usable.ok ? 'OCR is not available on this server, so scanned pages cannot be read yet.' : usable.why);
   let pdf: Buffer; try { pdf = await storage().get(book.file_path); } catch { return settle('failed', 'The stored PDF could not be found, so OCR could not run.'); }
   let last = 0;
   const r = await ocrPages(pdf, pageNos, {
