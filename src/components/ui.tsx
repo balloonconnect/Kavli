@@ -1,5 +1,6 @@
 import { ReactNode, ButtonHTMLAttributes, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { dateLocale } from './lang';
 
 export const Icon = ({ name, size = 18, color = 'currentColor' }: { name: keyof typeof PATHS; size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" dangerouslySetInnerHTML={{ __html: PATHS[name] }} />
@@ -120,5 +121,5 @@ export function Async<T>({ s, children }: { s: { data: T | null; error: string |
 export const PageTitle = ({ title, sub, right }: { title: ReactNode; sub?: ReactNode; right?: ReactNode }) => (
   <div className="row wrap" style={{ alignItems: 'flex-start' }}><div className="grow"><h1>{title}</h1>{sub && <p className="muted" style={{ marginTop: 4 }}>{sub}</p>}</div>{right}</div>
 );
-export const fmtDate = (s?: string | null, o: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Date(s).toLocaleDateString('en-IN', { ...o, timeZone: 'Asia/Kolkata' }) : '—');
-export const fmtDT = (s?: string | null) => (s ? new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—');
+export const fmtDate = (s?: string | null, o: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }) => (s ? new Date(s).toLocaleDateString(dateLocale(), { ...o, timeZone: 'Asia/Kolkata' }) : '—');
+export const fmtDT = (s?: string | null) => (s ? new Date(s).toLocaleString(dateLocale(), { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—');

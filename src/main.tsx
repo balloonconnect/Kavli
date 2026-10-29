@@ -8,6 +8,8 @@ import { LangProvider } from './components/lang';
 import { AuthProvider } from './auth';
 import { ToastProvider } from './components/toast';
 import './styles/global.css';
+import { setTamilDom } from './i18n/dom';
+try { setTamilDom(localStorage.getItem('lang') === 'ta'); } catch { /* storage blocked: English */ }
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><BrowserRouter><LangProvider><ToastProvider><AuthProvider><App /></AuthProvider></ToastProvider></LangProvider></BrowserRouter></React.StrictMode>
 );

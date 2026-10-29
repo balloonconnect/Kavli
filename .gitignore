@@ -9,3 +9,4 @@ uploads/
 .env.local
 coverage/
 dist-preview-bak/
+ta-left.json

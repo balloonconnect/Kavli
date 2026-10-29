@@ -18,7 +18,7 @@ function Bubble({ m, actions, onAction, onReport }: { m: Msg; actions: Record<st
     <div className={`msg ${user ? 'me' : 'bot'}`}>
       <div className="bubble">
         {!user && <div className="botlabel"><Icon name="chat" size={14} /> {m.meta.mock ? 'Development tutor (rule-based — not an AI model)' : 'AI tutor'}{m.meta.grounded && <Badge tone="teal">{m.meta.grounded === 'material' ? 'From your material' : 'From your lesson'}</Badge>}</div>}
-        {show.map((t, i) => <div key={i} className={`mtext ${i === 1 || (lang === 'ta' && !user) ? 'ta' : ''}`} lang={i === 1 || (lang === 'ta' && !user) ? 'ta' : undefined}>{t}</div>)}
+        {show.map((t, i) => <div key={i} {...(user ? { 'data-notranslate': '' } : {})} className={`mtext ${i === 1 || (lang === 'ta' && !user) ? 'ta' : ''}`} lang={i === 1 || (lang === 'ta' && !user) ? 'ta' : undefined}>{t}</div>)}
         {!user && !!m.meta.sources?.length && <div className="srcs"><b>Sources:</b> {m.meta.sources.join(' · ')}</div>}
         {!user && !!m.meta.refs?.length && <div className="chips no-print">{m.meta.refs.map((r: any) => <Link key={`${r.bookId}-${r.page}`} className="pill" target="_blank" rel="noreferrer" to={`/app/textbook/${r.bookId}?page=${r.page}`}>Open book, page {r.page}</Link>)}</div>}
         {!user && <div className="msgtools no-print">
@@ -28,7 +28,7 @@ function Bubble({ m, actions, onAction, onReport }: { m: Msg; actions: Record<st
           <button aria-label="Report this answer" onClick={() => onReport(m)}><Icon name="flag" size={15} /></button>
         </div>}
       </div>
-      {!user && !!m.meta.suggestions?.length && <div className="chips no-print">{m.meta.suggestions.filter((k: string) => actions[k]).map((k: string) => <button key={k} className="pill" onClick={() => onAction(actions[k].en, k)}>{lang === 'ta' ? actions[k].ta : actions[k].en}</button>)}</div>}
+      {!user && !!m.meta.suggestions?.length && <div className="chips no-print">{m.meta.suggestions.filter((k: string) => actions[k]).map((k: string) => <button key={k} className="pill" onClick={() => onAction(lang === 'ta' ? actions[k].ta : actions[k].en, k)}>{lang === 'ta' ? actions[k].ta : actions[k].en}</button>)}</div>}
     </div>
   );
 }
@@ -76,7 +76,7 @@ export function Tutor() {
             <div ref={end} />
           </div>
           {err && <div className="notice err" role="alert"><Icon name="alert" /><span className="grow">The message was not sent.</span><Button tone="secondary" onClick={() => send(err.text, err.action)}>Retry</Button></div>}
-          {!!msgs.length && <div className="chips actionrow no-print">{Object.entries<any>(actions).map(([k, a]) => <button key={k} className="pill" disabled={busy || !msgs.length} onClick={() => send(a.en, k)}>{lang === 'ta' ? a.ta : a.en}</button>)}</div>}
+          {!!msgs.length && <div className="chips actionrow no-print">{Object.entries<any>(actions).map(([k, a]) => <button key={k} className="pill" disabled={busy || !msgs.length} onClick={() => send(lang === 'ta' ? a.ta : a.en, k)}>{lang === 'ta' ? a.ta : a.en}</button>)}</div>}
           <form className="composer" onSubmit={e => { e.preventDefault(); send(text); }}>
             <label className="sr" htmlFor="chatin">Your question</label>
             <textarea id="chatin" rows={1} value={text} maxLength={2000} placeholder={lang === 'ta' ? 'உங்கள் கேள்வியை எழுதுங்கள்…' : 'Type your question…'} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }} />

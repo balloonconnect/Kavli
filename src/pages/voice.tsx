@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, Card, Icon, Loading, PageTitle } from '../components/ui';
 import { useAuth } from '../auth';
+import { useLang } from '../components/lang';
 import { get, getCsrf, msg, post, api } from '../api';
 import { PREVIEW } from '../preview';
 import { previewTurn } from '../previewVoice';
@@ -43,11 +44,11 @@ function Visualizer({ status }: { status: Status }) {
 }
 
 export function VoiceTutor() {
-  const { profile } = useAuth();
+  const { profile } = useAuth(); const { lang: uiLang } = useLang();
   const [curr, setCurr] = useState<any>(null); const [prior, setPrior] = useState<any[]>([]); const [loading, setLoading] = useState(true);
   const [cfg, setCfg] = useState<any>(null);
   // setup
-  const [mode, setMode] = useState<Mode>('teach'); const [lang, setLang] = useState<Lang>((profile?.ai_lang as Lang) ?? 'both'); const [showBoth, setShowBoth] = useState(true);
+  const [mode, setMode] = useState<Mode>('teach'); const [lang, setLang] = useState<Lang>(uiLang === 'ta' ? 'ta' : (profile?.ai_lang as Lang) ?? 'both'); const [showBoth, setShowBoth] = useState(uiLang !== 'ta');
   const [subject, setSubject] = useState(''); const [lesson, setLesson] = useState(''); const [books, setBooks] = useState<any[]>([]); const [chapters, setChapters] = useState<any[]>([]); const [bookId, setBookId] = useState(''); const [chapterId, setChapterId] = useState(''); const [save, setSave] = useState(true); const [lessons, setLessons] = useState<any[]>([]);
   // session
   const [ses, setSes] = useState<any>(null); const [items, setItems] = useState<Item[]>([]); const [status, setStatus] = useState<Status>('idle'); const [err, setErr] = useState('');

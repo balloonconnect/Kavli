@@ -1,8 +1,13 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { setTamilDom } from '../i18n/dom';
 export type Lang = 'ta' | 'en' | 'both';
 const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void }>({ lang: 'both', setLang: () => {} });
+/** Locale for dates and numbers: Tamil when the student chose தமிழ். Read by fmtDate/fmtDT outside React. */
+let currentLang: Lang = 'both';
+export const dateLocale = () => (currentLang === 'ta' ? 'ta-IN' : 'en-IN');
 export const LangProvider = ({ children }: { children: ReactNode }) => {
-  const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('lang') as Lang) || 'both');
+  const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('lang') as Lang) || 'both'); currentLang = lang;
+  useEffect(() => { currentLang = lang; setTamilDom(lang === 'ta'); }, [lang]);
   return <Ctx.Provider value={{ lang, setLang: l => { localStorage.setItem('lang', l); setLang(l); } }}>{children}</Ctx.Provider>;
 };
 export const useLang = () => useContext(Ctx);
