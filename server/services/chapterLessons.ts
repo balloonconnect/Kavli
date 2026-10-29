@@ -10,6 +10,7 @@ import { cleanLines, isCleanLine, isFurniture, normalizeTamil } from './tamilTex
  *
  * Lessons are keyed `bk-<book>-<chapter number>`, so running this again updates them in place and keeps student progress.
  */
+import { build as buildStructure } from './bookStructure';
 export const BOOK_SOURCE_PREFIX = 'Textbook:';
 export const BOOK_QUESTION_MAKER = 'book-import';
 const SECTION_CHARS = 900, MAX_SECTIONS = 12, MAX_QUESTIONS = 10;
@@ -110,6 +111,7 @@ export async function syncChapterLessons(db: DB, bookId: string): Promise<number
         ta: [`“${ch.title}” பாடத்தைப் படித்தல் (பாடநூல் ${range.replace('pages', 'பக்கங்கள்').replace('page', 'பக்கம்')})`, 'ஒவ்வொரு பகுதியின் முக்கிய கருத்துகளையும் சொற்களையும் அறிதல்', 'பாடத்திலிருந்து கேட்கப்படும் வினாக்களுக்கு விடையளித்தல்'],
       },
       sections,
+      structure: buildStructure(pages),
       vocab: [], examples: [], mistakes: [],
       fromBook: { quality: Math.round(quality * 100) / 100, textbookId: bookId, chapterOrd: ch.ord, startPage: ch.start_page, endPage: ch.end_page, language: tamilBook ? 'ta' : 'en', verified: !!ch.verified },
     };

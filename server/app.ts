@@ -1,4 +1,5 @@
 import { tamilRoutes } from './routes/tamil';
+import { structureRoutes } from './routes/structure';
 import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -46,6 +47,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   api.use('/school', schoolRoutes(db));
   api.use('/admin', adminRoutes(db));
   api.use(testRoutes(db));
+  api.use(structureRoutes(db, { llm: opts.llm }));
   api.use(studentRoutes(db));
   api.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
   app.use('/api', api);

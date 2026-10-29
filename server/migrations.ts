@@ -12,4 +12,10 @@ import type { Migration } from './migrate';
  * Example (not active):
  *   { version: 2, name: 'users_last_login', sql: 'ALTER TABLE users ADD COLUMN last_login_at TEXT' },
  */
-export const MIGRATIONS: Migration[] = [];
+export const MIGRATIONS: Migration[] = [
+  // Explanations and answers written by the AI for one item (couplet, stanza, paragraph, question) of a book lesson.
+  // Kept apart from the lesson, which holds only the textbook's own text. source_hash ties a row to the exact text it was written for.
+  { version: 2, name: 'item_ai', sql: `CREATE TABLE item_ai (
+    lesson_id TEXT NOT NULL, item_id TEXT NOT NULL, kind TEXT NOT NULL, content TEXT NOT NULL, source_hash TEXT NOT NULL, model TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, item_id, kind))` },
+];

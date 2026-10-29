@@ -55,8 +55,8 @@ export function layoutMap(nodes: MNode[], show: Set<string>, collapsed: Set<stri
   return { boxes, list, width: maxX, height: maxY, rootId: root.id };
 }
 
-export function useMindMap(lessonId: string) {
-  const s = useLoad(() => get(`/lessons/${lessonId}/mindmap`), [lessonId]);
+export function useMindMap(lessonId: string, skip = false) {
+  const s = useLoad(() => (skip ? Promise.resolve(null) : get(`/lessons/${lessonId}/mindmap`)), [lessonId, skip]);
   const bad = !!s.data && !validMap(s.data.map);
   return { s: bad ? { ...s, data: null, error: 'This mind map could not be shown because its data was not valid.' } : s, raw: s.data };
 }
@@ -68,12 +68,21 @@ export function modeShow(m: MMap, mode: Mode): Set<string> {
 }
 export const anchorFor = (id: string): { tab: 'explain' | 'examples'; el: string | null } => id.startsWith('sec-') ? { tab: 'explain', el: `lesson-${id.split('-').slice(0, 2).join('-')}` } : id.startsWith('vocab') ? { tab: 'explain', el: 'lesson-vocab' } : id.startsWith('goal') || id === 'goals' ? { tab: 'explain', el: null } : { tab: 'examples', el: null };
 
-export function MindMapView({ lessonId, subjectId, onOpenLesson }: { lessonId: string; subjectId?: string; onOpenLesson: (a: { tab: 'explain' | 'examples'; el: string | null }) => void }) {
-  const { s } = useMindMap(lessonId);
-  return <Async s={s}>{d => <Inner key={lessonId} lessonId={lessonId} map={d.map as MMap} initial={d.state as State} subjectId={subjectId ?? d.subject_id} onOpenLesson={onOpenLesson} />}</Async>;
+/** `mapUrl` shows a map for one item or the whole chapter of a book lesson (built from the structured view); marks on those maps are not saved. */
+export function MindMapView({ lessonId, subjectId, onOpenLesson, mapUrl }: { lessonId: string; subjectId?: string; onOpenLesson: (a: { tab: 'explain' | 'examples'; el: string | null }) => void; mapUrl?: string }) {
+  const own = useMindMap(lessonId, !!mapUrl).s;
+  const ext = useLoad(() => (mapUrl ? get(mapUrl) : Promise.resolve(null)), [mapUrl]);
+  if (mapUrl) return <Async s={ext}>{d => (d && validMap(d.map) ? <><Inner key={mapUrl} local lessonId={lessonId} map={d.map as MMap} initial={{ understood: [], revision: [], viewedAt: null } as any} subjectId={subjectId} onOpenLesson={onOpenLesson} /><Outline map={d.map as MMap} /></> : <p className="muted">This mind map could not be shown.</p>)}</Async>;
+  return <Async s={own}>{d => <Inner key={lessonId} lessonId={lessonId} map={d.map as MMap} initial={d.state as State} subjectId={subjectId ?? d.subject_id} onOpenLesson={onOpenLesson} />}</Async>;
+}
+/** Text version of a map, for screen readers, small screens and when the drawing cannot be used. */
+export function Outline({ map }: { map: MMap }) {
+  const kids = (id: string | null) => map.nodes.filter(n => n.parent === id);
+  const render = (id: string | null): any => <ul>{kids(id).map(n => <li key={n.id}><span lang="ta" className="ta">{n.ta}</span>{kids(n.id).length > 0 && render(n.id)}</li>)}</ul>;
+  return <details className="mm-outline"><summary className="link">Text outline of this mind map</summary>{render(null)}</details>;
 }
 
-function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: string; map: MMap; initial: State; subjectId?: string; onOpenLesson: (a: { tab: 'explain' | 'examples'; el: string | null }) => void }) {
+function Inner({ lessonId, map, initial, subjectId, onOpenLesson, local }: { local?: boolean; lessonId: string; map: MMap; initial: State; subjectId?: string; onOpenLesson: (a: { tab: 'explain' | 'examples'; el: string | null }) => void }) {
   const { lang, setLang } = useLang(); const toast = useToast();
   const [mode, setMode] = useState<Mode>(map.defaultMode); const [collapsed, setCollapsed] = useState<Set<string>>(() => (map.nodes.length > 45 && map.defaultMode !== 'simple' ? new Set(map.nodes.filter(n => n.parent === 'root' && map.nodes.some(c => c.parent === n.id)).map(n => n.id)) : new Set()));
   const [sel, setSel] = useState<string | null>(null); const [state, setState] = useState<State>(initial); const [query, setQuery] = useState(''); const [cursorMatch, setCursorMatch] = useState(0);
@@ -111,7 +120,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
   const allBranches = lay.list.filter(b => b.kids.length).map(b => b.n.id);
   const expandAll = () => setCollapsed(new Set()); const collapseAll = () => setCollapsed(new Set(allBranches.filter(i => i !== lay.rootId)));
 
-  const save = async (next: State) => { const prev = state; setState(next); setBusy(true); try { const r = await put(`/lessons/${lessonId}/mindmap/state`, next); setState({ understood: r.understood, revision: r.revision }); } catch (e) { setState(prev); toast(msg(e), 'err'); } finally { setBusy(false); } };
+  const save = async (next: State) => { if (local) { setState(next); return; } const prev = state; setState(next); setBusy(true); try { const r = await put(`/lessons/${lessonId}/mindmap/state`, next); setState({ understood: r.understood, revision: r.revision }); } catch (e) { setState(prev); toast(msg(e), 'err'); } finally { setBusy(false); } };
   const mark = (id: string, which: 'understood' | 'revision') => { const has = state[which].includes(id); const other = which === 'understood' ? 'revision' : 'understood';
     save({ ...state, [which]: has ? state[which].filter(x => x !== id) : [...state[which], id], [other]: state[other].filter(x => x !== id) } as State); };
 

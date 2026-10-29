@@ -108,14 +108,15 @@ import { MindMapView, RevisionList } from '../components/MindMap';
 import { TamilVoice } from '../components/TamilVoice';
 import { TamilTools } from '../components/TamilTools';
 import { LessonBook } from './books';
-const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision'], ['book', 'Textbook']];
+import { StructuredLesson } from '../components/StructuredLesson';
+const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision'], ['book', 'Textbook'], ['chapter', 'Book view']];
 export function Lesson() {
   const { id } = useParams(); const nav = useNavigate(); const [sp, setSp] = useSearchParams(); const rawTab = sp.get('tab') ?? 'explain'; const tab = TABS.some(t => t[0] === rawTab) ? rawTab : 'explain';
   const goTab = (t: string, el?: string | null) => { const n = new URLSearchParams(sp); n.set('tab', t); setSp(n, { replace: true }); if (el) setTimeout(() => document.getElementById(el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80); else window.scrollTo({ top: 0 });}; const toast = useToast(); const { profile } = useAuth(); const { lang } = useLang();
   const s = useLoad(() => get(`/lessons/${id}`), [id]); const [bm, setBm] = useState(false); const [done, setDone] = useState(false);
   useEffect(() => { if (s.data) { setBm(s.data.bookmarked); setDone(s.data.progress.completed); post(`/lessons/${id}/open`).catch(() => {}); } }, [s.data, id]);
   return <Async s={s}>{d => {
-    const l = d.lesson, c = l.content; const both = lang === 'both';
+    const l = d.lesson, c = l.content; const both = lang === 'both'; const hasBook = !!c.structure?.items?.length; const tab = TABS.some(t => t[0] === sp.get('tab')) ? sp.get('tab')! : hasBook ? 'chapter' : 'explain';
     const toggleBm = async () => { try { if (bm) await del(`/bookmarks?kind=lesson&ref=${l.id}`); else await post('/bookmarks', { kind: 'lesson', ref: l.id, title: l.title_en }); setBm(!bm); toast(bm ? 'Bookmark removed' : 'Lesson bookmarked'); } catch (e) { toast(msg(e), 'err'); } };
     const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta || x.en}`)].join('. ');
     return (
@@ -129,11 +130,12 @@ export function Lesson() {
         <Button tone="secondary" onClick={toggleBm} aria-pressed={bm}><Icon name="bookmark" /> {bm ? 'Bookmarked' : 'Bookmark'}</Button>
         <Button to={`/app/tutor?lesson=${l.id}`}><Icon name="chat" /> Ask AI about this lesson</Button>
       </div>
-      <div className="tabs no-print" role="tablist" aria-label="Lesson sections">{TABS.map(([k, t]) => <button key={k} role="tab" id={`tab-${k}`} aria-selected={tab === k} aria-controls="lesson-panel" tabIndex={tab === k ? 0 : -1} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => goTab(k)} onKeyDown={e => { const i = TABS.findIndex(x => x[0] === k); const j = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : -1; if (j >= 0) { e.preventDefault(); goTab(TABS[j][0]); setTimeout(() => document.getElementById(`tab-${TABS[j][0]}`)?.focus(), 0); } }}>{t}</button>)}</div>
+      <div className="tabs no-print" role="tablist" aria-label="Lesson sections">{TABS.filter(([k]) => k !== 'chapter' || hasBook).map(([k, t]) => <button key={k} role="tab" id={`tab-${k}`} aria-selected={tab === k} aria-controls="lesson-panel" tabIndex={tab === k ? 0 : -1} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => goTab(k)} onKeyDown={e => { const i = TABS.findIndex(x => x[0] === k); const j = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : -1; if (j >= 0) { e.preventDefault(); goTab(TABS[j][0]); setTimeout(() => document.getElementById(`tab-${TABS[j][0]}`)?.focus(), 0); } }}>{t}</button>)}</div>
       <div role="tabpanel" id="lesson-panel" aria-labelledby={`tab-${tab}`} className="col">
       {tab === 'map' && <MindMapView lessonId={l.id} subjectId={l.subject_id} onOpenLesson={a => goTab(a.tab, a.el)} />}
       {tab === 'revision' && <RevisionList lessonId={l.id} />}
       {tab === 'book' && <LessonBook lessonId={l.id} />}
+      {tab === 'chapter' && <StructuredLesson lessonId={l.id} />}
       {tab === 'explain' && <>
       <Card className="col"><h2><Bi en="What you will learn" ta="இதில் நீங்கள் கற்பது" /></h2>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ul>{c.objectives.en.map((o: string) => <li key={o}>{o}</li>)}</ul>}{lang !== 'en' && <ul lang="ta" className="ta">{c.objectives.ta.map((o: string) => <li key={o}>{o}</li>)}</ul>}</div></Card>

@@ -5,7 +5,9 @@ import { MIGRATIONS } from '../server/migrations';
 import { type Migration, migrationStatus, runMigrations, validate } from '../server/migrate';
 
 let db: Awaited<ReturnType<typeof setup>>['db'];
-beforeEach(async () => { ({ db } = await setup()); });
+// these tests drive the runner with their own migration lists, so the database starts at the baseline only
+const fresh = async () => { process.env.MIGRATE_ON_START = '0'; try { const t = await setup(); await runMigrations(t.db, []); return t; } finally { delete process.env.MIGRATE_ON_START; } };
+beforeEach(async () => { ({ db } = await fresh()); });
 const hasCol = async (t: string, c: string) => db.kind === 'pg' ? !!(await q.get(db, 'SELECT 1 FROM information_schema.columns WHERE table_name=? AND column_name=?', t, c)) : (await q.all<any>(db, `PRAGMA table_info(${t})`)).some(x => x.name === c);
 const m2: Migration = { version: 2, name: 'users_nick', sql: 'ALTER TABLE users ADD COLUMN nick TEXT' };
 const m3: Migration = { version: 3, name: 'notes_table', sql: { sqlite: 'CREATE TABLE notes_x (id TEXT PRIMARY KEY, body TEXT); CREATE INDEX notes_x_i ON notes_x(body)', pg: 'CREATE TABLE notes_x (id TEXT PRIMARY KEY, body TEXT); CREATE INDEX notes_x_i ON notes_x(body)' } };
@@ -13,7 +15,7 @@ const m3: Migration = { version: 3, name: 'notes_table', sql: { sqlite: 'CREATE 
 describe('schema migrations', () => {
   it('records the baseline on a new database and the shipped list is valid', async () => {
     expect((await q.all<any>(db, 'SELECT version,name FROM schema_migrations'))).toEqual([{ version: 1, name: 'baseline' }]); expect(() => validate(MIGRATIONS)).not.toThrow();
-    const r = await runMigrations(db); expect(r).toMatchObject({ baselined: false, applied: [], pending: [], current: 1 });
+    const r = await runMigrations(db); expect(r).toMatchObject({ baselined: false, current: MIGRATIONS.length + 1 }); expect(r.applied.map(a => a.version)).toEqual(MIGRATIONS.map(m => m.version));
   });
   it('a database from before migrations existed is baselined without touching its data', async () => {
     const before = (await q.get<any>(db, 'SELECT COUNT(*) n FROM users'))!.n; await db.exec('DROP TABLE schema_migrations');
@@ -35,7 +37,7 @@ describe('schema migrations', () => {
     await runMigrations(db, [m2, m3]);
     await expect(runMigrations(db, [{ ...m2, sql: 'ALTER TABLE users ADD COLUMN nick2 TEXT' }, m3])).rejects.toThrow(/definition has changed/);
     await expect(runMigrations(db, [m2, m3, { version: 4, name: 'later', sql: 'SELECT 1' }, ])).resolves.toBeTruthy();
-    const mid: Migration = { version: 3, name: 'was_skipped', sql: 'SELECT 1' }; const { db: d2 } = await setup(); await runMigrations(d2, [m2, { version: 5, name: 'five', sql: 'SELECT 1' }]);
+    const mid: Migration = { version: 3, name: 'was_skipped', sql: 'SELECT 1' }; const { db: d2 } = await fresh(); await runMigrations(d2, [m2, { version: 5, name: 'five', sql: 'SELECT 1' }]);
     await expect(runMigrations(d2, [m2, mid, { version: 5, name: 'five', sql: 'SELECT 1' }])).rejects.toThrow(/must be added in order/);
   });
   it('a database ahead of the code starts, with the unknown versions reported', async () => {

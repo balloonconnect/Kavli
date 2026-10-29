@@ -114,3 +114,8 @@ Run these once on a staging copy before announcing.
 - **Scanned books.** The Docker image replaces the packaged Tamil OCR data with Tesseract's `tessdata_best` at build time (needs internet during `docker compose build`; if the download fails it keeps the packaged data and says so in the build log). Pages are read at 300 dpi; `OCR_DPI` and `OCR_PSM` tune this. **Books already imported keep their old text until you press "Read pages (OCR)" again or delete and re-import them.**
 - **Language actions** (`/api/tamil/transform`) need the model from step 4. Without it the buttons are hidden and the API answers 501. Each action is one model call; results that drop a number, date or Latin name, are not Tamil, or are far longer/shorter than the source are rejected and the original text is kept.
 - **Tamil voice** uses the AI voice from step 3 when configured (Azure `ta-IN-PallaviNeural` by default; `ta-IN-ValluvarNeural` is the male Tamil voice) and otherwise the browser's own `ta-IN` voice. It never falls back to an English voice. Text is read in pieces of at most 280 characters; audio for a repeated piece is served from a small in-memory cache. Daily per-user limit: `VOICE_TTS_DAILY_CHARS` (default 20000). Cost: Azure bills per character synthesised; check the current rate and free allowance on Azure's pricing page before launch.
+
+## Textbook structure update
+- New migration `2 item_ai` (additive table; applied on start; back up first as usual).
+- After deploying, press **Re-read all pages** on each book (or re-run chapter sync) so lessons gain `content.structure`; old lessons keep working without it.
+- Optional: set a model key (`ANTHROPIC_API_KEY` or `LLM_PROVIDER=openai`) to enable "Explain with AI" and "Suggest an answer (AI)".

@@ -40,3 +40,11 @@
 - The first admin is created with `scripts/create-admin.ts`. Password reset works by email only when a mail provider is configured; without one, an admin must reset it.
 - The Docker image and the Compose stack (app + PostgreSQL + an S3-compatible mock bucket) are built and started in CI, and `scripts/smoke.mjs` passes against it: real OCR inside the image on a generated scanned page, upload to the bucket, student sign-up, and a tutor answer cited to the page. Not run: OCR of a real Tamil scan inside the image (the real book was read outside Docker), a real S3/R2 bucket, or a managed database. One CI run failed once with a transient `npm ci` error inside the image build and passed on re-run.
 - The textbook PDF itself and its extracted text are not in the repository; test fixtures use sentences written for the tests.
+
+## Textbook structure (Book view)
+- Structure is read from the OCR text with the Class 8 Tamil book's section markers (`MARKERS` in `server/services/bookStructure.ts`). Other books need their own markers. Unrecognised parts fall back to headings and paragraphs.
+- OCR errors carry through: misread numbers, merged couplet lines and missing meanings are **flagged on the item**, never corrected. Chapter 21 of the sample book yields 9 of its couplets; the screen says so.
+- Poems and two-column pages are the weakest; stanza breaks can be wrong. Units are not yet shown (no unit detection from the contents page).
+- The textbook prints no answer key, so every answer shown is "AI-generated" and only exists after a model key is configured. Explanations, suggested answers and Tamil quality have only been tested with a mock model, not a live one, and no Tamil teacher has reviewed them.
+- Per-item voice uses the existing Tamil voice (browser voice or server voice if configured).
+- Item mind maps are rule-built from the item's text; AI keywords are added only after an explanation exists. Marks on item/chapter maps are not saved.

@@ -1,0 +1,107 @@
+import { createHash } from 'node:crypto';
+import { z } from 'zod';
+import { LlmClient } from './llmEngine';
+import { hasTamil, normalizeTamil, tamilShare } from './tamilText';
+import { MAX_NODES, MapNode, MindMap, MindMapSchema } from './mindmap';
+import { Item, ROLE_LABEL, Structure } from './bookStructure';
+
+/**
+ * Learning material around ONE item of a book lesson. Two kinds, never mixed:
+ *  - derived from the textbook text by rules (item mind maps, practice items): nothing is added that is not in the item;
+ *  - written by a model (explanations, suggested answers): validated, stored apart, always labelled "AI-generated".
+ */
+export const itemHash = (it: Item) => createHash('sha1').update(JSON.stringify([it.kind, it.number, it.lines, it.meaning, it.device, it.question])).digest('hex').slice(0, 16);
+const clip = (s: string, n: number) => { const t = String(s).replace(/\s+/g, ' ').trim(); return t.length <= n ? t : `${t.slice(0, n - 1).trimEnd()}…`; };
+const words = (s: string) => s.split(/\s+/).map(w => w.replace(/^[^\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}]+$/gu, '')).filter(Boolean);
+export const itemLabel = (it: Item) => it.kind === 'couplet' ? `குறள் ${it.number}` : it.kind === 'stanza' ? `பாடல் ${it.number}` : it.kind === 'question' ? `வினா ${it.number ?? ''}`.trim() : it.title ?? clip(it.lines[0] ?? '', 30);
+export const itemText = (it: Item) => it.lines.join('\n');
+
+/** Mind map of one item, from the textbook text only (plus the stored AI keywords/idea when present, marked as such by the 'tip' kind). */
+export function itemMindMap(lesson: { id: string; title_en: string; title_ta: string }, st: Structure, itemId: string, ai?: ItemAi | null): MindMap {
+  const it = st.items.find(i => i.id === itemId); if (!it) throw new Error('unknown item');
+  const nodes: MapNode[] = []; const add = (n: Omit<MapNode, 'level' | 'rev'> & { level?: MapNode['level']; rev?: boolean }) => { if (nodes.length < MAX_NODES) nodes.push({ level: 'detailed', rev: false, ...n } as MapNode); };
+  const lab = itemLabel(it); add({ id: 'root', parent: null, kind: 'topic', level: 'simple', rev: true, en: clip(lab, 80), ta: clip(lab, 80) });
+  const T = (s: string, n = 80) => ({ en: clip(s, n), ta: clip(s, n) });
+  if (it.lines.length) {
+    add({ id: 'text', parent: 'root', kind: 'branch', level: 'simple', rev: true, ...T(it.kind === 'couplet' ? 'குறள்' : 'மூலப் பாடம்', 60) });
+    it.lines.slice(0, 8).forEach((l, i) => add({ id: `text-${i}`, parent: 'text', kind: 'fact', level: i < 3 ? 'simple' : 'detailed', rev: i === 0, ...T(l, 90), detail_en: clip(l, 300), detail_ta: clip(l, 300) }));
+  }
+  if (it.meaning?.length) {
+    add({ id: 'mean', parent: 'root', kind: 'branch', level: 'simple', rev: true, ...T('பாடநூல் பொருள்', 60) });
+    const parts = it.meaning.join(' ').split(/(?<=[.!?।])\s+/).filter(Boolean).slice(0, 4);
+    (parts.length ? parts : it.meaning).forEach((m, i) => add({ id: `mean-${i}`, parent: 'mean', kind: 'definition', rev: i === 0, ...T(m, 90), detail_en: clip(m, 300), detail_ta: clip(m, 300) }));
+  }
+  if (it.device) { add({ id: 'dev', parent: 'root', kind: 'branch', level: 'detailed', rev: true, ...T('அணி', 40) }); add({ id: 'dev-0', parent: 'dev', kind: 'fact', rev: true, ...T(it.device, 60) }); }
+  if (it.kind === 'couplet' && it.group) { add({ id: 'grp', parent: 'root', kind: 'branch', level: 'detailed', rev: false, ...T('அதிகாரம்', 40) }); add({ id: 'grp-0', parent: 'grp', kind: 'fact', ...T(it.group, 60) }); }
+  if (ai) {
+    if (ai.central_idea) { add({ id: 'idea', parent: 'root', kind: 'branch', level: 'simple', rev: true, ...T('AI: மையக் கருத்து', 60) }); add({ id: 'idea-0', parent: 'idea', kind: 'tip', rev: true, ...T(ai.central_idea, 90), detail_en: clip(ai.central_idea, 300), detail_ta: clip(ai.central_idea, 300) }); }
+    if (ai.keywords?.length) { add({ id: 'kw', parent: 'root', kind: 'branch', level: 'simple', rev: true, ...T('AI: முக்கிய சொற்கள்', 60) }); ai.keywords.slice(0, 6).forEach((k, i) => add({ id: `kw-${i}`, parent: 'kw', kind: 'tip', rev: true, ...T(k, 40) })); }
+  }
+  return MindMapSchema.parse({ lessonId: lesson.id, title_en: clip(lab, 80), title_ta: clip(lab, 80), source: nodes.length > 1 ? 'lesson' : 'general', defaultMode: 'detailed', nodes,
+    sourceNote: ai ? 'Branches headed “AI:” were written by the AI; all other branches are the textbook’s own text.' : 'Built only from the textbook text of this item.' });
+}
+
+/** One map for the whole chapter: a branch for each part of the book (in book order) and one short leaf per item. */
+export function chapterMap(lesson: { id: string; title_en: string; title_ta: string }, st: Structure): MindMap {
+  const nodes: MapNode[] = []; const add = (n: Omit<MapNode, 'level' | 'rev'> & { level?: MapNode['level']; rev?: boolean }) => { if (nodes.length < MAX_NODES) nodes.push({ level: 'detailed', rev: false, ...n } as MapNode); };
+  add({ id: 'root', parent: null, kind: 'topic', level: 'simple', rev: true, en: clip(lesson.title_en, 80), ta: clip(lesson.title_ta, 80) });
+  const byId = new Map(st.items.map(i => [i.id, i])); const perSeg = Math.max(2, Math.floor((MAX_NODES - st.segments.length * 2 - 1) / Math.max(1, st.segments.length)));
+  st.segments.forEach((s, si) => {
+    const [en, ta] = ROLE_LABEL[s.role]; const id = `s${si}`; add({ id, parent: 'root', kind: 'branch', level: 'simple', rev: true, en, ta });
+    const its = s.itemIds.map(x => byId.get(x)!).filter(i => i && !['heading'].includes(i.kind) && !(i.kind === 'poem' && !i.lines.length));
+    its.slice(0, perSeg).forEach((it, k) => { const t = `${['couplet', 'stanza', 'question'].includes(it.kind) ? itemLabel(it) + ': ' : ''}${it.word ? it.word.term : clip(it.lines[0] ?? it.title ?? '', 50)}`; add({ id: `${id}-${k}`, parent: id, kind: it.kind === 'word' ? 'definition' : 'fact', level: k < 3 ? 'simple' : 'detailed', rev: k < 3, en: clip(t, 70), ta: clip(t, 70), detail_en: clip(itemText(it), 300) || undefined, detail_ta: clip(itemText(it), 300) || undefined }); });
+  });
+  return MindMapSchema.parse({ lessonId: lesson.id, title_en: lesson.title_en, title_ta: lesson.title_ta, source: nodes.length > 1 ? 'lesson' : 'general', defaultMode: nodes.length > 40 ? 'simple' : 'detailed', nodes,
+    sourceNote: 'Built only from the textbook’s own headings and items, in the book’s order.' });
+}
+
+/** Rule-made practice from the textbook text of one item. Labelled "generated from the textbook"; the answer is the hidden word, which is in the text. */
+export type Practice = { id: string; type: 'fill' | 'mcq'; stem: string; options: string[]; correct: number; origin: 'generated'; note: string };
+export function itemPractice(st: Structure, itemId: string, max = 3): Practice[] {
+  const it = st.items.find(i => i.id === itemId); if (!it || !['couplet', 'stanza', 'paragraph'].includes(it.kind)) return [];
+  const text = itemText(it).replace(/\n/g, ' '); const own = words(text).filter(w => [...w].length >= 4);
+  const pool = [...new Set(st.items.flatMap(i => words(itemText(i))).filter(w => [...w].length >= 4 && hasTamil(w)))];
+  const out: Practice[] = []; const seed = parseInt(createHash('sha1').update(it.id + text).digest('hex').slice(0, 6), 16);
+  const picks = [...new Set(own)]; for (let n = 0; n < Math.min(max, picks.length); n++) {
+    const ans = picks[(seed + n * 3) % picks.length]; if (out.some(o => o.options[o.correct] === ans)) continue;
+    const dist = pool.filter(w => w !== ans && !text.includes(w)).sort((a, b) => ((a.length * 7 + seed) % 13) - ((b.length * 7 + seed) % 13)).slice(0, 3); if (dist.length < 3) continue;
+    const opts = [...dist]; const at = (seed + n) % 4; opts.splice(at, 0, ans);
+    out.push({ id: `${it.id}-p${n}`, type: 'mcq', stem: text.replace(ans, '_____'), options: opts, correct: at, origin: 'generated', note: 'Made from the textbook text by the app. Not a textbook question.' });
+  }
+  return out;
+}
+
+/* ---------- model-written explanations ---------- */
+export const ItemAiSchema = z.object({
+  word_meanings: z.array(z.object({ word: z.string().max(60), meaning: z.string().max(200) })).max(12).default([]),
+  simple_ta: z.string().max(900).optional(), central_idea: z.string().max(300).optional(), moral: z.string().max(300).optional(), example: z.string().max(500).optional(),
+  keywords: z.array(z.string().max(40)).max(8).default([]), memory_tip: z.string().max(300).optional(),
+  line_notes: z.array(z.object({ line: z.string().max(200), note: z.string().max(300) })).max(16).default([]), summary: z.string().max(600).optional(), devices: z.array(z.string().max(160)).max(6).default([]),
+  key_points: z.array(z.string().max(240)).max(8).default([]), answer: z.string().max(1200).optional(), why: z.string().max(500).optional(), english: z.string().max(600).optional(),
+});
+export type ItemAi = z.infer<typeof ItemAiSchema>;
+export class ItemAiError extends Error { constructor(m: string, public status = 502) { super(m); } }
+const SYS = 'You are a careful Tamil teacher helping a school student. Write natural, correct Tamil in Tamil script. Explain ONLY the text you are given; do not add facts about the text that you cannot see in it; do not change, correct or rewrite the source text. If you are unsure of a meaning, leave it out. Reply with one JSON object and nothing else.';
+const SHAPE: Record<string, string> = {
+  couplet: '{"word_meanings":[{"word":"<a word copied exactly from the couplet>","meaning":"<simple Tamil meaning>"}],"simple_ta":"<the couplet explained in simple Tamil>","central_idea":"<one line>","moral":"<one line>","example":"<a short real-life example for a school student>","keywords":["<3-5 words>"],"memory_tip":"<a short way to remember it>","english":"<English meaning>"}',
+  stanza: '{"line_notes":[{"line":"<a line copied exactly>","note":"<simple Tamil explanation>"}],"summary":"<stanza meaning in Tamil>","central_idea":"<one line>","devices":["<devices that are really present, e.g. எதுகை, மோனை, with the words>"],"keywords":["..."],"word_meanings":[{"word":"..","meaning":".."}]}',
+  paragraph: '{"simple_ta":"<explanation in simple Tamil>","key_points":["..."],"keywords":["..."],"word_meanings":[{"word":"..","meaning":".."}]}',
+  answer: '{"answer":"<a suggested answer in Tamil, suitable for the marks>","why":"<one line on why>"}',
+};
+const parseJson = (raw: string) => { const m = raw.replace(/^```[a-z]*\n?|\n?```$/gi, '').trim(); const a = m.indexOf('{'), b = m.lastIndexOf('}'); if (a < 0 || b < a) throw new ItemAiError('The model did not return a usable answer. Nothing was saved.', 422); try { return JSON.parse(m.slice(a, b + 1)); } catch { throw new ItemAiError('The model did not return a usable answer. Nothing was saved.', 422); } };
+
+export async function explainItem(client: LlmClient, it: Item, mode: 'explain' | 'answer', ctx: { chapter: string; signal?: AbortSignal }): Promise<ItemAi> {
+  const src = normalizeTamil(itemText(it)); if (!src.trim()) throw new ItemAiError('This item has no text to explain.', 400);
+  const shape = mode === 'answer' ? SHAPE.answer : SHAPE[it.kind === 'couplet' ? 'couplet' : it.kind === 'stanza' || it.kind === 'poem' ? 'stanza' : 'paragraph'];
+  const user = `Chapter: ${ctx.chapter}\nItem: ${itemLabel(it)}${it.question ? ` (question, ${it.question.category ?? it.question.type}${it.question.options?.length ? '; options: ' + it.question.options.join(' | ') : ''})` : ''}\n${it.meaning?.length ? `The textbook's own meaning: ${it.meaning.join(' ')}\n` : ''}Text:\n---\n${src}\n---\nReturn JSON of this shape:\n${shape}`;
+  let raw: string; try { raw = await client.complete({ system: SYS, user, maxTokens: 1600, signal: ctx.signal }); } catch { throw new ItemAiError('The AI service could not be reached. Please try again.', 502); }
+  const parsed = ItemAiSchema.safeParse(parseJson(raw)); if (!parsed.success) throw new ItemAiError('The model’s answer was not in the expected form. Nothing was saved.', 422);
+  const ai = parsed.data;
+  // every quoted word or line must really be in the item; every Tamil field must be Tamil
+  ai.word_meanings = ai.word_meanings.filter(w => src.includes(w.word) && w.meaning.trim());
+  ai.line_notes = ai.line_notes.filter(l => src.includes(l.line.trim()) && l.note.trim());
+  for (const f of ['simple_ta', 'central_idea', 'summary', 'moral', 'answer'] as const) { const v = ai[f]; if (v && tamilShare(v) < 0.5) throw new ItemAiError('Part of the model’s answer was not in Tamil, so nothing was saved.', 422); }
+  if (mode === 'answer' && !ai.answer) throw new ItemAiError('The model gave no answer. Nothing was saved.', 422);
+  if (mode === 'explain' && !(ai.simple_ta || ai.summary || ai.key_points.length || ai.word_meanings.length)) throw new ItemAiError('The model gave no explanation. Nothing was saved.', 422);
+  return ai;
+}
