@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Async, Badge, Button, Card, Empty, Icon, Modal, PageTitle, fmtDT, useLoad } from '../components/ui';
+import { Async, Badge, Button, Card, Empty, Icon, Modal, fmtDT, useLoad } from '../components/ui';
 import { del, get, post, put, api, msg } from '../api';
 import { useToast } from '../components/toast';
 
@@ -21,14 +20,14 @@ function ImageEditor({ file, onDone, onCancel }: { file: File; onDone: (f: File)
     <div className="row wrap" style={{ justifyContent: 'flex-end', marginTop: 12 }}><Button tone="secondary" onClick={() => setRot((rot + 90) % 360)}><Icon name="rotate" /> Rotate</Button><Button tone="secondary" onClick={onCancel}>Cancel</Button><Button onClick={apply}>Use this photo</Button></div></Modal>;
 }
 
-export function Material() {
-  const s = useLoad(() => get('/materials')); const toast = useToast(); const nav = useNavigate();
+export function MaterialPanel({ onChat }: { onChat: (id: string) => void }) {
+  const s = useLoad(() => get('/materials')); const toast = useToast();
   const [sel, setSel] = useState<string | null>(null); const [url, setUrl] = useState(''); const [busy, setBusy] = useState(''); const [edit, setEdit] = useState<File | null>(null); const fileIn = useRef<HTMLInputElement>(null); const pdfIn = useRef<HTMLInputElement>(null);
   const upload = async (f: File, kind: 'image' | 'pdf') => { setBusy(kind); try { const fd = new FormData(); fd.append('kind', kind); fd.append('file', f); const d = await api('POST', '/materials/upload', fd); toast('Added'); await s.reload(); setSel(d.material.id); } catch (e) { toast(msg(e), 'err'); } finally { setBusy(''); } };
   const addLink = async () => { setBusy('link'); try { const d = await post('/materials/link', { url }); setUrl(''); toast('Page added'); await s.reload(); setSel(d.material.id); } catch (e) { toast(msg(e), 'err'); } finally { setBusy(''); } };
   return (
     <div className="col">
-      <PageTitle title="Learn from your material" sub="Add a photo, a PDF or a web page. Answers come from your material, with where they were found." />
+      <p className="muted">Add a photo, a PDF or a web page. Answers come from your material, with where they were found.</p>
       <div className="notice info"><Icon name="lock" /><span>Your uploads are private to you and are <b>never used to train AI models</b>. Delete them any time. Photos are not read automatically unless the service has a text-reading (OCR) provider configured.</span></div>
       <Async s={s}>{d => <>
         {!d.capabilities.ocr && <div className="notice warn"><Icon name="alert" /><span>{d.capabilities.ocrNote}</span></div>}
@@ -47,7 +46,7 @@ export function Material() {
             <div key={m.id} className={`row wrap listrow ${sel === m.id ? 'selrow' : ''}`}><Icon name={m.kind === 'image' ? 'image' : m.kind === 'pdf' ? 'file' : 'link'} /><div className="grow"><b className="ell">{m.name}</b><div className="muted small">{m.kind.toUpperCase()} · {fmtDT(m.created_at)}{m.pageCount ? ` · ${m.pageCount} page(s)` : ''}</div></div>
               <StatusBadge s={m.status} /><Button tone="secondary" onClick={() => setSel(sel === m.id ? null : m.id)}>{sel === m.id ? 'Close' : 'Open'}</Button></div>))}
         </Card>
-        {sel && <MaterialView key={sel} id={sel} ocr={d.capabilities.ocr} onChange={s.reload} onDeleted={() => { setSel(null); s.reload(); }} onChat={() => nav(`/app/tutor?material=${sel}`)} />}</>}</Async>
+        {sel && <MaterialView key={sel} id={sel} ocr={d.capabilities.ocr} onChange={s.reload} onDeleted={() => { setSel(null); s.reload(); }} onChat={() => onChat(sel)} />}</>}</Async>
       {edit && <ImageEditor file={edit} onCancel={() => setEdit(null)} onDone={f => { setEdit(null); upload(f, 'image'); }} />}
     </div>
   );

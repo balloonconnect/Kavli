@@ -22,7 +22,7 @@ function AskKavli() {
     <form className="row" style={{ gap: 8 }} onSubmit={e => { e.preventDefault(); const q = t.trim(); nav(q ? `/app/tutor?q=${encodeURIComponent(q.slice(0, 290))}` : '/app/tutor'); }}>
       <div className="field grow"><label className="sr" htmlFor="ask-q">Your question</label><input id="ask-q" value={t} onChange={e => setT(e.target.value)} maxLength={290} placeholder="e.g. What is a variable? / மாறி என்றால் என்ன?" /></div>
       <Button type="submit">Ask</Button></form>
-    <div className="row wrap"><Link to="/app/tutor" className="link">Open full tutor</Link><Link to="/app/material" className="link">Ask about my own material</Link></div></Card>;
+    <div className="row wrap"><Link to="/app/tutor" className="link">Open full tutor</Link><Link to="/app/tutor?tab=material" className="link">Ask about my own material</Link></div></Card>;
 }
 function StudentDashboard() {
   const s = useLoad(() => get('/dashboard'));

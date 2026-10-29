@@ -44,4 +44,5 @@ export const BOOK: Record<string, string> = {
   'Made by the app from the text': 'உரையிலிருந்து செயலி உருவாக்கியது',
   'Mark as learned': 'கற்றேன் எனக் குறி',
   'Writing…': 'எழுதுகிறது…',
+  'AI Tutor sections': 'AI ஆசிரியர் பிரிவுகள்',
 };

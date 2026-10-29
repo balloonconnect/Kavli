@@ -1,7 +1,8 @@
+import { MaterialPanel } from './material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Card, Icon, Loading, Modal, PageTitle, fmtDT } from '../components/ui';
-import { useLang } from '../components/lang';
+import { Bi, useLang } from '../components/lang';
 import { useAuth } from '../auth';
 import { del, get, post, msg } from '../api';
 import { useToast } from '../components/toast';
@@ -37,7 +38,7 @@ export function Tutor() {
   const [sp] = useSearchParams(); const toast = useToast(); const { lang } = useLang();
   const [list, setList] = useState<any[]>([]); const [info, setInfo] = useState<any>(null); const [cur, setCur] = useState<any>(null); const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState<{ text: string; action?: string } | null>(null); const [loading, setLoading] = useState(true); const [listening, setListening] = useState(false);
-  const [report, setReport] = useState<Msg | null>(null); const [reason, setReason] = useState(''); const [showList, setShowList] = useState(false); const end = useRef<HTMLDivElement>(null); const stop = useRef<() => void>(() => {});
+  const [report, setReport] = useState<Msg | null>(null); const [reason, setReason] = useState(''); const [showList, setShowList] = useState(false); const [tab, setTab] = useState<'chat' | 'material'>(sp.get('tab') === 'material' ? 'material' : 'chat'); const end = useRef<HTMLDivElement>(null); const stop = useRef<() => void>(() => {});
   const loadList = useCallback(async () => { const d = await get('/tutor/conversations'); setList(d.conversations); setInfo({ provider: d.provider, actions: d.actions }); return d; }, []);
   const open = useCallback(async (id: string) => { const d = await get(`/tutor/conversations/${id}/messages`); setCur(d.conversation); setMsgs(d.messages); setShowList(false); }, []);
   const create = useCallback(async (extra: any = {}) => { const d = await post('/tutor/conversations', extra); setCur(d.conversation); setMsgs([]); await loadList(); setShowList(false); return d.conversation; }, [loadList]);
@@ -59,7 +60,12 @@ export function Tutor() {
   return (
     <div className="col tutor">
       <div className="tutor-title"><PageTitle title="AI Tutor" sub={info?.provider.mock ? 'A rule-based development tutor is answering (no AI model is connected). It solves equations, explains your lessons and quizzes you.' : 'Ask about your lessons in Tamil or English.'} /></div>
-      <div className="chatwrap">
+      <div className="row wrap tutor-tabs" role="tablist" aria-label="AI Tutor sections">
+        <button role="tab" aria-selected={tab === 'chat'} className={`pill ${tab === 'chat' ? 'on' : ''}`} onClick={() => setTab('chat')}><Bi en="Chat" ta="அரட்டை" /></button>
+        <button role="tab" aria-selected={tab === 'material'} className={`pill ${tab === 'material' ? 'on' : ''}`} onClick={() => setTab('material')}><Bi en="My material" ta="என் பொருள்" /></button>
+      </div>
+      {tab === 'material' && <div className="tutor-mat"><MaterialPanel onChat={async id => { setTab('chat'); try { await create({ materialId: id }); } catch (e) { toast(msg(e), 'err'); } }} /></div>}
+      <div className="chatwrap" style={tab === 'chat' ? undefined : { display: 'none' }}>
         <aside className={`convlist ${showList ? 'open' : ''}`} aria-label="Conversations">
           <Button onClick={() => create()}><Icon name="plus" /> New chat</Button>
           {list.map(c => <div key={c.id} className={`conv ${cur?.id === c.id ? 'on' : ''}`}><button className="grow" onClick={() => open(c.id)}><span className="ell semi">{c.title}</span><span className="muted xs">{fmtDT(c.created_at)}</span></button>
