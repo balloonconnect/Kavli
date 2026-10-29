@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { BRAND } from '../../shared/brand';
+import { BrandMark, BrandName } from './Brand';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Icon, Badge, fmtDT } from './ui';
 import { Bi, LangToggle, useLang } from './lang';
@@ -49,14 +50,14 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="shell">
       <a className="skip" href="#main">Skip to content</a>
       <aside className="side" aria-label="Main navigation">
-        <Link to="/" className="logo"><span className="m"><Icon name="book" size={20} /></span><span><b style={{ fontSize: 16 }}>{BRAND.appName}</b><br /><span className="muted xs"><Bi en={BRAND.productDescription} ta={BRAND.productDescriptionTamil} /></span></span></Link>
+        <Link to="/" className="logo"><BrandMark size={44} /><span><BrandName size={17} /><br /><span className="muted xs"><Bi en={BRAND.productDescription} ta={BRAND.productDescriptionTamil} /></span></span></Link>
         <div className="navscroll">{items.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}><Icon name={n.icon} /><Label n={n} /></NavLink>)}</div>
         <div className="usercard"><span className="avatar" aria-hidden>{(name || '?')[0].toUpperCase()}</span><div className="grow"><div className="semi small ell">{name}</div><div className="muted xs">{ROLE_LABEL[user.role]}{profile ? ` · Class ${profile.class_level}` : ''}</div></div>
           <button className="btn secondary iconbtn" aria-label="Sign out" onClick={out}><Icon name="logout" /></button></div>
       </aside>
       <div className="main">
         <header className="topbar">
-          <Link to="/" className="logo mlogo" aria-label={`${BRAND.appName} home`}><span className="m"><Icon name="book" size={18} /></span></Link>
+          <Link to="/" className="logo mlogo" aria-label={`${BRAND.appName} home`}><BrandMark size={36} /></Link>
           {user.role === 'student' && <form className="searchform" role="search" onSubmit={e => { e.preventDefault(); nav(`/app/learn?q=${encodeURIComponent(q)}`); }}><Icon name="search" size={16} /><input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search lessons…" aria-label="Search lessons" /></form>}
           <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
           <Bell />

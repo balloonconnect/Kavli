@@ -4,7 +4,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt
 const first = (name: string) => name.trim().split(/\s+/)[0] || name;
 function wrap(subject: string, paras: string[], link: { url: string; label: string }, foot: string[]): Pick<Mail, 'subject' | 'text' | 'html'> {
   const text = [...paras, '', `${link.label}: ${link.url}`, '', ...foot].join('\n');
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;line-height:1.5;color:#1f2937">${paras.map(p => `<p>${esc(p)}</p>`).join('')}<p><a href="${esc(link.url)}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${esc(link.label)}</a></p><p style="font-size:13px;color:#6b7280">If the button does not work, copy this address into your browser:<br>${esc(link.url)}</p>${foot.map(p => `<p style="font-size:13px;color:#6b7280">${esc(p)}</p>`).join('')}</div>`;
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;line-height:1.5;color:#1f2937">${paras.map(p => `<p>${esc(p)}</p>`).join('')}<p><a href="${esc(link.url)}" style="display:inline-block;background:#0a3d91;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${esc(link.label)}</a></p><p style="font-size:13px;color:#6b7280">If the button does not work, copy this address into your browser:<br>${esc(link.url)}</p>${foot.map(p => `<p style="font-size:13px;color:#6b7280">${esc(p)}</p>`).join('')}</div>`;
   return { subject, text, html };
 }
 

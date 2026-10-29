@@ -80,5 +80,5 @@ export const TEXT2: Record<string, string> = {
   'Use demo login': 'டெமோ உள்நுழைவைப் பயன்படுத்து',
   '). Hidden in production.': '). வெளியீட்டில் மறைக்கப்படும்.', '. Codes expire after 7 days.': '. குறியீடுகள் 7 நாட்களில் காலாவதியாகும்.', '. Written answers are marked by your teacher.': '. எழுத்து விடைகளை உங்கள் ஆசிரியர் மதிப்பிடுவார்.',
   'Continue a previous lesson': 'முந்தைய பாடத்தைத் தொடர்', 'Voice lesson': 'குரல் பாடம்', 'Take the weekly test': 'வாராந்திரத் தேர்வை எழுதுங்கள்', 'Progress and revision': 'முன்னேற்றமும் மீள்பார்வையும்',
-  'Board: Tamil Nadu State Board (Samacheer Kalvi)': 'வாரியம்: தமிழ்நாடு மாநிலப் பாடத்திட்டம் (சமச்சீர் கல்வி)', 'ask your school administrator.': 'உங்கள் பள்ளி நிர்வாகியிடம் கேளுங்கள்.', 'both': 'இரண்டும்', 'teach': 'கற்பி',  'Your Personal AI Teacher': 'உங்கள் தனிப்பட்ட AI ஆசிரியர்', 'Learn by Listening. Understand by Seeing.': 'கேட்டு கற்போம். பார்த்துப் புரிந்துகொள்வோம்.',
+  'Board: Tamil Nadu State Board (Samacheer Kalvi)': 'வாரியம்: தமிழ்நாடு மாநிலப் பாடத்திட்டம் (சமச்சீர் கல்வி)', 'ask your school administrator.': 'உங்கள் பள்ளி நிர்வாகியிடம் கேளுங்கள்.', 'both': 'இரண்டும்', 'teach': 'கற்பி',  'Karkai': 'கற்கை', 'Your Personal AI Teacher': 'உங்கள் தனிப்பட்ட AI ஆசிரியர்', 'Learn by Listening. Understand by Seeing.': 'கேட்டு கற்போம். பார்த்துப் புரிந்துகொள்வோம்.',
 };

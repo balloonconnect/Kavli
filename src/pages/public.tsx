@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { BRAND } from '../../shared/brand';
+import { BrandMark, BrandName } from '../components/Brand';
 import { Link, NavLink, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Icon, Button, Card, Badge } from '../components/ui';
 import { Bi, LangToggle } from '../components/lang';
@@ -14,7 +15,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
     <div className="pub">
       <a className="skip" href="#main">Skip to content</a>
       <header className="pubhead">
-        <Link to="/" className="logo" aria-label="Karkai AI home"><span className="m"><Icon name="book" size={20} /></span><span><b style={{ fontSize: 16 }}>Karkai AI</b></span></Link>
+        <Link to="/" className="logo" aria-label={`${BRAND.appName} home`}><BrandMark size={40} /><span><BrandName size={17} /></span></Link>
         <nav className="pubnav" aria-label="Site">{links.map(([to, t]) => <NavLink key={to} to={to}>{t}</NavLink>)}</nav>
         <div className="grow" /><LangToggle />
         {user ? <Button to={homeFor(user.role)} className="hide-sm">Open app</Button> : <><Button tone="secondary" to="/signin" className="hide-sm">Sign in</Button><Button to="/signup" className="hide-sm">Create account</Button></>}
@@ -23,7 +24,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       {open && <div className="pubdrawer" key={loc.pathname}>{links.map(([to, t]) => <Link key={to} to={to} onClick={() => setOpen(false)}>{t}</Link>)}{!user ? <><Link to="/signin" onClick={() => setOpen(false)}>Sign in</Link><Link to="/signup" onClick={() => setOpen(false)}>Create account</Link></> : <Link to={homeFor(user.role)} onClick={() => setOpen(false)}>Open app</Link>}</div>}
       <main id="main" tabIndex={-1} className="pubmain">{children}</main>
       <footer className="pubfoot">
-        <div><b><Bi en={BRAND.appName} ta={BRAND.appNameTamil} /></b><p className="muted small"><Bi en={BRAND.productDescription} ta={BRAND.productDescriptionTamil} /> · <Bi en={BRAND.taglineEnglish} ta={BRAND.tagline} /></p><p className="muted small">An independent study companion for Tamil Nadu State Board (Samacheer Kalvi) students, Classes 1–12. Not affiliated with, or endorsed by, the Government of Tamil Nadu or the Tamil Nadu State Board.</p></div>
+        <div><BrandMark size={56} /><br /><b><Bi en={BRAND.appName} ta={BRAND.appNameTamil} /></b><p className="muted small"><Bi en={BRAND.productDescription} ta={BRAND.productDescriptionTamil} /> · <Bi en={BRAND.taglineEnglish} ta={BRAND.tagline} /></p><p className="muted small">An independent study companion for Tamil Nadu State Board (Samacheer Kalvi) students, Classes 1–12. Not affiliated with, or endorsed by, the Government of Tamil Nadu or the Tamil Nadu State Board.</p></div>
         <div className="footlinks"><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link><Link to="/child-safety">Child safety</Link><Link to="/help">Help</Link><Link to="/verify">Verify certificate</Link></div>
       </footer>
     </div>
@@ -44,7 +45,7 @@ export function Landing() {
     <div className="col" style={{ gap: 56 }}>
       <section className="hero" aria-labelledby="hero-h">
         <div className="col" style={{ gap: 16 }}>
-          <p className="semi" style={{ color: 'var(--primary)', fontSize: 16 }}><Bi en={`${BRAND.appName} — ${BRAND.productDescription}`} ta={`${BRAND.appNameTamil} — ${BRAND.productDescriptionTamil}`} /></p>
+          <img src="/logo.png" width={280} height={272} style={{ width: 'min(280px, 70%)', height: 'auto' }} alt={`${BRAND.appName} — ${BRAND.productDescription}`} />
           <Badge tone="info">Tamil Nadu State Board · Classes 1–12</Badge>
           <h1 id="hero-h" className="herotitle"><Bi en="Understand your Samacheer Kalvi lessons in Tamil, English, or both" ta="உங்கள் சமச்சீர்க் கல்விப் பாடங்களைத் தமிழ், ஆங்கிலம் அல்லது இரண்டிலும் புரிந்துகொள்ளுங்கள்" block /></h1>
           <p className="muted" style={{ fontSize: 16 }}><Bi en="A study companion with lessons shown as mind maps, a patient AI tutor, practice questions, weekly tests and progress you can see." ta="மனவரைபடங்களாகப் பாடங்கள், பொறுமையான AI ஆசிரியர், பயிற்சி, வாராந்திரத் தேர்வுகள், உங்கள் முன்னேற்றம் — அனைத்தும் ஓரிடத்தில்." block /></p>

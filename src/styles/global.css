@@ -39,8 +39,9 @@ button{font:inherit;cursor:pointer}
 /* shell */
 .shell{display:flex;min-height:100vh}
 .side{width:264px;flex:none;background:var(--surface);border-right:1px solid var(--border);padding:24px 16px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
-.logo{display:flex;align-items:center;gap:10px;padding:0 8px 20px}
+.logo{display:flex;align-items:center;gap:8px;padding:0 8px 20px}
 .logo .m{width:36px;height:36px;border-radius:10px;background:var(--primary);display:grid;place-items:center;color:#fff}
+.brandmark{display:block;object-fit:contain;flex:none}.brandname{color:var(--primary-dark);letter-spacing:-.01em}.brandname .ai{color:var(--brand-green)}
 .nav{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;font-weight:500;color:var(--text)}
 .nav.active{background:var(--primary-soft);color:var(--primary);font-weight:600}
 .usercard{margin-top:auto;background:var(--surface-alt);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center}

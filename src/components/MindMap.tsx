@@ -11,7 +11,7 @@ export type Mode = 'simple' | 'detailed' | 'revision';
 type State = { understood: string[]; revision: string[] };
 const MODES: [Mode, string, string][] = [['simple', 'Simple', 'Main ideas only'], ['detailed', 'Detailed', 'Definitions, examples and steps'], ['revision', 'Quick revision', 'Key points for exams']];
 const KIND_LABEL: Record<string, string> = { definition: 'DEFINITION', formula: 'FORMULA', example: 'EXAMPLE', mistake: 'WATCH OUT', tip: 'TIP' };
-const PALETTE: [string, string][] = [['#eef0ff', '#4f46e5'], ['#d9f4f0', '#0d9488'], ['#fef3c7', '#b45309'], ['#fce7f3', '#be185d'], ['#dcfce7', '#15803d'], ['#f3e8ff', '#7e22ce'], ['#e0f2fe', '#0369a1']];
+const PALETTE: [string, string][] = [['#e8f0fb', '#0a3d91'], ['#d9f4f0', '#0d9488'], ['#fef3c7', '#b45309'], ['#fce7f3', '#be185d'], ['#dcfce7', '#15803d'], ['#f3e8ff', '#7e22ce'], ['#e0f2fe', '#0369a1']];
 const W = 224, GAPX = 64, GAPY = 12, FONT_EN = 14, FONT_TA = 14;
 
 /** Schema check on the client too: a malformed payload shows an error state instead of crashing or rendering. */
@@ -37,7 +37,7 @@ export function layoutMap(nodes: MNode[], show: Set<string>, collapsed: Set<stri
   const by = new Map(nodes.map(n => [n.id, n])); const kids = new Map<string, string[]>();
   for (const n of nodes) if (n.parent && show.has(n.id)) kids.set(n.parent, [...(kids.get(n.parent) ?? []), n.id]);
   const root = nodes.find(n => n.parent === null)!; const boxes = new Map<string, Box>();
-  const top = nodes.filter(n => n.parent === root.id); const colorOf = (n: MNode): [string, string] => { let c = n; while (c.parent && c.parent !== root.id) c = by.get(c.parent)!; const i = top.findIndex(t => t.id === c.id); return c.id === root.id ? ['#4f46e5', '#ffffff'] : PALETTE[Math.max(0, i) % PALETTE.length]; };
+  const top = nodes.filter(n => n.parent === root.id); const colorOf = (n: MNode): [string, string] => { let c = n; while (c.parent && c.parent !== root.id) c = by.get(c.parent)!; const i = top.findIndex(t => t.id === c.id); return c.id === root.id ? ['#0a3d91', '#ffffff'] : PALETTE[Math.max(0, i) % PALETTE.length]; };
   let cursor = 0;
   const shift = (id: string, dy: number) => { const b = boxes.get(id)!; b.y += dy; if (!collapsed.has(id)) for (const k of kids.get(id) ?? []) shift(k, dy); };
   const place = (id: string, depth: number): void => {
@@ -124,14 +124,14 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
     try { await (document as any).fonts?.load('16px "Noto Sans Tamil"', 'தமிழ்'); await (document as any).fonts?.load('600 16px Inter'); } catch { /* fonts are best-effort */ }
     const sc = 2, pad = 28, head = 64, cw = lay.width + pad * 2, chh = lay.height + pad * 2 + head; const cv = document.createElement('canvas'); cv.width = cw * sc; cv.height = chh * sc; const g = cv.getContext('2d'); if (!g) { toast('Your browser cannot create the image.', 'err'); return; }
     g.scale(sc, sc); g.fillStyle = '#fff'; g.fillRect(0, 0, cw, chh); g.textBaseline = 'alphabetic';
-    g.fillStyle = '#1f2340'; g.font = '700 20px Inter, "Noto Sans Tamil", sans-serif'; g.fillText(`${lang === 'ta' ? map.title_ta : map.title_en} — mind map`, pad, pad + 20);
+    g.fillStyle = '#0b1f4d'; g.font = '700 20px Inter, "Noto Sans Tamil", sans-serif'; g.fillText(`${lang === 'ta' ? map.title_ta : map.title_en} — mind map`, pad, pad + 20);
     g.font = '12px Inter, "Noto Sans Tamil", sans-serif'; g.fillStyle = '#565b70'; g.fillText(`${MODES.find(m => m[0] === mode)![1]} mode · Karkai AI · ${map.source === 'lesson' ? 'Built from sample lesson content' : 'General map'}`, pad, pad + 40);
     const ox = pad, oy = pad + head;
-    for (const b of lay.list) for (const k of b.kids) { if (eff.has(b.n.id)) continue; const c = lay.boxes.get(k)!; g.strokeStyle = c.color[1] === '#ffffff' ? '#4f46e5' : c.color[1]; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + b.x + W, oy + b.y + b.h / 2); g.bezierCurveTo(ox + b.x + W + 30, oy + b.y + b.h / 2, ox + c.x - 30, oy + c.y + c.h / 2, ox + c.x, oy + c.y + c.h / 2); g.stroke(); }
+    for (const b of lay.list) for (const k of b.kids) { if (eff.has(b.n.id)) continue; const c = lay.boxes.get(k)!; g.strokeStyle = c.color[1] === '#ffffff' ? '#0a3d91' : c.color[1]; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + b.x + W, oy + b.y + b.h / 2); g.bezierCurveTo(ox + b.x + W + 30, oy + b.y + b.h / 2, ox + c.x - 30, oy + c.y + c.h / 2, ox + c.x, oy + c.y + c.h / 2); g.stroke(); }
     for (const b of lay.list) {
-      const root = b.n.parent === null; g.fillStyle = b.color[0]; g.strokeStyle = root ? '#3730a3' : b.color[1]; g.lineWidth = state.understood.includes(b.n.id) ? 3 : 1.5; g.beginPath(); g.roundRect(ox + b.x, oy + b.y, W, b.h, 12); g.fill(); g.stroke();
-      let y = oy + b.y + 18; g.fillStyle = root ? '#fff' : '#1f2340';
-      if (KIND_LABEL[b.n.kind]) { g.font = '700 10px Inter, sans-serif'; g.fillStyle = root ? '#fff' : b.color[1]; g.fillText(KIND_LABEL[b.n.kind], ox + b.x + 12, y - 3); y += 14; g.fillStyle = '#1f2340'; }
+      const root = b.n.parent === null; g.fillStyle = b.color[0]; g.strokeStyle = root ? '#032862' : b.color[1]; g.lineWidth = state.understood.includes(b.n.id) ? 3 : 1.5; g.beginPath(); g.roundRect(ox + b.x, oy + b.y, W, b.h, 12); g.fill(); g.stroke();
+      let y = oy + b.y + 18; g.fillStyle = root ? '#fff' : '#0b1f4d';
+      if (KIND_LABEL[b.n.kind]) { g.font = '700 10px Inter, sans-serif'; g.fillStyle = root ? '#fff' : b.color[1]; g.fillText(KIND_LABEL[b.n.kind], ox + b.x + 12, y - 3); y += 14; g.fillStyle = '#0b1f4d'; }
       g.font = `${root || b.n.kind === 'branch' ? 700 : 500} ${FONT_EN}px Inter, sans-serif`; for (const l of b.enL) { g.fillText(l, ox + b.x + 12, y); y += 19; }
       g.font = `${FONT_TA}px "Noto Sans Tamil", Inter, sans-serif`; if (b.enL.length) y += 2; for (const l of b.taL) { g.fillText(l, ox + b.x + 12, y + 2); y += 22; }
     }
@@ -168,22 +168,22 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
         <div className="mm-canvas" ref={box}>
           <svg ref={svg} role="group" aria-label={`Mind map of ${map.title_en}`} width="100%" height="100%" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}>
             <g transform={`translate(${tf.x} ${tf.y}) scale(${tf.k})`}>
-              {lay.list.map(b => eff.has(b.n.id) ? null : b.kids.map(k => { const c = lay.boxes.get(k)!; const x1 = b.x + W, y1 = b.y + b.h / 2, x2 = c.x, y2 = c.y + c.h / 2; return <path key={`${b.n.id}-${k}`} d={`M${x1} ${y1} C${x1 + 32} ${y1} ${x2 - 32} ${y2} ${x2} ${y2}`} fill="none" stroke={c.color[1] === '#ffffff' ? '#4f46e5' : c.color[1]} strokeWidth={2} opacity={0.7} />; }))}
+              {lay.list.map(b => eff.has(b.n.id) ? null : b.kids.map(k => { const c = lay.boxes.get(k)!; const x1 = b.x + W, y1 = b.y + b.h / 2, x2 = c.x, y2 = c.y + c.h / 2; return <path key={`${b.n.id}-${k}`} d={`M${x1} ${y1} C${x1 + 32} ${y1} ${x2 - 32} ${y2} ${x2} ${y2}`} fill="none" stroke={c.color[1] === '#ffffff' ? '#0a3d91' : c.color[1]} strokeWidth={2} opacity={0.7} />; }))}
               {lay.list.map(b => {
                 const root = b.n.parent === null, isSel = sel === b.n.id, isMatch = matchIds.has(b.n.id), done = state.understood.includes(b.n.id), rv = state.revision.includes(b.n.id); const label = `${b.n.en}${lang !== 'en' ? ` / ${b.n.ta}` : ''}`;
                 const y = 20 + (KIND_LABEL[b.n.kind] ? 14 : 0);
                 return (
                   <g key={b.n.id} transform={`translate(${b.x} ${b.y})`}>
                     <g role="button" tabIndex={0} aria-label={`${label}${done ? ', understood' : ''}${rv ? ', marked for revision' : ''}`} aria-pressed={isSel} className="mm-node" onClick={() => select(b.n.id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(b.n.id); } }}>
-                      <rect width={W} height={b.h} rx={12} fill={b.color[0]} stroke={isSel ? '#1f2340' : isMatch ? '#b8892b' : root ? '#3730a3' : b.color[1]} strokeWidth={isSel || isMatch ? 3.5 : b.n.kind === 'formula' ? 1.5 : 1.5} strokeDasharray={b.n.kind === 'formula' ? '5 3' : undefined} />
+                      <rect width={W} height={b.h} rx={12} fill={b.color[0]} stroke={isSel ? '#0b1f4d' : isMatch ? '#b8892b' : root ? '#032862' : b.color[1]} strokeWidth={isSel || isMatch ? 3.5 : b.n.kind === 'formula' ? 1.5 : 1.5} strokeDasharray={b.n.kind === 'formula' ? '5 3' : undefined} />
                       {KIND_LABEL[b.n.kind] && <text x={12} y={16} fontSize={10} fontWeight={700} fill={root ? '#fff' : b.color[1]} style={{ letterSpacing: '.06em' }}>{KIND_LABEL[b.n.kind]}</text>}
-                      {b.enL.map((l, i) => <text key={`e${i}`} x={12} y={y + i * 19 - (KIND_LABEL[b.n.kind] ? 0 : 0)} fontSize={FONT_EN} fontWeight={root || b.n.kind === 'branch' ? 700 : 500} fill={root ? '#fff' : '#1f2340'}>{l}</text>)}
-                      {b.taL.map((l, i) => <text key={`t${i}`} x={12} y={y + b.enL.length * 19 + (b.enL.length ? 2 : 0) + i * 22 + 1} fontSize={FONT_TA} fill={root ? '#fff' : '#1f2340'} style={{ fontFamily: 'var(--font-ta)' }}>{l}</text>)}
+                      {b.enL.map((l, i) => <text key={`e${i}`} x={12} y={y + i * 19 - (KIND_LABEL[b.n.kind] ? 0 : 0)} fontSize={FONT_EN} fontWeight={root || b.n.kind === 'branch' ? 700 : 500} fill={root ? '#fff' : '#0b1f4d'}>{l}</text>)}
+                      {b.taL.map((l, i) => <text key={`t${i}`} x={12} y={y + b.enL.length * 19 + (b.enL.length ? 2 : 0) + i * 22 + 1} fontSize={FONT_TA} fill={root ? '#fff' : '#0b1f4d'} style={{ fontFamily: 'var(--font-ta)' }}>{l}</text>)}
                       {done && <g><circle cx={W - 6} cy={6} r={10} fill="#15803d" stroke="#fff" strokeWidth={2} /><path d={`M${W - 11} 6 l4 4 l7 -8`} stroke="#fff" strokeWidth={2} fill="none" /></g>}
                       {rv && <g><circle cx={done ? W - 30 : W - 6} cy={6} r={10} fill="#b45309" stroke="#fff" strokeWidth={2} /><text x={done ? W - 30 : W - 6} y={10} textAnchor="middle" fontSize={12} fontWeight={700} fill="#fff">!</text></g>}
                     </g>
                     {b.kids.length > 0 && <g role="button" tabIndex={0} aria-expanded={!eff.has(b.n.id)} aria-label={`${eff.has(b.n.id) ? 'Expand' : 'Collapse'} ${b.n.en}`} className="mm-toggle" transform={`translate(${W} ${b.h / 2})`} onClick={e => { e.stopPropagation(); toggle(b.n.id); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(b.n.id); } }}>
-                      <circle r={12} fill="#fff" stroke={root ? '#4f46e5' : b.color[1]} strokeWidth={2} /><text textAnchor="middle" y={5} fontSize={14} fontWeight={700} fill={root ? '#4f46e5' : b.color[1]}>{eff.has(b.n.id) ? b.kids.length : '−'}</text></g>}
+                      <circle r={12} fill="#fff" stroke={root ? '#0a3d91' : b.color[1]} strokeWidth={2} /><text textAnchor="middle" y={5} fontSize={14} fontWeight={700} fill={root ? '#0a3d91' : b.color[1]}>{eff.has(b.n.id) ? b.kids.length : '−'}</text></g>}
                   </g>);
               })}
             </g>
@@ -192,7 +192,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
         </div>
         <aside className="mm-panel" aria-live="polite" aria-label="Selected concept">
           {!node ? <div className="col"><h3>Pick a concept</h3><p className="muted small">Tap a box to read more and get help. Use the numbered circles to open or close a branch. Drag to move the map; pinch or use + / − to zoom.</p>
-            <div className="mm-legend"><span><i style={{ background: '#4f46e5' }} />Topic</span><span><i style={{ background: '#d9f4f0', borderColor: '#0d9488' }} />Branch</span><span><i className="dash" />Formula</span><span><b className="ok">✓</b>Understood</span><span><b className="warn">!</b>Revise later</span></div></div>
+            <div className="mm-legend"><span><i style={{ background: '#0a3d91' }} />Topic</span><span><i style={{ background: '#d9f4f0', borderColor: '#0d9488' }} />Branch</span><span><i className="dash" />Formula</span><span><b className="ok">✓</b>Understood</span><span><b className="warn">!</b>Revise later</span></div></div>
           : <div className="col">
             <div className="row wrap"><Badge tone={node.kind === 'mistake' ? 'warning' : node.kind === 'definition' ? 'teal' : 'info'}>{KIND_LABEL[node.kind]?.toLowerCase() ?? (node.kind === 'topic' ? 'topic' : node.kind === 'branch' ? 'branch' : 'key point')}</Badge><button className="link" style={{ marginLeft: 'auto' }} onClick={() => setSel(null)} aria-label="Close details">Close</button></div>
             <h3>{lang !== 'ta' && node.en}{lang === 'both' && <br />}{lang !== 'en' && <span lang="ta" className="ta">{node.ta}</span>}</h3>
