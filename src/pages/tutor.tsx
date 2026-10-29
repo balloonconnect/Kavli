@@ -58,7 +58,7 @@ export function Tutor() {
   const actions = info?.actions ?? {};
   return (
     <div className="col tutor">
-      <PageTitle title="AI Tutor" sub={info?.provider.mock ? 'A rule-based development tutor is answering (no AI model is connected). It solves equations, explains your lessons and quizzes you.' : 'Ask about your lessons in Tamil or English.'} />
+      <div className="tutor-title"><PageTitle title="AI Tutor" sub={info?.provider.mock ? 'A rule-based development tutor is answering (no AI model is connected). It solves equations, explains your lessons and quizzes you.' : 'Ask about your lessons in Tamil or English.'} /></div>
       <div className="chatwrap">
         <aside className={`convlist ${showList ? 'open' : ''}`} aria-label="Conversations">
           <Button onClick={() => create()}><Icon name="plus" /> New chat</Button>

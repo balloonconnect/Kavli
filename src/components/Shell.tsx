@@ -64,7 +64,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
         <main className="content" id="main" tabIndex={-1}><OfflineBanner />{children}</main>
         <nav className="bottomnav" aria-label="Primary">
-          <button onClick={() => setMore(true)} aria-label="More menu" aria-haspopup="dialog"><Icon name="more" size={22} /><span>More</span></button>
+          <button onClick={() => setMore(true)} aria-label="More menu" aria-haspopup="dialog"><Icon name="menu" size={24} /></button>
         </nav>
       </div>
       {more && <div className="sheet-bg" onMouseDown={e => e.target === e.currentTarget && setMore(false)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Menu">
