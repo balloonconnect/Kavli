@@ -55,7 +55,7 @@
     "axe-core": "^4.14.0",
     "concurrently": "^10.0.6",
     "embedded-postgres": "^18.4.0-beta.17",
-    "eslint": "^9.39.5",
+    "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^17.13.0",
     "mailparser": "^3.12.4",
