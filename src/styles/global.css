@@ -177,7 +177,7 @@ div.review{padding:12px 14px;border:1px solid var(--border);border-radius:12px;d
 .srcs{font-size:12px;color:var(--accent);margin-top:8px}
 .msgtools{display:flex;gap:4px;margin-top:8px}.msgtools button{background:none;border:0;padding:6px;border-radius:8px;color:var(--text-muted)}.msgtools button:hover,.msgtools button[aria-pressed=true]{background:var(--surface);color:var(--primary)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}.actionrow{max-height:84px;overflow-y:auto}
-.composer{display:flex;gap:8px;align-items:flex-end}.composer textarea{flex:1;min-height:44px;max-height:140px;resize:none;border:1px solid var(--border);border-radius:12px;padding:11px 14px;font:inherit;background:var(--surface);color:var(--text);min-width:0}
+.composer{display:flex;gap:8px;align-items:flex-end}.composer textarea{flex:1;min-height:96px;max-height:220px;resize:none;border:1px solid var(--border);border-radius:12px;padding:11px 14px;font:inherit;background:var(--surface);color:var(--text);min-width:0}
 .rec{background:var(--danger)!important;color:#fff!important}
 .typing{display:flex;gap:5px;padding:14px 16px}.typing i{width:8px;height:8px;border-radius:50%;background:var(--text-muted);animation:bl 1.2s infinite}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
 @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
