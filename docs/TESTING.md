@@ -40,3 +40,8 @@ Manual checklist (needs a browser and, for the last rows, a model key and a Tami
 6. Turn the network off while the AI voice is selected: a clear error appears.
 7. With a model key: Correct / Simplify / Formal / Conversational / Translate on the three reference sentences. Check by eye that meaning, names, dates and amounts are unchanged; "Restore original" returns the first text.
 8. Empty text, and text over 4000 characters: clear message, nothing breaks.
+
+## Tamil regression (rendering, Unicode, language)
+- `tests/tamil-regression.test.ts` — Tests A–E: Unicode preserved through NFC, chunking, database and API; ten verified Kural couplets kept in order with their own mind maps; an explanation cannot quote another couplet's words; a stage trail (input → extracted → raw AI → processed) that shows where an error starts.
+- `scripts/tamil-browser-check.mjs` — real Chromium, desktop and mobile, against `/tamil-test`: copied text equals the source, NFC, computed `letter-spacing`, and the font actually used for the glyphs (DevTools `CSS.getPlatformFontsForNode`), plus the woff2 requests and console errors. Run: `BASE=http://localhost:3057 node scripts/tamil-browser-check.mjs /tmp/out` (needs the built app running).
+- Root causes found earlier: (1) the screenshot's garbled text was **OCR** (old tessdata, 150 dpi, one page mode) — the stored text itself was wrong, so no font could fix it; (2) fonts were a secondary issue (now self-hosted Noto Sans Tamil, no letter spacing); (3) meaningless Tamil came from reading noisy OCR lines into lessons and from prompts that did not forbid guessing — now filtered, flagged and validated. A live model has **not** been compared yet.

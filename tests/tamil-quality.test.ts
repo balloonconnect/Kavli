@@ -71,7 +71,7 @@ describe('Tamil language checks', () => {
   });
   it('sends the Tamil system instruction and the source text, once', async () => {
     let calls = 0, seen: any; await transformTamil({ name: 'm', complete: async (a: any) => { calls++; seen = a; return S1; } } as any, { action: 'formal', text: S1 });
-    expect(calls).toBe(1); expect(seen.system).toMatch(/expert Tamil language writer/); expect(seen.user).toContain(S1); expect(seen.user).toMatch(/formal written Tamil/);
+    expect(calls).toBe(1); expect(seen.system).toMatch(/expert Tamil language and educational content engine/); expect(seen.user).toContain(S1); expect(seen.user).toMatch(/formal written Tamil/);
   });
 });
 
