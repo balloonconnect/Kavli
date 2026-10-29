@@ -54,7 +54,7 @@ export function VoiceTutor() {
   const [ses, setSes] = useState<any>(null); const [items, setItems] = useState<Item[]>([]); const [status, setStatus] = useState<Status>('idle'); const [err, setErr] = useState('');
   const [voiceOn, setVoiceOn] = useState(false); const [mic, setMic] = useState<'unknown' | 'ok' | 'denied' | 'unsupported'>(canListen ? 'unknown' : 'unsupported');
   const [muted, setMuted] = useState(false); const [paused, setPaused] = useState(false); const [rate, setRate] = useState(1); const slow = rate < 1; const [review, setReview] = useState(false); const [ptt, setPtt] = useState(false); const [noticeRetry, setNoticeRetry] = useState<null | (() => void)>(null); const [replayInfo, setReplayInfo] = useState<{ ms: number; cached: boolean } | null>(null); const [interim, setInterim] = useState(''); const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [text, setText] = useState(''); const [micLang, setMicLang] = useState<SpeechLang>('en'); const [notice, setNotice] = useState(''); const [lastMs, setLastMs] = useState<{ text?: number; audio?: number; full?: number } | null>(null);
+  const [text, setText] = useState(''); const [micLang, setMicLang] = useState<SpeechLang>(uiLang === 'ta' ? 'ta' : 'en'); const [notice, setNotice] = useState(''); const [lastMs, setLastMs] = useState<{ text?: number; audio?: number; full?: number } | null>(null);
 
   const R = useRef({ ses: null as any, lang, voiceOn: false, status: 'idle' as Status, muted: false, ac: null as AbortController | null, rec: null as Recognizer | null, micLang: 'en' as SpeechLang, streaming: false, last: null as any, t0: 0, tText: 0, tAudio: 0, sttMs: 0, retries: 0, showBoth: true, review: false, turn: 0 });
   const spRef = useRef<Speaker | CloudSpeaker>(new Speaker()); const speaker = spRef.current;
@@ -70,7 +70,7 @@ export function VoiceTutor() {
   })(); return () => { spRef.current.release(); R.current.ac?.abort(); R.current.rec?.stop(); }; }, []); // eslint-disable-line
   useEffect(() => { if (!curr) return; setLessons(curr.subjects.filter((s: any) => !subject || s.id === subject).flatMap((s: any) => s.lessons.map((l: any) => ({ id: l.id, t: l.title_en, s: s.id })))); setLesson(''); }, [curr, subject]);
   useEffect(() => { if (!bookId) { setChapters([]); return; } let off = false; get(`/textbooks/${bookId}/chapters`).then(r => { if (!off) { setChapters(r.chapters ?? []); setChapterId(c => ((r.chapters ?? []).some((x: any) => x.id === c) ? c : '')); } }).catch(() => { if (!off) setChapters([]); }); return () => { off = true; }; }, [bookId]);
-  useEffect(() => { setMicLang(lang === 'ta' ? 'ta' : 'en'); }, [lang]);
+  const heard = (t: string) => { const ta = (t.match(/[\u0B80-\u0BFF]/g) ?? []).length, la = (t.match(/[A-Za-z]/g) ?? []).length; if (ta + la < 2) return; const next: SpeechLang = ta >= la ? 'ta' : 'en'; if (next !== R.current.micLang) { R.current.micLang = next; setMicLang(next); } };
   useEffect(() => { speaker.rate = rate; }, [rate, speaker]); useEffect(() => { speaker.muted = muted; if (muted) speaker.cancel(); }, [muted, speaker]);
   const endRef = useRef<HTMLDivElement>(null); useEffect(() => { endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [items.length]);
 
@@ -126,8 +126,8 @@ export function VoiceTutor() {
       R.current.rec = recognize({ lang: R.current.micLang,
         onSpeechStart: () => { setMic('ok'); if (R.current.status === 'speaking' || R.current.status === 'thinking') interrupt('voice'); if (R.current.status !== 'thinking') setSt('listening'); },
         onInterim: t => { setInterim(t); if (R.current.status === 'speaking') { interrupt('voice'); setSt('listening'); } },
-        onFinal: (t, ms) => { n = 0; setInterim(''); if (t.trim() && R.current.review) { setText(t.trim()); setNotice('Check what I heard, fix any mistakes, then press Send.'); setNoticeRetry(null); R.current.voiceOn = false; setVoiceOn(false); stopMic(); setSt('idle'); setTimeout(() => document.getElementById('vt-text')?.focus(), 0); return; } if (t.trim()) { R.current.sttMs = ms; sendTurn({ text: t.trim() }, 'voice'); } },
-        onError: c => { R.current.rec = null; if (c === 'not-allowed' || c === 'service-not-allowed') { setMic('denied'); setVoiceOn(false); R.current.voiceOn = false; setSt('idle'); setErr('The microphone is blocked. Allow it in your browser’s site settings (the lock icon beside the address), or type your question instead.'); } else if (c === 'no-speech' || c === 'aborted') { n++; } else if (c === 'network' || c === 'start-failed') { setVoiceOn(false); R.current.voiceOn = false; setSt('idle'); setErr('Voice input is not working right now. You can type instead.'); } },
+        onFinal: (t, ms) => { n = 0; setInterim(''); heard(t); if (t.trim() && R.current.review) { setText(t.trim()); setNotice('Check what I heard, fix any mistakes, then press Send.'); setNoticeRetry(null); R.current.voiceOn = false; setVoiceOn(false); stopMic(); setSt('idle'); setTimeout(() => document.getElementById('vt-text')?.focus(), 0); return; } if (t.trim()) { R.current.sttMs = ms; sendTurn({ text: t.trim() }, 'voice'); } },
+        onError: c => { R.current.rec = null; if (c === 'not-allowed' || c === 'service-not-allowed') { setMic('denied'); setVoiceOn(false); R.current.voiceOn = false; setSt('idle'); setErr('The microphone is blocked. Allow it in your browser’s site settings (the lock icon beside the address), or type your question instead.'); } else if (c === 'no-speech' || c === 'aborted') { n++; if (n === 2) { const o: SpeechLang = R.current.micLang === 'ta' ? 'en' : 'ta'; R.current.micLang = o; setMicLang(o); } } else if (c === 'network' || c === 'start-failed') { setVoiceOn(false); R.current.voiceOn = false; setSt('idle'); setErr('Voice input is not working right now. You can type instead.'); } },
         onEnd: () => { R.current.rec = null; if (R.current.voiceOn && n < 4) setTimeout(go, 250); else if (R.current.voiceOn) { setVoiceOn(false); R.current.voiceOn = false; setNotice('The microphone stopped because nothing was heard. Press “Start talking” to begin again.'); if (R.current.status === 'listening') setSt('idle'); } } });
       if (!R.current.rec) return; };
     go();
@@ -204,34 +204,11 @@ export function VoiceTutor() {
             </div>
             {mic === 'unsupported' && <p className="muted small">Voice input is not available in this browser. Type your answer below.</p>}
             {mic === 'denied' && <p className="small" style={{ color: 'var(--danger)' }}>Microphone blocked. Allow it in your browser’s site settings, then reload this page.</p>}
-            <div className="row wrap vt-acts" role="group" aria-label="Tutor actions">
-              <button className="pill" onClick={() => sendTurn({ action: 'hint' })}>Hint</button><button className="pill" onClick={() => sendTurn({ action: 'repeat' })}>Repeat</button><button className="pill" onClick={() => replay()}>Replay step</button><button className="pill" onClick={() => replayAnswer()}>Replay answer</button><button className="pill" onClick={skip}>Skip ▸</button>
-              <button className="pill" onClick={() => sendTurn({ action: 'simpler' })}>Explain simply</button><button className="pill" onClick={() => setRate(r => r < 1 ? 1 : 0.75)} aria-pressed={slow}>Slower speech</button><button className="pill" onClick={() => sendTurn({ action: 'next' })}>Continue</button>
-            </div>
-            <details className="vt-more" open={typeof window !== 'undefined' && window.innerWidth > 900}><summary>Mode, language &amp; options</summary><div className="col">
-            <div className="field"><span className="lbl">Mode</span><div className="chips" role="group" aria-label="Teaching mode">{MODES.map(([k, en]) => <button key={k} className={`pill ${mode === k ? 'on' : ''}`} aria-pressed={mode === k} onClick={() => switchMode(k)}>{en}</button>)}</div></div>
-            <div className="grid g2">
-              <div className="field"><label htmlFor="vt-l2">Tutor language</label><select id="vt-l2" value={lang} onChange={e => changeLang(e.target.value as Lang)}><option value="ta">தமிழ்</option><option value="en">English</option><option value="both">தமிழ் + English</option></select></div>
-              <div className="field"><label htmlFor="vt-ml">I will speak in</label><select id="vt-ml" value={micLang} onChange={e => setMicLang(e.target.value as SpeechLang)}><option value="en">English</option><option value="ta">தமிழ்</option></select></div>
-            </div>
-            <label className="check"><input type="checkbox" checked={showBoth} onChange={e => { setShowBoth(e.target.checked); if (ses) api('PATCH', `/voice/sessions/${ses.id}`, { showBoth: e.target.checked }).catch(() => {}); }} /> Show both languages on screen</label>
-            <div className="grid g2">
-              <div className="field"><label htmlFor="vt-rate">Speech speed</label><select id="vt-rate" value={rate} onChange={e => setRate(Number(e.target.value))}>{[0.75, 1, 1.25, 1.5].map(r => <option key={r} value={r}>{r}×</option>)}</select></div>
-              <div className="field"><span className="lbl">Voice</span><span className="small">{speaker.kind === 'cloud' ? 'AI voice — kept in memory for instant replay' : 'Your browser’s voice — replay speaks again on this device'}</span></div>
-            </div>
-            <label className="check"><input type="checkbox" checked={review} onChange={e => setReview(e.target.checked)} /> Let me check and edit what I said before sending</label>
-            <label className="check"><input type="checkbox" checked={ptt} onChange={e => { setPtt(e.target.checked); if (voiceOn) { R.current.voiceOn = false; setVoiceOn(false); stopMic(); } }} /> Push to talk (hold the button — good for noisy rooms)</label>
-            {replayInfo && <p className="muted small" aria-label="Measured replay time">Last replay started in {replayInfo.ms} ms ({replayInfo.cached ? 'from cached audio, no new request' : 'spoken again by your browser'})</p>}
-            {lastMs && <p className="muted small" aria-label="Measured response times">Last answer: first text {lastMs.text ?? '…'} ms · first voice {lastMs.audio ?? '…'} ms · complete {lastMs.full ?? '…'} ms</p>}
-            </div></details>
-            <div className="row wrap"><Button tone="ghost" onClick={end}>End conversation</Button><Button tone="ghost" onClick={wipe}>Delete this lesson</Button></div>
           </Card>
           <Card className="col vt-chat">
-            <div className="row wrap"><h2 className="grow" style={{ margin: 0 }}>Transcript</h2><button className="pill" onClick={async () => { try { await navigator.clipboard.writeText(items.map(i => `${i.role === 'student' ? 'Me' : 'Tutor'}: ${i.en}${i.ta !== i.en && both ? '\n' + i.ta : ''}`).join('\n\n')); setNotice('Transcript copied.'); } catch { setNotice('Could not copy on this device.'); } }}>Copy transcript</button></div>
             {notice && <div className="notice info" role="status"><Icon name="check" /><span>{notice}</span>{noticeRetry && <button className="link" onClick={() => { const f = noticeRetry; setNotice(''); setNoticeRetry(null); metric('audio_retry', 0); f(); }}>Retry audio</button>}<button className="link" onClick={() => { setNotice(''); setNoticeRetry(null); }}>Dismiss</button></div>}
             {err && <div className="notice err" role="alert"><Icon name="alert" /><span>{err}</span>{status === 'error' && R.current.last && <button className="link" onClick={retry}>Try again</button>}</div>}
             <div className="vt-log" aria-label="Conversation">
-              {!items.length && <p className="muted">Ask a question — for example “Solve 3x + 5 = 20”, or “What is an equation?” — or choose a chapter and press “Continue”.</p>}
               {items.map((it, ix) => it.role === 'student'
                 ? <div key={it.id} className="vt-me"><div className="bubble">{it.en}</div><span className="muted small">{it.via === 'voice' ? 'spoken' : 'typed'}</span></div>
                 : <div key={it.id} className={`vt-tutor ${it.kind} ${speakingId === it.id ? 'speaking' : ''}`} aria-current={speakingId === it.id ? 'true' : undefined}>
@@ -246,9 +223,10 @@ export function VoiceTutor() {
               {status === 'thinking' && <div className="vt-tutor thinking" aria-hidden="true"><span className="dots"><i /><i /><i /></span></div>}
               <div ref={endRef} />
             </div>
-            <form className="row vt-form" onSubmit={e => { e.preventDefault(); const t = text.trim(); if (!t) return; setText(''); sendTurn({ text: t }, 'text'); }}>
+            <form className="row vt-form" onSubmit={e => { e.preventDefault(); const t = text.trim(); if (!t) return; setText(''); heard(t); sendTurn({ text: t }, 'text'); }}>
               <div className="field grow"><label className="sr" htmlFor="vt-text">Type your question or answer</label><input id="vt-text" value={text} onChange={e => setText(e.target.value)} maxLength={1000} placeholder="Type here — or press Start talking" autoComplete="off" /></div>
               <Button type="submit" disabled={!text.trim()}><Icon name="send" /> Send</Button>
+              <div className="field vt-speed"><label className="sr" htmlFor="vt-rate">Speech speed</label><select id="vt-rate" value={rate} onChange={e => setRate(Number(e.target.value))} title="Speech speed">{[0.75, 1, 1.25, 1.5].map(r => <option key={r} value={r}>{r}×</option>)}</select></div>
             </form>
           </Card>
         </div>
