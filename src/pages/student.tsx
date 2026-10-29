@@ -148,16 +148,6 @@ export function Bookmarks() {
         {b.kind === 'lesson' && <Button tone="secondary" to={`/app/learn/${b.ref}`}>Open</Button>}<Button tone="secondary" aria-label={`Remove ${b.title}`} onClick={async () => { try { await del(`/bookmarks/${b.id}`); toast('Removed'); s.reload(); } catch (e) { toast(msg(e), 'err'); } }}><Icon name="trash" /></Button></div>)}</Card>}</Async></div>;
 }
 
-export function Homework() {
-  const s = useLoad(() => get('/assignments')); const toast = useToast(); const [text, setText] = useState<Record<string, string>>({});
-  return <div className="col"><PageTitle title={<Bi en="Homework" ta="வீட்டுப்பாடம்" />} sub="Assignments from your teacher." />
-    <Async s={s}>{d => !d.assignments.length ? <Empty title="No homework" text="Your teacher has not set any homework yet, or you are not in a class." /> : d.assignments.map((a: any) => (
-      <Card key={a.id} className="col"><div className="row wrap"><h3 className="grow">{a.title}</h3><Badge tone={a.submitted_at ? 'success' : new Date(a.due_at) < new Date() ? 'danger' : 'warning'}>{a.submitted_at ? 'Submitted' : new Date(a.due_at) < new Date() ? 'Overdue' : 'To do'}</Badge></div>
-        <p className="muted">{a.description}</p><p className="small">Due {fmtDT(a.due_at)}</p>
-        {a.feedback && <div className="notice info"><Icon name="chat" /><div><b>Teacher feedback</b><div>{a.feedback}</div></div></div>}
-        <div className="field"><label htmlFor={`h${a.id}`}>Your answer</label><textarea id={`h${a.id}`} rows={4} maxLength={5000} value={text[a.id] ?? a.submission ?? ''} onChange={e => setText({ ...text, [a.id]: e.target.value })} /></div>
-        <div className="row"><Button disabled={!(text[a.id] ?? a.submission ?? '').trim()} onClick={async () => { try { await post(`/assignments/${a.id}/submit`, { text: text[a.id] ?? a.submission }); toast('Homework submitted'); s.reload(); } catch (e) { toast(msg(e), 'err'); } }}>{a.submitted_at ? 'Update submission' : 'Submit'}</Button></div></Card>))}</Async></div>;
-}
 
 export function Progress_() {
   const s = useLoad(async () => ({ r: await get('/reports/me'), plan: await get('/revision-plan') }));

@@ -6,7 +6,7 @@ import { Shell } from './components/Shell';
 import { PublicLayout, Landing, Features, HowItWorks, Privacy, Terms, ChildSafety, Help, NotFound, SignIn } from './pages/public';
 import { ForgotPassword, ResetPassword, VerifyEmail, GuardianApproval } from './pages/account';
 import { SignUp } from './pages/signup';
-import { Dashboard, Learn, Lesson, Bookmarks, Homework, Progress_, Practice } from './pages/student';
+import { Dashboard, Learn, Lesson, Bookmarks, Progress_, Practice } from './pages/student';
 import { ProfilePage, Settings } from './pages/profile';
 import { TestsList, TestDetail, TakeTest, Result, Review } from './pages/tests';
 import { Certificates, Verify } from './pages/certs';
@@ -14,7 +14,7 @@ import { Tutor } from './pages/tutor';
 import { ClassBooks, BookViewer, BookAdmin } from './pages/books';
 import { VoiceTutor } from './pages/voice';
 import { ParentHome, ParentChild, ParentAccount } from './pages/parent';
-import { TeacherHome, Classes, ClassDetail, Questions, TeacherTests, TestBuilder, TestResults, Reviews, ReviewAttempt, TeacherHomework, CertAdmin } from './pages/teacher';
+import { TeacherHome, Classes, ClassDetail, Questions, TeacherTests, TestBuilder, TestResults, Reviews, ReviewAttempt, CertAdmin } from './pages/teacher';
 import type { ReactNode } from 'react';
 import type { Role } from './auth';
 
@@ -35,13 +35,13 @@ export default function App() {
       <Route path="/app/tests" element={S(['student'], <TestsList />)} /><Route path="/app/tests/:id" element={S(['student'], <TestDetail />)} />
       <Route path="/app/take/:id" element={S(['student'], <TakeTest />)} /><Route path="/app/result/:id" element={S(['student'], <Result />)} /><Route path="/app/review/:id" element={S(['student'], <Review />)} />
       <Route path="/app/progress" element={S(['student'], <Progress_ />)} /><Route path="/app/certificates" element={S(['student'], <Certificates />)} />
-      <Route path="/app/homework" element={S(['student'], <Homework />)} /><Route path="/app/bookmarks" element={S(['student'], <Bookmarks />)} /><Route path="/app/settings" element={S(['student'], <Settings />)} />
+      <Route path="/app/bookmarks" element={S(['student'], <Bookmarks />)} /><Route path="/app/settings" element={S(['student'], <Settings />)} />
       <Route path="/parent" element={S(['parent'], <ParentHome />)} /><Route path="/parent/child/:id" element={S(['parent'], <ParentChild />)} /><Route path="/parent/settings" element={S(['parent'], <ParentAccount />)} />
       <Route path="/teacher" element={S(['teacher'], <TeacherHome />)} /><Route path="/teacher/classes" element={S(['teacher'], <Classes />)} /><Route path="/teacher/classes/:id" element={S(['teacher'], <ClassDetail />)} />
       <Route path="/teacher/questions" element={S(['teacher'], <Questions />)} /><Route path="/teacher/tests" element={S(['teacher'], <TeacherTests />)} /><Route path="/teacher/tests/new" element={S(['teacher'], <TestBuilder />)} />
       <Route path="/teacher/tests/:id" element={S(['teacher'], <TestBuilder />)} /><Route path="/teacher/tests/:id/results" element={S(['teacher'], <TestResults />)} />
       <Route path="/teacher/reviews" element={S(['teacher'], <Reviews />)} /><Route path="/teacher/review/:id" element={S(['teacher'], <ReviewAttempt />)} />
-      <Route path="/teacher/homework" element={S(['teacher'], <TeacherHomework />)} /><Route path="/teacher/certificates" element={S(['teacher'], <CertAdmin />)} />
+      <Route path="/teacher/certificates" element={S(['teacher'], <CertAdmin />)} />
       <Route path="/profile" element={<Guard roles={['student']} allowIncompleteProfile><ProfilePage /></Guard>} />
       <Route path="/verify" element={<Verify />} /><Route path="/verify/:token" element={<Verify />} />
       <Route path="/app/*" element={<Navigate to="/app" replace />} />

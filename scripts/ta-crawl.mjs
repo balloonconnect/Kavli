@@ -18,7 +18,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:3056';
   await visit('/signin', async p => { await p.getByRole('button', { name: /^Sign in$|^உள்நுழை/ }).last().click(); });
   await visit('/signup', async p => { await p.selectOption('select', 'student').catch(()=>{}); });
   const lg = await ctx.request.post('/api/auth/login', { data: { email: 'meena@demo.kavli.local', password: 'demo@12345' } }); if (!lg.ok()) { console.log('login failed'); process.exit(1); }
-  for (const r of ['/app', '/app/learn', '/app/tutor', '/app/voice', '/app/material', '/app/practice', '/app/tests', '/app/progress', '/app/certificates', '/app/homework', '/app/bookmarks', '/app/settings', '/app/books', '/app/notifications']) await visit(r);
+  for (const r of ['/app', '/app/learn', '/app/tutor', '/app/voice', '/app/material', '/app/practice', '/app/tests', '/app/progress', '/app/certificates', '/app/bookmarks', '/app/settings', '/app/books', '/app/notifications']) await visit(r);
   const api = async u => (await ctx.request.get('/api' + u)).json();
   const lessons = (await api('/lessons')).lessons ?? []; if (lessons[0]) { await visit('/app/learn/' + lessons[0].id); await visit('/app/learn/' + lessons[0].id, async p => { for (const t of await p.getByRole('tab').all()) { await t.click().catch(()=>{}); await p.waitForTimeout(300); } }); }
   const tests = (await api('/tests')).tests ?? []; for (const t of tests.slice(0, 3)) await visit('/app/tests/' + t.id);
