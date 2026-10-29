@@ -83,10 +83,10 @@ export function TamilVoice({ text, label = 'Listen in Tamil' }: { text: string; 
   return (
     <div className="tvoice col" role="group" aria-label="Tamil voice">
       <div className="row wrap">
-        {!busy && <button type="button" className="btn" onClick={play} disabled={noVoice || !text.trim()}>▶ {label}</button>}
-        {state === 'playing' && <button type="button" className="btn secondary" onClick={pause} aria-label="Pause">⏸ Pause</button>}
-        {state === 'paused' && <button type="button" className="btn" onClick={resume} aria-label="Resume">▶ Resume</button>}
-        {busy && <button type="button" className="btn secondary" onClick={stop} aria-label="Stop">⏹ Stop</button>}
+        {!busy && <button type="button" className="btn" onClick={play} disabled={noVoice || !text.trim()}><span aria-hidden="true">▶ </span>{label}</button>}
+        {state === 'playing' && <button type="button" className="btn secondary" onClick={pause} aria-label="Pause"><span aria-hidden="true">⏸ </span>Pause</button>}
+        {state === 'paused' && <button type="button" className="btn" onClick={resume} aria-label="Resume"><span aria-hidden="true">▶ </span>Resume</button>}
+        {busy && <button type="button" className="btn secondary" onClick={stop} aria-label="Stop"><span aria-hidden="true">⏹ </span>Stop</button>}
         <label className="sr" htmlFor="tv-speed">Speech speed</label>
         <select id="tv-speed" value={speed} onChange={e => changeSpeed(Number(e.target.value))} aria-label="Speech speed">{SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}</select>
         {options.length > 1 && <><label className="sr" htmlFor="tv-voice">Tamil voice</label><select id="tv-voice" value={voiceId} onChange={e => { stop(); setVoiceId(e.target.value); }} aria-label="Tamil voice">{options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></>}

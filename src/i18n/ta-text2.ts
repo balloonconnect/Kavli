@@ -98,4 +98,9 @@ export const TEXT2: Record<string, string> = {
   'Pause': 'இடைநிறுத்து', 'Resume': 'தொடர்', 'Stop': 'நிறுத்து', 'Playback': 'ஒலிப்பு',
   'AI Tamil voice': 'AI தமிழ்க் குரல்',
   'Re-read all pages': 'அனைத்துப் பக்கங்களையும் மீண்டும் படி', 'Read every page again with OCR? This takes a few minutes and replaces the stored page text.': 'அனைத்துப் பக்கங்களையும் OCR மூலம் மீண்டும் படிக்கவா? சில நிமிடங்கள் ஆகும்; சேமித்த பக்க உரை மாற்றப்படும்.', 'Reading all pages again.': 'அனைத்துப் பக்கங்களையும் மீண்டும் படிக்கிறது.',
+  'Explanation': 'விளக்கம்',
+  'Examples': 'எடுத்துக்காட்டுகள்',
+  'Textbook': 'பாடநூல்',
+  'Bookmark': 'புத்தகக்குறி இடு',
+  'Bookmarked': 'புத்தகக்குறியிடப்பட்டது',
 };
