@@ -82,8 +82,15 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - name: Compose file is valid
+        run: docker compose version && docker compose config -q
       - name: Build the image and start the stack (waits for the app's health check)
-        run: docker compose up -d --build --wait --wait-timeout 240
+        run: |
+          set +e
+          docker compose up -d --build --wait --wait-timeout 240 > /tmp/up.log 2>&1
+          code=$?
+          cat /tmp/up.log
+          if [ $code -ne 0 ]; then echo "::error title=compose up failed::$(tail -n 15 /tmp/up.log | tr '\n' ' ' | cut -c1-900)"; exit $code; fi
       - name: Smoke test against the running stack
         run: node scripts/smoke.mjs --url http://localhost:3001
       - name: Logs (on failure)
