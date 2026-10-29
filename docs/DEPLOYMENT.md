@@ -91,7 +91,7 @@ sign-in and roles, tests/results/certificates, voice tutor flow, instant replay,
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
 
-**Verified by CI on GitHub (commit 5851c95):** the Docker image builds and starts, and `/api/health` answers (empty SQLite database, no tutor/voice/OCR keys). Not yet checked: OCR inside the image on a real scan, or the image with Postgres and a bucket.
+**Verified by CI on GitHub:** the Docker image builds; the Compose stack (app + PostgreSQL 16 + an S3-compatible mock) starts healthy; and the smoke test passes against it (real OCR in the image on a generated scan, bucket upload, student sign-up, cited tutor answer). **Verified locally on the real Class 8 Tamil book** (192 pages, PostgreSQL, real Tamil OCR, outside Docker): 39 chapters found, right page first in 75% of questions, top-3 92%. Not yet checked: the real book inside the image, a real S3/R2 bucket, a managed database.
 
 **Not verified, because it needs your accounts or network:**
 - Calls to the real Anthropic / OpenAI-compatible API, including their streaming (SSE) formats (tested against a mock server that follows their documented request and response shapes).
