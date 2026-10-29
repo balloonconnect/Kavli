@@ -39,5 +39,9 @@ export const BOOK: Record<string, string> = {
   'This does not look like a complete couplet — check the printed page': 'இது முழுமையான குறள்போலத் தெரியவில்லை — அச்சுப் பக்கத்தைச் சரிபார்க்கவும்',
   'This mind map could not be shown.': 'இந்த மனவரைபடத்தைக் காட்ட இயலவில்லை.',
   'Word meanings': 'சொல்லும் பொருளும்',
+  'Explain in Tamil (AI)': 'தமிழில் விளக்கு (AI)',
+  'Explain in English (AI)': 'ஆங்கிலத்தில் விளக்கு (AI)',
+  'Made by the app from the text': 'உரையிலிருந்து செயலி உருவாக்கியது',
+  'Mark as learned': 'கற்றேன் எனக் குறி',
   'Writing…': 'எழுதுகிறது…',
 };

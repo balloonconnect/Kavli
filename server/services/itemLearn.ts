@@ -4,6 +4,7 @@ import { LlmClient } from './llmEngine';
 import { hasTamil, normalizeTamil, tamilShare } from './tamilText';
 import { MAX_NODES, MapNode, MindMap, MindMapSchema } from './mindmap';
 import { Item, ROLE_LABEL, Structure } from './bookStructure';
+import { TEMPLATES, formatOf } from './learnTemplates';
 
 /**
  * Learning material around ONE item of a book lesson. Two kinds, never mixed:
@@ -72,36 +73,42 @@ export function itemPractice(st: Structure, itemId: string, max = 3): Practice[]
 }
 
 /* ---------- model-written explanations ---------- */
+const Str = (n: number) => z.string().max(n);
+export const QuizSchema = z.object({ question: Str(300), options: z.array(Str(160)).min(2).max(4), correct: z.number().int().min(0).max(3), hint: Str(240).optional(), why: Str(500).optional() })
+  .refine(q => q.correct < q.options.length && new Set(q.options.map(o => o.trim())).size === q.options.length, 'quiz options must be distinct and the answer must be one of them');
 export const ItemAiSchema = z.object({
-  word_meanings: z.array(z.object({ word: z.string().max(60), meaning: z.string().max(200) })).max(12).default([]),
-  simple_ta: z.string().max(900).optional(), central_idea: z.string().max(300).optional(), moral: z.string().max(300).optional(), example: z.string().max(500).optional(),
-  keywords: z.array(z.string().max(40)).max(8).default([]), memory_tip: z.string().max(300).optional(),
-  line_notes: z.array(z.object({ line: z.string().max(200), note: z.string().max(300) })).max(16).default([]), summary: z.string().max(600).optional(), devices: z.array(z.string().max(160)).max(6).default([]),
-  key_points: z.array(z.string().max(240)).max(8).default([]), answer: z.string().max(1200).optional(), why: z.string().max(500).optional(), english: z.string().max(600).optional(),
+  word_meanings: z.array(z.object({ word: Str(60), meaning: Str(200) })).max(12).default([]),
+  simple_ta: Str(1200).optional(), detailed: Str(1600).optional(), central_idea: Str(300).optional(), moral: Str(300).optional(), takeaway: Str(300).optional(), example: Str(500).optional(), real_life: Str(500).optional(),
+  keywords: z.array(Str(40)).max(8).default([]), memory_tip: Str(300).optional(), exam_notes: Str(600).optional(), imagery: Str(400).optional(),
+  line_notes: z.array(z.object({ line: Str(200), note: Str(300) })).max(16).default([]), summary: Str(700).optional(), devices: z.array(Str(160)).max(6).default([]),
+  key_points: z.array(Str(240)).max(10).default([]), sequence: z.array(Str(240)).max(10).default([]), cause_effect: z.array(Str(240)).max(8).default([]),
+  characters: z.array(z.object({ name: Str(60), trait: Str(200) })).max(10).default([]), types: z.array(Str(200)).max(8).default([]), examples: z.array(Str(240)).max(8).default([]), compare: Str(500).optional(),
+  mistakes: z.array(z.object({ wrong: Str(160), right: Str(160), why: Str(300).optional() })).max(6).default([]), structure: z.array(Str(200)).max(10).default([]), steps: z.array(Str(240)).max(10).default([]), definition: Str(500).optional(),
+  answer: Str(1200).optional(), why: Str(500).optional(), english: Str(600).optional(), quiz: QuizSchema.optional(),
 });
 export type ItemAi = z.infer<typeof ItemAiSchema>;
 export class ItemAiError extends Error { constructor(m: string, public status = 502) { super(m); } }
-const SYS = 'You are a careful Tamil teacher helping a school student. Write natural, correct Tamil in Tamil script. Explain ONLY the text you are given; do not add facts about the text that you cannot see in it; do not change, correct or rewrite the source text. If you are unsure of a meaning, leave it out. Reply with one JSON object and nothing else.';
-const SHAPE: Record<string, string> = {
-  couplet: '{"word_meanings":[{"word":"<a word copied exactly from the couplet>","meaning":"<simple Tamil meaning>"}],"simple_ta":"<the couplet explained in simple Tamil>","central_idea":"<one line>","moral":"<one line>","example":"<a short real-life example for a school student>","keywords":["<3-5 words>"],"memory_tip":"<a short way to remember it>","english":"<English meaning>"}',
-  stanza: '{"line_notes":[{"line":"<a line copied exactly>","note":"<simple Tamil explanation>"}],"summary":"<stanza meaning in Tamil>","central_idea":"<one line>","devices":["<devices that are really present, e.g. எதுகை, மோனை, with the words>"],"keywords":["..."],"word_meanings":[{"word":"..","meaning":".."}]}',
-  paragraph: '{"simple_ta":"<explanation in simple Tamil>","key_points":["..."],"keywords":["..."],"word_meanings":[{"word":"..","meaning":".."}]}',
-  answer: '{"answer":"<a suggested answer in Tamil, suitable for the marks>","why":"<one line on why>"}',
-};
+export type Lang = 'ta' | 'en';
+const SYS = 'You are Karikai AI\'s expert Tamil teacher for school students. Explain ONLY the text you are given. Preserve the intended meaning, names, facts and order. Do not change, correct or rewrite the source text. Do not add facts about it that you cannot see in it (no outside biography, no invented story details, no invented answers). If you are unsure of a meaning, leave that part out. Fill only the parts that really apply; use empty lists for the rest. Reply with one JSON object and nothing else.';
 const parseJson = (raw: string) => { const m = raw.replace(/^```[a-z]*\n?|\n?```$/gi, '').trim(); const a = m.indexOf('{'), b = m.lastIndexOf('}'); if (a < 0 || b < a) throw new ItemAiError('The model did not return a usable answer. Nothing was saved.', 422); try { return JSON.parse(m.slice(a, b + 1)); } catch { throw new ItemAiError('The model did not return a usable answer. Nothing was saved.', 422); } };
+export const aiKind = (mode: 'explain' | 'answer', lang: Lang) => (mode === 'answer' ? 'answer' : lang === 'en' ? 'explain_en' : 'explain');
 
-export async function explainItem(client: LlmClient, it: Item, mode: 'explain' | 'answer', ctx: { chapter: string; signal?: AbortSignal }): Promise<ItemAi> {
-  const src = normalizeTamil(itemText(it)); if (!src.trim()) throw new ItemAiError('This item has no text to explain.', 400);
-  const shape = mode === 'answer' ? SHAPE.answer : SHAPE[it.kind === 'couplet' ? 'couplet' : it.kind === 'stanza' || it.kind === 'poem' ? 'stanza' : 'paragraph'];
-  const user = `Chapter: ${ctx.chapter}\nItem: ${itemLabel(it)}${it.question ? ` (question, ${it.question.category ?? it.question.type}${it.question.options?.length ? '; options: ' + it.question.options.join(' | ') : ''})` : ''}\n${it.meaning?.length ? `The textbook's own meaning: ${it.meaning.join(' ')}\n` : ''}Text:\n---\n${src}\n---\nReturn JSON of this shape:\n${shape}`;
-  let raw: string; try { raw = await client.complete({ system: SYS, user, maxTokens: 1600, signal: ctx.signal }); } catch { throw new ItemAiError('The AI service could not be reached. Please try again.', 502); }
-  const parsed = ItemAiSchema.safeParse(parseJson(raw)); if (!parsed.success) throw new ItemAiError('The model’s answer was not in the expected form. Nothing was saved.', 422);
+export async function explainItem(client: LlmClient, it: Item, mode: 'explain' | 'answer', ctx: { chapter: string; signal?: AbortSignal; lang?: Lang; classLevel?: number; lessonKind?: 'story' | 'prose' }): Promise<ItemAi> {
+  const lang = ctx.lang ?? 'ta'; const src = normalizeTamil(itemText(it)); if (!src.trim()) throw new ItemAiError('This item has no text to explain.', 400);
+  const tpl = mode === 'answer' ? TEMPLATES.exercise : TEMPLATES[formatOf(it, ctx.lessonKind)];
+  const langRule = lang === 'en' ? 'Write every explanation in clear English. Keep quoted Tamil words and lines exactly as in the text.' : 'Write every explanation in natural, correct Tamil script.';
+  const user = `${tpl.task}\n${langRule}${ctx.classLevel ? `\nThe student is in Class ${ctx.classLevel}; match vocabulary and depth to that class.` : ''}\nChapter: ${ctx.chapter}\nItem: ${itemLabel(it)}${it.question ? ` (question, ${it.question.category ?? it.question.type}${it.question.options?.length ? '; options: ' + it.question.options.join(' | ') : ''})` : ''}\n${it.meaning?.length ? `The textbook's own meaning: ${it.meaning.join(' ')}\n` : ''}Text:\n---\n${src}\n---\nReturn JSON of this shape (omit parts that do not apply):\n${tpl.shape}`;
+  let raw: string; try { raw = await client.complete({ system: SYS, user, maxTokens: 2200, signal: ctx.signal }); } catch { throw new ItemAiError('The AI service could not be reached. Please try again.', 502); }
+  const j = parseJson(raw); if (j && typeof j === 'object' && j.quiz) { const qz = QuizSchema.safeParse(j.quiz); if (!qz.success) delete j.quiz; } // a bad quiz is dropped; the rest of the answer is still useful
+  const parsed = ItemAiSchema.safeParse(j); if (!parsed.success) throw new ItemAiError('The model’s answer was not in the expected form. Nothing was saved.', 422);
   const ai = parsed.data;
-  // every quoted word or line must really be in the item; every Tamil field must be Tamil
+  // every quoted word or line must really be in the item; every Tamil-mode field must be Tamil
   ai.word_meanings = ai.word_meanings.filter(w => src.includes(w.word) && w.meaning.trim());
   ai.line_notes = ai.line_notes.filter(l => src.includes(l.line.trim()) && l.note.trim());
-  for (const f of ['simple_ta', 'central_idea', 'summary', 'moral', 'answer'] as const) { const v = ai[f]; if (v && tamilShare(v) < 0.5) throw new ItemAiError('Part of the model’s answer was not in Tamil, so nothing was saved.', 422); }
+  ai.characters = ai.characters.filter(c => src.includes(c.name));
+  if (lang === 'ta') for (const f of ['simple_ta', 'detailed', 'central_idea', 'summary', 'moral', 'takeaway', 'answer', 'real_life'] as const) { const v = ai[f]; if (v && tamilShare(v) < 0.5) throw new ItemAiError('Part of the model’s answer was not in Tamil, so nothing was saved.', 422); }
+  else for (const f of ['simple_ta', 'detailed', 'summary', 'answer'] as const) { const v = ai[f]; if (v && tamilShare(v) > 0.5) throw new ItemAiError('Part of the model’s answer was not in English, so nothing was saved.', 422); }
   if (mode === 'answer' && !ai.answer) throw new ItemAiError('The model gave no answer. Nothing was saved.', 422);
-  if (mode === 'explain' && !(ai.simple_ta || ai.summary || ai.key_points.length || ai.word_meanings.length)) throw new ItemAiError('The model gave no explanation. Nothing was saved.', 422);
+  if (mode === 'explain' && !(ai.simple_ta || ai.summary || ai.key_points.length || ai.word_meanings.length || ai.line_notes.length || ai.definition || ai.steps.length || ai.structure.length)) throw new ItemAiError('The model gave no explanation. Nothing was saved.', 422);
   return ai;
 }

@@ -48,3 +48,10 @@
 - The textbook prints no answer key, so every answer shown is "AI-generated" and only exists after a model key is configured. Explanations, suggested answers and Tamil quality have only been tested with a mock model, not a live one, and no Tamil teacher has reviewed them.
 - Per-item voice uses the existing Tamil voice (browser voice or server voice if configured).
 - Item mind maps are rule-built from the item's text; AI keywords are added only after an explanation exists. Marks on item/chapter maps are not saved.
+
+## Learning templates (per-item formats)
+- 15 templates live in `server/services/learnTemplates.ts` (kural, poem, stanza, prose, story, grammar, vocab, author, proverb, idiom, writing, comprehension, exercise, devices, info). Which one an item gets is decided from what the structure reader found. **Story** and **comprehension** exist as templates but nothing detects them yet (a story reads as prose; a passage with questions reads as prose plus exercises). Proverb, idiom and writing sections are found only by their heading words, and have not been seen in the sample book.
+- **Not built:** images, tables and diagrams are not read from the PDF text (nothing is shown for them); a chapter-level AI summary and revision notes; difficulty that adapts to quiz results (results are recorded and feed the "Needs another look" list, nothing more); a tutor that is limited to the current item (the button opens the tutor on the lesson with the item's first line as the question).
+- Quiz answers are sent to the browser with the question (it is practice, not an exam).
+- Everything model-written has only been run against a mock model. Prompts, validation and the Tamil quality of real answers need a key and a teacher's review. English mode is checked only for "not Tamil".
+- Progress is per student per item (migration 3, `item_progress`); teachers and parents are not tracked.

@@ -10,7 +10,7 @@ import { isCleanLine, isFurniture, normalizeTamil } from './tamilText';
  *
  * The section markers below are the vocabulary of the Class 8 Tamil book. Other books can add markers to MARKERS.
  */
-export type Role = 'objectives' | 'intro' | 'author' | 'poem' | 'prose' | 'grammar' | 'glossary' | 'meaning' | 'devices' | 'activities' | 'qgroup' | 'language' | 'body';
+export type Role = 'objectives' | 'intro' | 'author' | 'poem' | 'prose' | 'grammar' | 'glossary' | 'meaning' | 'devices' | 'activities' | 'qgroup' | 'language' | 'proverb' | 'idiom' | 'writing' | 'body';
 export type Kind = 'couplet' | 'poem' | 'stanza' | 'heading' | 'paragraph' | 'word' | 'meaning' | 'device' | 'question' | 'objective' | 'note';
 export type QType = 'mcq' | 'fill' | 'match' | 'very_short' | 'short' | 'long' | 'thinking' | 'activity';
 export type Item = {
@@ -36,6 +36,9 @@ export const MARKERS: [RegExp, Role, string][] = [
   [/^சொல்லும்\s*\S*ளும்\s*$/, 'glossary', 'Word meanings'],
   [/^பாடலின்\s*\S+ள்\s*$/, 'meaning', 'Meaning of the poem (textbook)'],
   [/^கற்பவை\s*கற்றபின்/, 'activities', 'Exercises'],
+  [/^பழமொழி(?:கள்)?\s*$/, 'proverb', 'Proverbs'],
+  [/^மரபுத்\s*தொடர்(?:கள்)?\s*$/, 'idiom', 'Idioms'],
+  [/^(?:கடிதம்|கட்டுரை|படைப்பாக்கம்)(?:\s*எழுதுக)?\s*$/, 'writing', 'Writing'],
   [/^(?:மொழியை\s*ஆள்வோம்|அம்\s*மொழியோடு\s*விளையாடு|அறிந்து\s*பயன்படுத்துவோம்)/, 'language', 'Language activities'],
 ];
 const QGROUPS: [RegExp, QType, string][] = [
@@ -78,7 +81,7 @@ export function build(pages: { page: number; text: string }[], opts: { maxItems?
   for (const s of segment(pages)) {
     const before = items.length; const body = s.lines;
     if (s.role === 'objectives') for (const l of body.filter(x => !x.blank)) add({ kind: 'objective', section: s.role, page: l.page, lines: [l.t.replace(/^[^\p{L}]+/u, '')] });
-    else if (s.role === 'author' || s.role === 'intro') paragraphs(body, s.role, add, flagLines);
+    else if (['author', 'intro', 'proverb', 'idiom', 'writing'].includes(s.role)) paragraphs(body, s.role, add, flagLines);
     else if (s.role === 'poem') poem(s, add, flagLines);
     else if (s.role === 'glossary') glossary(body, add);
     else if (s.role === 'meaning') for (const para of blocks(body)) { const it = add({ kind: 'meaning', section: 'meaning', page: para.page, lines: [para.lines.join(' ')] }); if (it) flagLines(it); }
@@ -228,5 +231,5 @@ function checkSequence(items: Item[]) {
 export const ROLE_LABEL: Record<Role, [string, string]> = {
   objectives: ['Learning objectives', 'கற்றல் நோக்கங்கள்'], intro: ['Before you begin', 'நுழையும்முன்'], author: ['About the author or book', 'நூல் வெளி'], poem: ['Poem', 'கவிதைப்பேழை'], prose: ['Prose', 'உரைநடை'],
   grammar: ['Grammar', 'இலக்கணம்'], glossary: ['Word meanings', 'சொல்லும் பொருளும்'], meaning: ['Meaning of the poem', 'பாடலின் பொருள்'], devices: ['Poetic devices', 'நயம்'], activities: ['Exercises', 'கற்பவை கற்றபின்'],
-  qgroup: ['Questions', 'வினாக்கள்'], language: ['Language activities', 'மொழிப் பயிற்சி'], body: ['Lesson', 'பாடம்'],
+  proverb: ['Proverbs', 'பழமொழிகள்'], idiom: ['Idioms', 'மரபுத்தொடர்கள்'], writing: ['Writing', 'எழுத்துப் பயிற்சி'], qgroup: ['Questions', 'வினாக்கள்'], language: ['Language activities', 'மொழிப் பயிற்சி'], body: ['Lesson', 'பாடம்'],
 };

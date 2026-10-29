@@ -18,4 +18,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 2, name: 'item_ai', sql: `CREATE TABLE item_ai (
     lesson_id TEXT NOT NULL, item_id TEXT NOT NULL, kind TEXT NOT NULL, content TEXT NOT NULL, source_hash TEXT NOT NULL, model TEXT NOT NULL, created_at TEXT NOT NULL,
     PRIMARY KEY (lesson_id, item_id, kind))` },
+  // What each student has done with each item: opened, marked learned, quiz tries. Drives chapter progress, "where I left off" and revision lists.
+  { version: 3, name: 'item_progress', sql: `CREATE TABLE item_progress (
+    student_id TEXT NOT NULL, lesson_id TEXT NOT NULL, item_id TEXT NOT NULL, viewed_at TEXT, completed_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, wrong INTEGER NOT NULL DEFAULT 0, last_at TEXT NOT NULL,
+    PRIMARY KEY (student_id, lesson_id, item_id))` },
 ];
