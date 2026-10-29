@@ -1,5 +1,6 @@
 import { DB, q, tx } from './db';
 import { upsertTextbookLessons } from './curriculum';
+import { bookOnly } from './bookOnly';
 import { hashPassword, uid } from './security';
 import { iso, clock } from './clock';
 import { randomBytes } from 'node:crypto';
@@ -128,10 +129,10 @@ practiceQs.push(
 export async function bootstrapProduction(db: DB) {
   if (!(await q.get(db, 'SELECT 1 FROM subjects LIMIT 1'))) await tx(db, async () => { for (const [id, en, ta] of subjects) await q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta); });
   // Practice questions (Class 8 maths equations, Tamil, etc.) are generic study material, not tied to the demo school, so a live site can use Practice and Revise from day one.
-  if (!(await q.get(db, "SELECT 1 FROM questions WHERE origin='practice' LIMIT 1"))) await tx(db, async () => {
+  if (!bookOnly() && !(await q.get(db, "SELECT 1 FROM questions WHERE origin='practice' LIMIT 1"))) await tx(db, async () => {
     for (const x of practiceQs) await q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', null);
   });
-  await upsertTextbookLessons(db);
+  if (!bookOnly()) await upsertTextbookLessons(db);
 }
 
 export async function seed(db: DB) {
@@ -144,9 +145,9 @@ export async function seed(db: DB) {
   await tx(db, async () => {
     await q.run(db, 'INSERT INTO schools(id,name,created_at) VALUES (?,?,?)', 'school-demo', 'Demo Government Higher Secondary School (sample)', ts);
     for (const [id, en, ta] of subjects) await q.run(db, 'INSERT INTO subjects VALUES (?,?,?)', id, en, ta);
-    for (const l of lessons) await q.run(db, 'INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), SAMPLE);
-    await upsertTextbookLessons(db);
-    for (const x of [...testQs, ...practiceQs]) await q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', 'school-demo');
+    if (!bookOnly()) for (const l of lessons) await q.run(db, 'INSERT INTO lessons(id,class_level,subject_id,term,chapter_no,chapter_en,chapter_ta,title_en,title_ta,minutes,position,content,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', l.id, l.class_level, l.subject_id, 1, l.chapter_no, l.chapter_en, l.chapter_ta, l.title_en, l.title_ta, l.minutes, l.position, JSON.stringify(l.content), SAMPLE);
+    if (!bookOnly()) await upsertTextbookLessons(db);
+    if (!bookOnly()) for (const x of [...testQs, ...practiceQs]) await q.run(db, 'INSERT INTO questions(id,subject_id,class_level,chapter_no,type,text_en,text_ta,options,answer,marks,difficulty,explanation_en,explanation_ta,topic,origin,status,school_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', x.id, x.s, x.c, x.ch ?? null, x.t, x.en, x.ta ?? null, JSON.stringify(x.o ?? []), JSON.stringify(x.a), x.m, x.d ?? 'medium', x.ex ?? null, x.ext ?? null, x.topic ?? null, x.origin, 'published', 'school-demo');
   });
   const mk = async (id: string, email: string, name: string, role: string, school: string | null) => (await q.run(db, 'INSERT INTO users(id,email,display_name,password_hash,role,school_id,consent_at,created_at,is_demo) VALUES (?,?,?,?,?,?,?,?,1)', id, email, name, pw, role, school, ts, ts));
   await mk('u-student', 'meena@demo.kavli.local', 'Meena', 'student', 'school-demo');
@@ -165,6 +166,7 @@ export async function seed(db: DB) {
     await q.run(db, 'INSERT INTO tests(id,title,description,class_level,board,subject_id,academic_year,topics,week_no,opens_at,closes_at,duration_min,language,instructions,pass_pct,max_attempts,score_rule,show_review,awards_certificate,allow_change_answers,auto_submit,published,created_by,school_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', id, title, 'Weekly test (sample questions written for this prototype).', 8, board, subj, ay, JSON.stringify(topics), wk, open, close, dur, 'both', 'Read each question carefully. You may change answers before you submit. Answers are saved automatically.', pass, maxAtt, 'highest', 1, 1, 1, 1, 1, 'u-teacher', 'school-demo', ts);
     qs.forEach(async ([qid, m], i) => (await q.run(db, 'INSERT INTO test_questions VALUES (?,?,?,?,?)', id, qid, m, i + 1, 1)));
   };
+  if (!bookOnly()) {
   await T2('test-maths-w6', 'Mathematics — Weekly Test 6', 'maths', 6, at(-2), at(5), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m3', 6], ['t-m4', 4], ['t-m5', 6], ['t-m6', 8], ['t-m7', 8], ['t-m8', 6]], ['Equations']);
   // total 50: 6+6+6+4+6+8+8+6 = 50
   await T2('test-maths-w7', 'Mathematics — Weekly Test 7 (written answer)', 'maths', 7, at(-1), at(6), 45, 40, 2, [['t-m1', 6], ['t-m2', 6], ['t-m5', 6], ['t-m6', 8], ['t-m8', 6], ['t-m9', 18]], ['Equations', 'Word problems']);
@@ -174,5 +176,6 @@ export async function seed(db: DB) {
   await T2('test-science-w5', 'Science — Weekly Test 5', 'science', 5, at(-9), at(-2), 30, 40, 1, [['t-s1', 10], ['t-s2', 10], ['t-s3', 10], ['t-s4', 20]], ['Force']);
   await q.run(db, 'INSERT INTO assignments VALUES (?,?,?,?,?,?,?)', 'as-1', 'cls-8a', 'Homework: 5 linear equations', 'Solve the 5 equations on page 12 and write each step. Photograph or type your working.', at(3), 'u-teacher', ts);
   await q.run(db, 'INSERT INTO notifications VALUES (?,?,?,?,0,?)', uid(), 'u-student', 'Weekly Test 6 is open', 'Mathematics — Weekly Test 6 closes in 5 days.', ts);
+  }
   await q.run(db, 'INSERT INTO settings VALUES (?,?)', 'ai_daily_limit', '200');
 }

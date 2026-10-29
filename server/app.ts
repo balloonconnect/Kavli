@@ -32,7 +32,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   const api = express.Router();
   api.use(authMiddleware(db)); api.use(csrfGuard);
   const provider = opts.provider ?? selectProvider();
-  api.get('/config', (_req, res) => res.json({ production: process.env.NODE_ENV === 'production', demoAccounts: process.env.NODE_ENV !== 'production', aiProvider: provider.name, aiIsMock: provider.mock, ocrAvailable: !!process.env.ANTHROPIC_API_KEY, year: '2026–2027' }));
+  api.get('/config', (_req, res) => res.json({ production: process.env.NODE_ENV === 'production', demoAccounts: process.env.NODE_ENV !== 'production', bookOnly: process.env.BOOK_ONLY === '1', aiProvider: provider.name, aiIsMock: provider.mock, ocrAvailable: !!process.env.ANTHROPIC_API_KEY, year: '2026–2027' }));
   api.get('/health', (_req, res) => res.json({ ok: true }));
   api.use('/auth', authRoutes(db));
   api.use('/profile', profileRoutes(db));

@@ -30,6 +30,7 @@ services:
       PORT: "3001"
       PUBLIC_URL: http://localhost:3001
       SEED_DEMO: "1"
+      BOOK_ONLY: "1"                 # show only uploaded textbooks — no built-in sample lessons, tests or practice questions
       DATABASE_URL: postgres://kavli:kavli@db:5432/kavli
       STORAGE_DRIVER: s3
       S3_ENDPOINT: http://s3:9090

@@ -1,5 +1,6 @@
 import { openDb } from './db';
 import { upsertTextbookLessons } from './curriculum';
+import { bookOnly, purgeSampleContent } from './bookOnly';
 import { seed, bootstrapProduction } from './seed';
 import { createApp } from './app';
 import { resumeOcr } from './services/textbookIngest';
@@ -8,7 +9,7 @@ import { llmClientFromEnv, llmEngine } from './services/llmEngine';
 
 const db = await openDb();
 if (process.env.SEED_DEMO !== '0') await seed(db); else await bootstrapProduction(db);
-await upsertTextbookLessons(db);
+if (bookOnly()) await purgeSampleContent(db); else await upsertTextbookLessons(db);
 await backfillChapterLessons(db).catch(() => {});
 const resumed = await resumeOcr(db); if (resumed) console.log(`Resuming OCR for ${resumed} textbook(s)`);
 const port = Number(process.env.PORT ?? 3001);

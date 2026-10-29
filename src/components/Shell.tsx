@@ -39,7 +39,7 @@ function Bell() {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { user, profile, logout } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const [more, setMore] = useState(false); const [q, setQ] = useState('');
+  const { user, profile, logout, config } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const [more, setMore] = useState(false); const [q, setQ] = useState('');
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   if (!user) return null;
   const items = NAV[user.role];
@@ -58,7 +58,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="topbar">
           <Link to="/" className="logo mlogo" aria-label={`${BRAND.appName} home`}><BrandMark size={36} /></Link>
           {user.role === 'student' && <form className="searchform" role="search" onSubmit={e => { e.preventDefault(); nav(`/app/learn?q=${encodeURIComponent(q)}`); }}><Icon name="search" size={16} /><input className="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search lessons…" aria-label="Search lessons" /></form>}
-          <div className="grow" />{<Badge tone="warning">Sample content</Badge>}<LangToggle />
+          <div className="grow" />{!config?.bookOnly && <Badge tone="warning">Sample content</Badge>}<LangToggle />
           <Bell />
         </header>
         <main className="content" id="main" tabIndex={-1}><OfflineBanner />{children}</main>

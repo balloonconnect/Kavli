@@ -119,3 +119,7 @@ Run these once on a staging copy before announcing.
 - New migration `2 item_ai` (additive table; applied on start; back up first as usual).
 - After deploying, press **Re-read all pages** on each book (or re-run chapter sync) so lessons gain `content.structure`; old lessons keep working without it.
 - Optional: set a model key (`ANTHROPIC_API_KEY` or `LLM_PROVIDER=openai`) to enable "Explain with AI" and "Suggest an answer (AI)".
+
+## Show only the uploaded textbook (BOOK_ONLY)
+
+Set `BOOK_ONLY=1` (already set in `docker-compose.yml`) to hide all built-in example content: sample lessons, sample weekly tests, practice questions, example homework and the "Sample content" badge. On start it also removes that content from an existing database. Uploaded textbooks, their lessons, users and student data are kept.
