@@ -72,3 +72,18 @@ describe('book chapters become lessons', () => {
     expect(turn.text).toContain('"grounded":"lesson"');
   });
 });
+
+describe('editing a book’s subject and medium', () => {
+  it('moves its lessons to the new subject, hides them with no subject, and rejects non-admins and bad values', async () => {
+    await seedBook(); await backfillChapterLessons(t.db);
+    const a = await login(DEMO.admin);
+    expect((await a.patch(`/api/textbooks/${BOOK}`, { subjectId: 'english', medium: 'Both' })).status).toBe(200);
+    const bk = await q.get<any>(t.db, 'SELECT subject_id, medium FROM textbooks WHERE id=?', BOOK); expect(bk).toMatchObject({ subject_id: 'english', medium: 'Both' });
+    expect((await q.all<any>(t.db, "SELECT DISTINCT subject_id FROM lessons WHERE id LIKE 'bk-%'")).map(x => x.subject_id)).toEqual(['english']);
+    expect((await a.patch(`/api/textbooks/${BOOK}`, { subjectId: null })).status).toBe(200);
+    expect((await q.get<any>(t.db, "SELECT COUNT(*) c FROM lessons WHERE id LIKE 'bk-%' AND status='published'")).c).toBe(0);
+    expect((await a.patch(`/api/textbooks/${BOOK}`, { subjectId: 'nope' })).status).toBe(400);
+    expect((await a.patch(`/api/textbooks/${BOOK}`, { medium: 'French' })).status).toBe(400);
+    const s = await login(DEMO.student); expect((await s.patch(`/api/textbooks/${BOOK}`, { medium: 'Tamil' })).status).toBe(403);
+  });
+});

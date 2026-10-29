@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Async, Badge, Button, Card, Empty, Field, PageTitle, useLoad } from '../components/ui';
-import { get, post, del, msg } from '../api';
+import { Async, Badge, Button, Card, Empty, Field, Icon, Modal, PageTitle, useLoad } from '../components/ui';
+import { get, post, del, api, msg } from '../api';
 import { useToast } from '../components/toast';
 import { Bi } from '../components/lang';
 
@@ -57,6 +57,9 @@ function SystemStatus() {
 /** Admin: upload and remove class books. Teachers get the same page read-only. */
 export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
   const s = useLoad(() => get('/textbooks')); const toast = useToast(); const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState<any>(null); const [ef, setEf] = useState({ subjectId: '', medium: 'English' });
+  const openEdit = (b: any) => { setEf({ subjectId: b.subject_id ?? '', medium: b.medium }); setEdit(b); };
+  const saveEdit = async () => { try { await api('PATCH', `/textbooks/${edit.id}`, { subjectId: ef.subjectId || null, medium: ef.medium }); toast('Book updated.'); setEdit(null); s.reload(); } catch (x) { toast(msg(x), 'err'); } };
   const [f, setF] = useState({ title: '', classLevel: '8', subjectId: '', medium: 'English' }); const [file, setFile] = useState<File | null>(null);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!file) return toast('Choose a PDF first.', 'err');
@@ -77,7 +80,13 @@ export function BookAdmin({ canEdit = false }: { canEdit?: boolean }) {
       {canEdit && b.status === 'needs_ocr' && <Button tone="secondary" onClick={async () => { try { await post(`/textbooks/${b.id}/ocr`, {}); toast('Reading the pages now.', 'ok'); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Read pages (OCR)</Button>}
       {canEdit && b.status === 'ready' && <Button tone="secondary" onClick={async () => { if (!confirm('Read every page again with OCR? This takes a few minutes and replaces the stored page text.')) return; try { await post(`/textbooks/${b.id}/ocr`, { all: true }); toast('Reading all pages again.', 'ok'); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Re-read all pages</Button>}
       {canEdit && b.status === 'ready' && <Button tone="secondary" onClick={async () => { try { const r = await post(`/textbooks/${b.id}/chapters/detect`, {}); toast(`${r.chapters.length} chapters found from the contents page.`, 'ok'); } catch (x) { toast(msg(x), 'err'); } }}>Find chapters</Button>}
-      {canEdit && <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button>}</div>)}</Card>}</Async></div>;
+      {canEdit && <Button tone="secondary" aria-label={`Edit ${b.title}`} title="Edit subject and medium" onClick={() => openEdit(b)}><Icon name="edit" /></Button>}
+      {canEdit && <Button tone="ghost" onClick={async () => { if (!confirm(`Remove “${b.title}”?`)) return; try { await del(`/textbooks/${b.id}`); s.reload(); } catch (x) { toast(msg(x), 'err'); } }}>Remove</Button>}</div>)}</Card>}</Async>
+    {edit && <Modal title="Edit book" onClose={() => setEdit(null)}><p className="muted small">{edit.title}</p>
+      <div className="grid g2"><div className="field"><label htmlFor="eb-s">Subject</label><select id="eb-s" value={ef.subjectId} onChange={e => setEf({ ...ef, subjectId: e.target.value })}>{SUBJ.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></div>
+        <div className="field"><label htmlFor="eb-m">Medium</label><select id="eb-m" value={ef.medium} onChange={e => setEf({ ...ef, medium: e.target.value })}><option>English</option><option>Tamil</option><option value="Both">Both (Tamil + English)</option></select></div></div>
+      <p className="muted small">Lessons made from this book follow the new subject. A new medium applies to lessons straight away; to read the pages again in the new language, use “Re-read all pages”.</p>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><Button tone="secondary" onClick={() => setEdit(null)}>Cancel</Button><Button onClick={saveEdit}>Save</Button></div></Modal>}</div>;
 }
 
 /** Lesson "Textbook" tab: only the book pages related to this lesson, each opening in a new tab. */

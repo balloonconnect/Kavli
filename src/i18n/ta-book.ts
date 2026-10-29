@@ -46,4 +46,5 @@ export const BOOK: Record<string, string> = {
   'Writing…': 'எழுதுகிறது…',
   'AI Tutor sections': 'AI ஆசிரியர் பிரிவுகள்',
   'Both (Tamil + English)': 'இரண்டும் (தமிழ் + ஆங்கிலம்)',
+  'Book updated.': 'புத்தகம் புதுப்பிக்கப்பட்டது.',
 };

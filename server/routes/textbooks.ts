@@ -99,6 +99,16 @@ export function textbookRoutes(db: DB) {
     await q.run(db, "UPDATE textbooks SET status='processing', note=? WHERE id=?", `Reading ${todo.length} pages with OCR.`, b.id); ocrQueue.add(() => runOcr(db, b.id, todo));
     res.status(202).json({ textbook: view(await get(b.id)) });
   }));
+  r.patch('/:id', admin, wrap(async (req, res) => {
+    const b = await get(req.params.id);
+    const body = parse(z.object({ subjectId: z.string().trim().max(40).nullable().optional(), medium: z.enum(['English', 'Tamil', 'Both']).optional() }), req.body);
+    const subject = body.subjectId === undefined ? b.subject_id : (body.subjectId || null); const medium = body.medium ?? b.medium;
+    if (subject && !(await q.get(db, 'SELECT 1 FROM subjects WHERE id=?', subject))) throw new HttpError(400, 'Unknown subject.');
+    await q.run(db, 'UPDATE textbooks SET subject_id=?, medium=? WHERE id=?', subject, medium, b.id);
+    // lessons made from this book follow the new subject and medium; with no subject they are hidden
+    if (subject) await syncChapterLessons(db, b.id); else await retireBookLessons(db, b.id);
+    res.json({ textbook: view(await get(b.id)) });
+  }));
   r.delete('/:id', admin, wrap(async (req, res) => {
     const b = await get(req.params.id); await storage().delete(b.file_path); await retireBookLessons(db, b.id);
     await q.run(db, 'DELETE FROM textbook_chapters WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
