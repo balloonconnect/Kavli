@@ -14,6 +14,12 @@ import { detectAndStoreChapters, extractAll, listChapters, ocrQueue, ocrUsable, 
 const MAX = 60 * 1024 * 1024;
 const STAFF = ['teacher', 'school_admin', 'admin'];
 /** Class books. The platform admin uploads a PDF with its class; students only ever see, open and are answered from books of their own class. */
+/** Fills a blank subject from a title that clearly names one, e.g. "Class 8 English". */
+export const guessSubject = (title: string): string | null => {
+  const hits = ([['maths', /\b(maths?|mathematics)\b|கணிதம்/i], ['science', /\bscience\b|அறிவியல்/i], ['english', /\benglish\b|ஆங்கிலம்/i], ['social', /\bsocial\b|சமூக/i], ['tamil', /\btamil\b|தமிழ்/i]] as [string, RegExp][]).filter(([, r]) => r.test(title));
+  return hits.length === 1 ? hits[0][0] : null;
+};
+
 export function textbookRoutes(db: DB) {
   const r = Router(); const admin = requireRole('admin' as any); // only the platform admin can add or remove books; teachers read only
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX, files: 1 } });
@@ -35,6 +41,7 @@ export function textbookRoutes(db: DB) {
     const f = req.file; if (!f) throw new HttpError(400, 'Choose a PDF file first.');
     if (f.buffer.subarray(0, 5).toString() !== '%PDF-') throw new HttpError(415, 'Please choose a PDF file.');
     let subject: string | null = null;
+    if (!b.subjectId) { const g = guessSubject(b.title); if (g) b.subjectId = g; }
     if (b.subjectId) { if (!(await q.get(db, 'SELECT id FROM subjects WHERE id=?', b.subjectId))) throw new HttpError(400, 'Unknown subject.'); subject = b.subjectId; }
     let pages: { page: number; text: string }[] = []; let status = 'ready', note: string | null = null;
     try { pages = await extractAll(f.buffer); } catch { status = 'failed'; note = 'This PDF could not be read. It may be damaged or password protected.'; }

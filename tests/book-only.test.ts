@@ -35,3 +35,11 @@ describe('textbook medium "Both"', () => {
     expect(textQuality('அறம் என்பது நல்ல செயல்களைச் செய்வதாகும் என்று வள்ளுவர் கூறுகிறார் அதனால் நாம் அதைப் பின்பற்ற வேண்டும்', 'Both').ok).toBe(true);
   });
 });
+
+describe('subject from the title', () => {
+  it('fills a blank subject only when the title names exactly one', async () => {
+    const { guessSubject } = await import('../server/routes/textbooks');
+    expect(guessSubject('Class 8 English')).toBe('english'); expect(guessSubject('Class 8 Tamil — Term 1')).toBe('tamil'); expect(guessSubject('Class 8 Mathematics')).toBe('maths');
+    expect(guessSubject('English and Tamil reader')).toBeNull(); expect(guessSubject('Class 8 Term 1')).toBeNull();
+  });
+});
