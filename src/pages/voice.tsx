@@ -175,21 +175,18 @@ export function VoiceTutor() {
           <Card className="col">
             <h2>Start a lesson</h2>
             <div className="grid g2">
-              <div className="field"><label htmlFor="vt-class">Class</label><input id="vt-class" value={`Class ${profile?.class_level ?? 8}`} readOnly /></div>
               <div className="field"><label htmlFor="vt-lang">Language</label><select id="vt-lang" value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="ta">தமிழ்</option><option value="en">English</option><option value="both">தமிழ் + English</option></select></div>
               <div className="field"><label htmlFor="vt-sub">Subject</label><select id="vt-sub" value={subject} onChange={e => setSubject(e.target.value)}>{SUBJ.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></div>
               <div className="field"><label htmlFor="vt-les">Chapter / lesson</label><select id="vt-les" value={lesson} onChange={e => { setLesson(e.target.value); if (e.target.value) setChapterId(''); }}><option value="">Not chosen — I will ask a question</option>{lessons.map(l => <option key={l.id} value={l.id}>{l.t}</option>)}</select></div>
               {!!books.length && <div className="field"><label htmlFor="vt-bk">Or a chapter of my class book</label><select id="vt-bk" value={bookId} onChange={e => { setBookId(e.target.value); setChapterId(''); if (e.target.value) setLesson(''); }}><option value="">No book chosen</option>{books.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>}
               {!!bookId && <div className="field"><label htmlFor="vt-ch">Book chapter</label><select id="vt-ch" value={chapterId} onChange={e => { setChapterId(e.target.value); if (e.target.value) setLesson(''); }} disabled={!chapters.length}><option value="">{chapters.length ? 'Whole book — I will ask a question' : 'This book has no chapter list'}</option>{chapters.map(c => <option key={c.id} value={c.id}>{c.title} (pages {c.startPage}–{c.endPage})</option>)}</select></div>}
             </div>
-            <div className="field"><span className="lbl">How should we learn?</span><div className="chips" role="group" aria-label="Teaching mode">{MODES.map(([k, en, ta]) => <button key={k} className={`pill ${mode === k ? 'on' : ''}`} aria-pressed={mode === k} onClick={() => setMode(k)}>{en} <span className="ta" lang="ta">· {ta}</span></button>)}</div></div>
             <label className="check"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} /> Save the transcript so I can continue later</label>
             <p className="muted small">{cfg?.notes} {save ? 'Your lesson and transcript are kept in your account; you can delete them any time.' : 'Nothing you say is saved. Only your progress is.'}</p>
             <div className="row wrap"><Button onClick={() => begin()} disabled={status === 'connecting'}><Icon name="mic" /> {status === 'connecting' ? 'Connecting…' : 'Start conversation'}</Button></div>
             {err && <div className="notice err" role="alert"><Icon name="alert" /><span>{err}</span></div>}
           </Card>
           {!!prior.length && <Card className="col"><h2>Continue a previous lesson</h2>{prior.slice(0, 4).map(p => <div key={p.id} className="row wrap listrow"><div className="grow"><b>{p.topic ?? 'Voice lesson'}</b><div className="muted small">{p.mode} · {p.lang} · {new Date(p.updatedAt).toLocaleString()}</div></div><Button tone="secondary" onClick={() => begin(p)}>Continue</Button></div>)}</Card>}
-          <Card className="col"><h2>What to expect</h2><ul className="small"><li>Voice uses your browser’s speech recognition and speech synthesis. Android Chrome and desktop Chrome/Edge work best; iPhone Safari may only support typing.</li><li>The tutor answers only from your class lessons, your class books, or by solving an equation — and says which. If it has no verified source it tells you instead of guessing.</li><li>Use headphones so the tutor does not hear itself.</li></ul></Card>
         </div>
       ) : (
         <div className="vt-grid">
