@@ -28,7 +28,7 @@ The live app is **one container**. Vercel's serverless functions are not a good 
 1. **Database.** Create an empty database and a user. Copy the connection string → `DATABASE_URL`. Managed providers usually need `DATABASE_SSL=1`. The app creates its own tables on first start.
 2. **Bucket.** Create a private bucket and an access key limited to it (read, write, delete). Set `STORAGE_DRIVER=s3`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`; for R2/MinIO also `S3_ENDPOINT`. No bucket → files go to a local folder on a persistent disk (fine for one server, lost if the disk is).
 3. **Voice.** `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`. Defaults: `ta-IN-PallaviNeural`, `en-IN-NeerjaNeural`; change with `AZURE_SPEECH_VOICE_TA/_EN` after listening to the voices available in your region.
-4. **Model.** `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`), or `LLM_PROVIDER=openai` with `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
+4. **Model** (also powers the Tamil language actions: correct, simplify, formal/conversational, translate). `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`), or `LLM_PROVIDER=openai` with `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`.
 5. **Email.** `MAIL_FROM`, then `RESEND_API_KEY` or `SMTP_HOST/PORT/USER/PASS`. Links use `PUBLIC_URL`, so set it first. Send yourself a reset mail before announcing; the Live set-up check shows whether email is on.
 6. **App settings:** `NODE_ENV=production`, `PUBLIC_URL=https://your-domain` (used in certificate QR links), `SEED_DEMO=0`. See `.env.example` for every variable.
 
@@ -107,3 +107,10 @@ Run these once on a staging copy before announcing.
 - One instance handles a classroom comfortably; the limits that bite first are the model/voice providers, not the database.
 - To run several instances you need: a shared rate limiter, one OCR worker (set `OCR_ENGINE=off` on the others), and `STORAGE_DRIVER=s3` (not local disk).
 - Retrieval reads each class's book pages from the database for every question (about 60–100 ms for a 192-page book). For many books, cache the per-book passage list, or add Postgres full-text search or embeddings; `topPassages` is the only ranking function to change.
+
+## Tamil quality, font and voice
+
+- **Font.** Noto Sans Tamil is bundled with the app (`@fontsource/noto-sans-tamil`, weights 400–700); nothing is fetched from Google Fonts, so it works offline. Fallbacks: Noto Sans Tamil UI, Nirmala UI (Windows), Latha, Vijaya, Tamil Sangam MN (Apple), then the system sans-serif. Class `.tamil-text` (and `:lang(ta)`, `.ta`) sets `line-height:1.8`, `letter-spacing:normal`, `word-break:normal`, `overflow-wrap:break-word`.
+- **Scanned books.** The Docker image replaces the packaged Tamil OCR data with Tesseract's `tessdata_best` at build time (needs internet during `docker compose build`; if the download fails it keeps the packaged data and says so in the build log). Pages are read at 300 dpi; `OCR_DPI` and `OCR_PSM` tune this. **Books already imported keep their old text until you press "Read pages (OCR)" again or delete and re-import them.**
+- **Language actions** (`/api/tamil/transform`) need the model from step 4. Without it the buttons are hidden and the API answers 501. Each action is one model call; results that drop a number, date or Latin name, are not Tamil, or are far longer/shorter than the source are rejected and the original text is kept.
+- **Tamil voice** uses the AI voice from step 3 when configured (Azure `ta-IN-PallaviNeural` by default; `ta-IN-ValluvarNeural` is the male Tamil voice) and otherwise the browser's own `ta-IN` voice. It never falls back to an English voice. Text is read in pieces of at most 280 characters; audio for a repeated piece is served from a small in-memory cache. Daily per-user limit: `VOICE_TTS_DAILY_CHARS` (default 20000). Cost: Azure bills per character synthesised; check the current rate and free allowance on Azure's pricing page before launch.

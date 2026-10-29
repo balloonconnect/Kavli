@@ -41,6 +41,13 @@ describe.skipIf(!hasPoppler)('scanned books are read in the background', () => {
     expect((await a.c.get(`/api/textbooks/${id}/pages/2`)).body.text).toMatch(/Zephyrian/);
     const hits = await textbookHits(ctx.db, 8, null, 'When does the Zephyrian obsidian volcano erupt?', 3); expect(hits.length).toBeGreaterThan(0);
   });
+  it('"Re-read all pages" replaces the stored text of every page, while plain "Read pages" only fills gaps', async () => {
+    const calls: number[] = []; let version = 'old'; setOcrEngine(fake(n => `Page ${n} ${version} reading about the Zephyrian obsidian volcano and its glass.`, calls));
+    const a = await admin(); const up = await upload(a, ['', '', '']); const id = up.body.textbook.id; await ocrQueue.idle(); expect(calls.length).toBe(3);
+    expect((await a.c.post(`/api/textbooks/${id}/ocr`, {})).status).toBe(409); // nothing missing
+    version = 'new'; const again = await a.c.post(`/api/textbooks/${id}/ocr`, { all: true }); expect(again.status).toBe(202); await ocrQueue.idle(); expect(calls.length).toBe(6);
+    expect((await a.c.get(`/api/textbooks/${id}/pages/2`)).body.text).toMatch(/new reading/);
+  });
   it('good text-layer pages are kept and only the bad pages are sent to OCR', async () => {
     const calls: number[] = []; setOcrEngine(fake(() => 'Recovered scanned page about rivers and the water cycle in detail.', calls));
     const a = await admin(); const up = await upload(a, ['Page one has a perfectly readable text layer about volcanoes and lava flows.', '', 'Page three is readable too and talks about earthquakes and tectonic plates.']);

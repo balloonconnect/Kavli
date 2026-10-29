@@ -55,6 +55,7 @@ export async function runOcr(db: DB, bookId: string, pageNos: number[]) {
   if (!have) return settle('needs_ocr', 'No readable text could be found in this PDF.');
   await settle('ready', skipped ? `${skipped} page${skipped > 1 ? 's' : ''} could not be read (OCR). The rest is ready.` : null);
   await detectAndStoreChapters(db, bookId);
+  await syncChapterLessons(db, bookId).catch(() => {}); // chapters an admin edited are not re-detected, but their lessons must follow the new text
 }
 
 /** After a restart, books left half-read continue where they stopped (pages already saved are skipped). */

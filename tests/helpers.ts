@@ -16,7 +16,7 @@ export async function target(): Promise<string> {
   try { await admin.query(`CREATE DATABASE ${name}`); } finally { await admin.end(); }
   const u = new URL(base); u.pathname = '/' + name; return u.toString();
 }
-export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
+export async function setup(o: { voiceEngine?: any; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any; llm?: any } = {}) {
   clock.reset(); setOcrEngine(null); // tests choose their OCR engine explicitly; never depend on what is installed
   const db = await openDb(await target()); await seed(db); const app = createApp(db, { serveStatic: false, ...o });
   return { db, app };

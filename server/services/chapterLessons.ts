@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { DB, q } from '../db';
 import { tokens } from './retrieval';
+import { cleanLines, isCleanLine, isFurniture, normalizeTamil } from './tamilText';
 
 /**
  * Turns each chapter of an imported textbook into a lesson, so the Learn page, explanation, mind map, tutor chat, voice
@@ -43,7 +44,7 @@ export function buildSections(pages: { page: number; text: string }[], tamil: bo
     buf = []; len = 0;
   };
   for (const p of pages) {
-    const lines = p.text.split(/\n+/).map(clean).filter(l => l.length > 2 && /\p{L}/u.test(l) && (!tamil || l.length >= 40 || looksLikeHeading(l, true)));
+    const lines = normalizeTamil(p.text).split(/\n+/).map(clean).filter(l => l.length > 2 && /\p{L}/u.test(l) && !isFurniture(l) && (!tamil || isCleanLine(l)) && (!tamil || l.length >= 40 || looksLikeHeading(l, true)));
     for (const line of lines) {
       if (!buf.length) startPage = p.page;
       endPage = p.page; buf.push(line); len += line.length;
@@ -98,7 +99,7 @@ export async function syncChapterLessons(db: DB, bookId: string): Promise<number
   let made = 0;
   for (const ch of chapters) {
     const pages = await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=? AND page BETWEEN ? AND ? ORDER BY page', bookId, ch.start_page, ch.end_page);
-    const text = pages.map(p => p.text).join('\n');
+    const text = pages.map(p => cleanLines(p.text).text).join('\n'); const quality = cleanLines(pages.map(p => p.text).join('\n')).quality;
     const sections = buildSections(pages, tamilBook || isTamil(text));
     if (!sections.length) continue; // a chapter whose pages have not been read yet gets no lesson
     const id = `${prefix}${ch.ord}`;
@@ -110,7 +111,7 @@ export async function syncChapterLessons(db: DB, bookId: string): Promise<number
       },
       sections,
       vocab: [], examples: [], mistakes: [],
-      fromBook: { textbookId: bookId, chapterOrd: ch.ord, startPage: ch.start_page, endPage: ch.end_page, language: tamilBook ? 'ta' : 'en', verified: !!ch.verified },
+      fromBook: { quality: Math.round(quality * 100) / 100, textbookId: bookId, chapterOrd: ch.ord, startPage: ch.start_page, endPage: ch.end_page, language: tamilBook ? 'ta' : 'en', verified: !!ch.verified },
     };
     const source = `${BOOK_SOURCE_PREFIX} ${book.title}, ${range}. Read from the textbook PDF${book.status === 'ready' ? '' : ' (still being read)'}; scanned text can contain a few wrong letters.`;
     const title = ch.title;

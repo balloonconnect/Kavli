@@ -105,6 +105,8 @@ function ReadAloud({ en, ta, rate }: { en: string; ta: string; rate: number }) {
 }
 
 import { MindMapView, RevisionList } from '../components/MindMap';
+import { TamilVoice } from '../components/TamilVoice';
+import { TamilTools } from '../components/TamilTools';
 import { LessonBook } from './books';
 const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision'], ['book', 'Textbook']];
 export function Lesson() {
@@ -123,7 +125,7 @@ export function Lesson() {
       {String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From your class textbook.</b> {String(l.source).replace('Textbook: ', '')} The text is the book’s own words; the explanation, mind map, practice and tutor all use it.</div></div>}
       {!String(l.source ?? '').startsWith('Sample') && !String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From the Samacheer Kalvi textbook.</b> {l.source} Only a short excerpt is shown here, and the text is in English; use your printed textbook for the full lesson.</div></div>}
       <div className="row wrap no-print">
-        <ReadAloud en={speakEn} ta={speakTa} rate={profile?.voice_prefs?.rate ?? 1} />
+        {lang === 'ta' ? <TamilVoice text={speakTa} /> : <ReadAloud en={speakEn} ta={speakTa} rate={profile?.voice_prefs?.rate ?? 1} />}
         <Button tone="secondary" onClick={toggleBm} aria-pressed={bm}><Icon name="bookmark" /> {bm ? 'Bookmarked' : 'Bookmark'}</Button>
         <Button to={`/app/tutor?lesson=${l.id}`}><Icon name="chat" /> Ask AI about this lesson</Button>
       </div>
@@ -136,7 +138,8 @@ export function Lesson() {
       <Card className="col"><h2><Bi en="What you will learn" ta="இதில் நீங்கள் கற்பது" /></h2>
         <div className={both ? 'grid g2 split' : ''}>{lang !== 'ta' && <ul>{c.objectives.en.map((o: string) => <li key={o}>{o}</li>)}</ul>}{lang !== 'en' && <ul lang="ta" className="ta">{c.objectives.ta.map((o: string) => <li key={o}>{o}</li>)}</ul>}</div></Card>
       {c.sections.map((x: any, si: number) => <div key={x.h_en} id={`lesson-sec-${si}`}><Card className="col"><h2><Bi en={x.h_en} ta={x.h_ta} block /></h2>
-        <div className={both && x.ta ? 'grid g2 split' : ''}>{(lang !== 'ta' || !x.ta) && <p>{x.en}</p>}{lang !== 'en' && x.ta && <p lang="ta" className="ta">{x.ta}</p>}</div></Card></div>)}
+        <div className={both && x.ta ? 'grid g2 split' : ''}>{(lang !== 'ta' || !x.ta) && <p>{x.en}</p>}{lang !== 'en' && x.ta && <p lang="ta" className="ta">{x.ta}</p>}</div>
+        {!!x.ta && lang !== 'en' && <details className="no-print"><summary className="link">Tamil tools: listen, copy, correct, simplify</summary><TamilTools text={x.ta} /></details>}</Card></div>)}
       {!!c.vocab?.length && <div id="lesson-vocab"><Card className="col"><h2><Bi en="Key words" ta="முக்கிய சொற்கள்" /></h2><div className="tablewrap" tabIndex={0} role="region" aria-label="Data table"><table className="tbl"><thead><tr><th>English</th><th>தமிழ்</th><th>Meaning</th><th>Say it</th><th>Example</th></tr></thead>
         <tbody>{c.vocab.map((v: any) => <tr key={v.en}><td><b>{v.en}</b></td><td lang="ta" className="ta">{v.ta}</td><td>{v.meaning}</td><td className="muted">{v.pron}</td><td>{v.example}</td></tr>)}</tbody></table></div></Card></div>}
       </>}

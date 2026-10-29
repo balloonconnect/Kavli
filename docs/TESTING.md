@@ -25,3 +25,18 @@ Also run: `npm run typecheck`, `npm run build`.
 ## Retrieval quality
 
 `npx tsx scripts/eval-retrieval.ts [questions.json]` scores how well the tutor finds the right book page (rank-1, top-3, mean reciprocal rank, and whether unanswerable questions return nothing). Run it against a database holding the imported book after any change to retrieval or OCR, and compare with the numbers in `docs/KNOWN_LIMITATIONS.md`. The question file holds only questions and page numbers (no book text). Baseline before the BM25 + n-gram retriever: ranked first 54%, top-3 79%, MRR 0.65, unanswerable 2/3.
+
+## Tamil quality: automated and manual
+
+Automated (`tests/tamil-quality.test.ts`): NFC and zero-width clean-up, the three reference sentences, OCR noise and print-footer detection (using the real page-37 noise), protected dates/amounts/names/phone numbers, speech chunking, the model-result checks, the `/api/tamil/*` endpoints (no model, no voice, failing voice, daily allowance, length limits), and the font set-up (self-hosted Noto Sans Tamil, no letter-spacing on Tamil text).
+
+Manual checklist (needs a browser and, for the last rows, a model key and a Tamil voice). Tick each on Windows Chrome, Android Chrome and iPhone Safari:
+
+1. Open a Tamil lesson: vowel signs, pulli and ligatures look right; no gaps inside words; no horizontal scroll at 360 px width.
+2. Paste into "Edit Tamil text": a WhatsApp message, a PDF excerpt, a Word paragraph, a line with emojis, a line mixing English words, a phone number and an amount. Nothing is lost on Copy.
+3. "Listen in Tamil": the voice is Tamil (not English reading Tamil letters); play, pause, resume and stop work; speed 0.75× to 1.5× changes the pace; a 3-paragraph passage plays to the end without a gap or cut-off.
+4. Edit the text while audio is playing: playback stops; pressing Listen reads the new text. Nothing plays on page load.
+5. Device with no Tamil voice and no server voice: the player says so; it does not read in English.
+6. Turn the network off while the AI voice is selected: a clear error appears.
+7. With a model key: Correct / Simplify / Formal / Conversational / Translate on the three reference sentences. Check by eye that meaning, names, dates and amounts are unchanged; "Restore original" returns the first text.
+8. Empty text, and text over 4000 characters: clear message, nothing breaks.

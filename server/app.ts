@@ -1,3 +1,4 @@
+import { tamilRoutes } from './routes/tamil';
 import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -18,7 +19,7 @@ import { teacherRoutes } from './routes/teacher';
 import { adminRoutes, parentRoutes, schoolRoutes } from './routes/roles';
 import { selectProvider, TutorProvider } from './services/tutor';
 
-export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean; voiceEngine?: TeachEngine; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any } = {}) {
+export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?: boolean; voiceEngine?: TeachEngine; voiceMax?: number; voiceQueueMs?: number; voiceVisuals?: any; voiceTts?: any; llm?: any } = {}) {
   const app = express();
   app.disable('x-powered-by'); app.set('trust proxy', 1);
   app.use((_req, res, next) => {
@@ -36,6 +37,7 @@ export function createApp(db: DB, opts: { provider?: TutorProvider; serveStatic?
   api.use('/profile', profileRoutes(db));
   api.use('/tutor', tutorRoutes(db, provider));
   api.use('/voice', voiceRoutes(db, opts.voiceEngine, { maxConcurrency: opts.voiceMax, queueMs: opts.voiceQueueMs, visuals: opts.voiceVisuals, tts: opts.voiceTts }));
+  api.use('/tamil', tamilRoutes(db, { llm: opts.llm, tts: opts.voiceTts }));
   api.use('/visuals', visualRoutes());
   api.use('/materials', materialRoutes(db));
   api.use('/textbooks', textbookRoutes(db));

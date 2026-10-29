@@ -89,12 +89,13 @@ export function textbookRoutes(db: DB) {
     for (const c of body.chapters) { if (c.endPage < c.startPage || c.endPage > b.page_count || c.startPage <= prevEnd) throw new HttpError(400, `“${c.title}” has page numbers that do not fit the book (1–${b.page_count}) or overlap the chapter before it.`); prevEnd = c.endPage; }
     await replaceChapters(db, b.id, body.chapters, 'admin'); await syncChapterLessons(db, b.id).catch(() => {}); res.json({ chapters: await listChapters(db, b.id) });
   }));
-  /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed). */
+  /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed), or on every page with `all: true` (e.g. after the OCR settings or language data were improved). */
   r.post('/:id/ocr', admin, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
+    const all = parse(z.object({ all: z.boolean().optional() }), req.body ?? {}).all === true;
     const b = await get(req.params.id); if (b.status === 'processing') throw new HttpError(409, 'This book is already being read.');
     const usable = await ocrUsable(b.medium); if (!usable.ok) throw new HttpError(501, usable.why);
     const have = new Set((await q.all<any>(db, 'SELECT page FROM textbook_pages WHERE textbook_id=?', b.id)).map(r => r.page as number));
-    const todo = Array.from({ length: b.page_count }, (_, i) => i + 1).filter(n => !have.has(n)); if (!todo.length) throw new HttpError(409, 'Every page already has text.');
+    const todo = Array.from({ length: b.page_count }, (_, i) => i + 1).filter(n => all || !have.has(n)); if (!todo.length) throw new HttpError(409, 'Every page already has text.');
     await q.run(db, "UPDATE textbooks SET status='processing', note=? WHERE id=?", `Reading ${todo.length} pages with OCR.`, b.id); ocrQueue.add(() => runOcr(db, b.id, todo));
     res.status(202).json({ textbook: view(await get(b.id)) });
   }));

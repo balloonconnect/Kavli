@@ -1,3 +1,4 @@
+import { cleanLines, illFormedTamil } from './tamilText';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -26,11 +27,28 @@ export function tesseractEngine(opts: { tessdata?: string } = {}): OcrEngine {
   return {
     name: 'tesseract',
     async recognize(png, lang) {
-      const r = await run('tesseract', ['stdin', 'stdout', '-l', lang, '--psm', '6'], png, env);
-      if (r.code !== 0) throw new Error(`tesseract failed: ${r.err.slice(0, 200)}`);
-      return r.out.toString('utf8');
+      // Tamil pages: psm 4 (one column of text of varying sizes) reads decorated headings and poems far better than psm 6 on the real Class 8 book.
+      // If the result still looks like noise, the other layout modes are tried and the cleanest reading is kept.
+      const modes = (process.env.OCR_PSM ?? (lang.includes('tam') ? '4,6,3' : '6')).split(',').map(x => x.trim()).filter(Boolean);
+      let best = '', bestScore = -1;
+      for (const psm of modes) {
+        const r = await run('tesseract', ['stdin', 'stdout', '-l', lang, '--psm', psm], png, env);
+        if (r.code !== 0) { if (!best) throw new Error(`tesseract failed: ${r.err.slice(0, 200)}`); continue; }
+        const text = r.out.toString('utf8'); const score = lang.includes('tam') ? usableScore(text) : text.length;
+        if (score > bestScore * 1.15) { best = text; bestScore = score; } // the first mode (reading order intact) wins unless another keeps clearly more usable text
+        if (lang.includes('tam') ? ocrNoise(best) <= 1 && bestScore > 0 : true) break;
+      }
+      return best;
     },
   };
+}
+/** How much trustworthy Tamil text does this reading hold? (characters on lines that pass the Tamil line checks). A reading that loses half the page scores low even if what is left is clean. */
+export function usableScore(text: string) { return (cleanLines(text).text.match(/[\u0B80-\u0BFF]/g) ?? []).length; }
+/** How noisy is a page's Tamil reading? Ill-formed letter sequences per 100 Tamil characters, plus stray Latin words on a Tamil page. */
+export function ocrNoise(text: string) {
+  const ta = (text.match(/[\u0B80-\u0BFF]/g) ?? []).length; if (ta < 20) return 50;
+  const words = text.split(/\s+/).filter(Boolean); const latin = words.filter(w => /^[A-Za-z]{1,6}$/.test(w)).length;
+  return illFormedTamil(text) + (latin / Math.max(1, words.length)) * 100;
 }
 
 let override: OcrEngine | null | undefined;
@@ -60,7 +78,7 @@ export const setInstalledOcrLangs = (l?: string[]) => { installed = l ? new Set(
 export const ocrInstalledLangs = () => (installed ? [...installed].filter(l => l !== 'osd').sort() : []);
 
 /** Renders one PDF page to a PNG (poppler). */
-export async function renderPage(pdf: Buffer, page: number, dpi = 200): Promise<Buffer> {
+export async function renderPage(pdf: Buffer, page: number, dpi = Number(process.env.OCR_DPI ?? 300)): Promise<Buffer> {
   const dir = await mkdtemp(join(tmpdir(), 'kavli-ocr-'));
   try {
     await writeFile(join(dir, 'in.pdf'), pdf);
@@ -71,12 +89,7 @@ export async function renderPage(pdf: Buffer, page: number, dpi = 200): Promise<
 }
 
 const EN_FUNCTION = new Set('the of and a to in is are was were it that for on with as by be this from at or an not you he she they we his her their which has have had can will'.split(' '));
-/** Ill-formed Tamil sequences per 100 Tamil characters. */
-export function illFormedTamil(t: string) {
-  const tam = (t.match(/[\u0B80-\u0BFF]/g) ?? []).length || 1;
-  const n = (t.match(/\uFFFD|(?:^|[\s\p{P}\d])[\u0BBE-\u0BCD]|[\u0BBE-\u0BCD]{3,}|[\u0BC6-\u0BC8][\u0BBE-\u0BCD]|்்/gu) ?? []).length;
-  return (n / tam) * 100;
-}
+export { illFormedTamil };
 const TAMIL = /[஀-௿]/g; const LETTER = /\p{L}/gu;
 /**
  * Is this page's embedded text layer trustworthy? Old Tamil PDFs often carry legacy-font text that looks like Tamil but is corrupted
@@ -101,7 +114,7 @@ export function textQuality(text: string, medium: 'English' | 'Tamil'): { ok: bo
 }
 
 /** Light clean-up of OCR output: unify whitespace, drop stray control characters. */
-export const cleanOcr = (s: string) => s.replace(/[|¦[\]{}]+/g, ' ').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200D\uFEFF]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+export const cleanOcr = (s: string) => s.normalize('NFC').replace(/[|¦[\]{}]+/g, ' ').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200D\uFEFF]/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
 export type PageText = { page: number; text: string };
 /**
