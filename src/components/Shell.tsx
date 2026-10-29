@@ -43,7 +43,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { user, profile, logout } = useAuth(); const nav = useNavigate(); const loc = useLocation(); const [more, setMore] = useState(false); const [q, setQ] = useState('');
   useEffect(() => { setMore(false); window.scrollTo(0, 0); }, [loc.pathname]);
   if (!user) return null;
-  const items = NAV[user.role]; const mobile = items.slice(0, 4);
+  const items = NAV[user.role];
   const name = profile?.preferred_name || profile?.full_name || user.display_name;
   const out = async () => { await logout(); nav('/'); };
   return (
@@ -64,8 +64,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
         <main className="content" id="main" tabIndex={-1}><OfflineBanner />{children}</main>
         <nav className="bottomnav" aria-label="Primary">
-          {mobile.map(n => <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={n.icon} size={22} /><span>{n.short ?? n.en.split(' ')[0]}</span></NavLink>)}
-          <button onClick={() => setMore(true)} aria-label="More menu"><Icon name="more" size={22} /><span>More</span></button>
+          <button onClick={() => setMore(true)} aria-label="More menu" aria-haspopup="dialog"><Icon name="more" size={22} /><span>More</span></button>
         </nav>
       </div>
       {more && <div className="sheet-bg" onMouseDown={e => e.target === e.currentTarget && setMore(false)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Menu">

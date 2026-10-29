@@ -79,7 +79,7 @@ export function Tutor() {
           {!!msgs.length && <div className="chips actionrow no-print">{Object.entries<any>(actions).map(([k, a]) => <button key={k} className="pill" disabled={busy || !msgs.length} onClick={() => send(lang === 'ta' ? a.ta : a.en, k)}>{lang === 'ta' ? a.ta : a.en}</button>)}</div>}
           <form className="composer" onSubmit={e => { e.preventDefault(); send(text); }}>
             <label className="sr" htmlFor="chatin">Your question</label>
-            <textarea id="chatin" rows={3} value={text} maxLength={2000} placeholder={lang === 'ta' ? 'உங்கள் கேள்வியை எழுதுங்கள்…' : 'Type your question…'} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }} />
+            <textarea id="chatin" rows={1} value={text} maxLength={2000} placeholder={lang === 'ta' ? 'உங்கள் கேள்வியை எழுதுங்கள்…' : 'Type your question…'} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }} />
             {canListen && <button type="button" className={`btn secondary iconbtn ${listening ? 'rec' : ''}`} aria-label={listening ? 'Stop listening' : 'Speak your question'} aria-pressed={listening} onClick={mic}><Icon name="mic" /></button>}
             <Button type="submit" disabled={busy || !text.trim()} aria-label="Send"><Icon name="send" /><span className="hide-sm">Send</span></Button>
           </form>
