@@ -54,7 +54,7 @@ Health check: `GET /api/health` → `{"ok":true}`. The start-up log line states 
 6. **Check the live set-up card.** Admin → Class books now starts with a *Live set-up check* (database, storage, OCR, tutor, voice, demo accounts, https) and counts of lessons, practice questions and books. Fix every *To do* before announcing. A production start already includes the built-in practice questions; teachers add more.
 
 ### Try the whole stack on your own computer first
-`docker compose up --build` starts the app, PostgreSQL and an S3-compatible bucket (MinIO) the way production does, with demo accounts on. Then `npm run smoke` uploads a scanned PDF, waits for real OCR, signs up a student and checks the tutor cites the uploaded page. Without Docker: `npm run local:pg` gives a real PostgreSQL (see the README).
+`docker compose up --build` starts the app, PostgreSQL and an S3-compatible bucket the way production does, with demo accounts on. Then `npm run smoke` uploads a scanned PDF, waits for real OCR, signs up a student and checks the tutor cites the uploaded page. Without Docker: `npm run local:pg` gives a real PostgreSQL (see the README).
 
 ## 5. Go-live checklist
 

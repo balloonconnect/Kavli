@@ -1,4 +1,4 @@
-# Local stack that looks like production: the app, PostgreSQL, and an S3-compatible bucket (MinIO).
+# Local stack that looks like production: the app, PostgreSQL, and an S3-compatible bucket.
 #   docker compose up --build            then open http://localhost:3001
 #   node scripts/smoke.mjs               end-to-end check against it (admin: admin@demo.kavli.local / demo@12345)
 # Demo accounts are ON here so you can sign in at once. For a real deployment use docs/DEPLOYMENT.md (SEED_DEMO=0, your own secrets).
@@ -10,25 +10,20 @@ services:
     volumes: [dbdata:/var/lib/postgresql/data]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U kavli"], interval: 3s, timeout: 3s, retries: 20 }
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment: { MINIO_ROOT_USER: kavli-local, MINIO_ROOT_PASSWORD: kavli-local-secret }
-    volumes: [miniodata:/data]
-    ports: ["9001:9001"]   # console: http://localhost:9001
-    healthcheck: { test: ["CMD", "mc", "ready", "local"], interval: 3s, timeout: 3s, retries: 20 }
-
-  bucket:
-    image: minio/mc:latest
-    depends_on: { minio: { condition: service_healthy } }
-    entrypoint: ["/bin/sh", "-c", "mc alias set m http://minio:9000 kavli-local kavli-local-secret && mc mb --ignore-existing m/kavli-books"]
-    restart: "no"
+  s3:
+    # An S3-compatible bucket for local use (Adobe S3Mock). In production use AWS S3, Cloudflare R2 or similar (docs/DEPLOYMENT.md).
+    image: adobe/s3mock:latest
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: kavli-books
+      initialBuckets: kavli-books
+      retainFilesOnExit: "false"
+    volumes: [s3data:/s3mockroot]
 
   app:
     build: .
     depends_on:
       db: { condition: service_healthy }
-      bucket: { condition: service_completed_successfully }
+      s3: { condition: service_started }
     env_file: [{ path: .env, required: false }]
     environment:
       NODE_ENV: development          # plain http on localhost: cookies are not marked secure
@@ -37,11 +32,11 @@ services:
       SEED_DEMO: "1"
       DATABASE_URL: postgres://kavli:kavli@db:5432/kavli
       STORAGE_DRIVER: s3
-      S3_ENDPOINT: http://minio:9000
+      S3_ENDPOINT: http://s3:9090
       S3_BUCKET: kavli-books
       S3_REGION: us-east-1
-      S3_ACCESS_KEY_ID: kavli-local
-      S3_SECRET_ACCESS_KEY: kavli-local-secret
+      S3_ACCESS_KEY_ID: local
+      S3_SECRET_ACCESS_KEY: local
     ports: ["3001:3001"]
 
-volumes: { dbdata: {}, miniodata: {} }
+volumes: { dbdata: {}, s3data: {} }

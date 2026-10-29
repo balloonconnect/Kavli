@@ -21,7 +21,7 @@ Needs **Node 22+** (and optionally Docker). Pick one:
 | Way | Commands | You get |
 |---|---|---|
 | **A. Fastest** (SQLite, no extras) | `npm install` then `npm run dev` | API :3001 + web :5173 (open http://localhost:5173). Demo accounts. Rule-based tutor. |
-| **B. Like production** (Docker) | `docker compose up --build` | App :3001 + PostgreSQL + an S3-compatible bucket (MinIO console :9001), Tesseract OCR inside the image. |
+| **B. Like production** (Docker) | `docker compose up --build` | App :3001 + PostgreSQL + an S3-compatible bucket, Tesseract OCR inside the image. |
 | **C. Postgres without Docker** | terminal 1: `npm run local:pg`; terminal 2: `npm run build` then `DATABASE_URL=postgres://postgres:pw@localhost:54329/kavli SEED_DEMO=1 npx tsx server/index.ts`, and open http://localhost:3001 | A real PostgreSQL via the embedded dev binaries. |
 
 Copy `.env.example` to `.env` to switch on the real services (tutor model key, Azure voice, email). Everything is optional; without a key the labelled rule-based tutor and the browser voice are used.
