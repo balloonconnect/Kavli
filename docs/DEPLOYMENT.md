@@ -88,12 +88,13 @@ sign-in and roles, tests/results/certificates, voice tutor flow, instant replay,
 
 Verified on real data: the Class 8 Tamil PDF (192 pages) was imported end to end with real Tesseract OCR; its embedded text layer was found to be corrupted on essentially every page and was replaced by OCR output (see `KNOWN_LIMITATIONS.md`).
 
+**Verified by CI on GitHub (commit 5851c95):** the Docker image builds and starts, and `/api/health` answers (empty SQLite database, no tutor/voice/OCR keys). Not yet checked: OCR inside the image on a real scan, or the image with Postgres and a bucket.
+
 **Not verified, because it needs your accounts or network:**
 - Calls to the real Anthropic / OpenAI-compatible API, including their streaming (SSE) formats (tested against a mock server that follows their documented request and response shapes).
 - Calls to real Azure AI Speech (mock server; voice names are Azure's published defaults and must be confirmed in your region).
 - A real email provider (Resend is tested against a mock HTTP server; SMTP against an in-process server), including spam placement.
 - A real S3/R2 bucket (tested with the AWS SDK against a mock S3 server).
-- The Docker image build (no Docker daemon was available); its two risky parts, the production-only install and the non-preview front-end build, were run separately and work.
 - Managed Postgres with TLS (`DATABASE_SSL`), and load beyond the in-process tests.
 
 Run these once on a staging copy before announcing.

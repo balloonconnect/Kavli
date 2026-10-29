@@ -34,5 +34,5 @@
 - Diagrams are original drawings made for this project and have **not** been reviewed by a teacher. They are labelled as such in the app.
 - Production bootstrap (`SEED_DEMO=0`) creates only the subject list, the real textbook lessons and the built-in practice questions. The built-in practice questions are included; teachers must add weekly tests.
 - The first admin is created with `scripts/create-admin.ts`. Password reset works by email only when a mail provider is configured; without one, an admin must reset it.
-- The Docker image was written but **not built** in the authoring environment (no Docker daemon). The production-only dependency install and the non-preview front-end build were run separately and work.
+- The Docker image builds and starts in CI (health check passes). It has not been run with Postgres, a bucket, or OCR on a real scanned book.
 - The textbook PDF itself and its extracted text are not in the repository; test fixtures use sentences written for the tests.
