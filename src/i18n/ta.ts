@@ -20,6 +20,8 @@ const when = (s: string, tr: (x: string) => string) => tr(s.replace(/\b(AM|PM)\b
 
 /** Phrases that carry numbers, dates or names. Each returns the Tamil text. */
 export const PATTERNS: [RegExp, (m: RegExpExecArray, tr: (s: string) => string) => string][] = [
+  [/^(.+?), pages? (\d+)(?:–(\d+))?\. Read from the textbook PDF( \(still being read\))?; scanned text can contain a few wrong letters\.$/, m => `${m[1]}, ${m[3] ? `பக்கங்கள் ${m[2]}–${m[3]}` : `பக்கம் ${m[2]}`}. பாடநூல் PDF-இலிருந்து படிக்கப்பட்டது${m[4] ? ' (இன்னும் படிக்கப்படுகிறது)' : ''}; ஸ்கேன் செய்த எழுத்தில் சில எழுத்துப் பிழைகள் இருக்கலாம்.`],
+  [/^Page (\d+)(?:–(\d+))?$/, m => m[2] ? `பக்கம் ${m[1]}–${m[2]}` : `பக்கம் ${m[1]}`],
   [/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (\d{1,2})$/, m => `${DAYS[m[1]]} ${m[2]}`],
   [/^(?:· )?Class (\d{1,2})$/, m => `${m[0].startsWith('·') ? '· ' : ''}${m[1]}-ஆம் வகுப்பு`],
   [/^Ref (.+)$/, m => `குறிப்பு எண் ${m[1]}`],

@@ -52,7 +52,7 @@ export function teacherRoutes(db: DB) {
   }));
   // ---- Question bank ----
   r.get('/questions', wrap(async (req, res) => {
-    const rows = (await q.all<any>(db, "SELECT q.*, s.name_en subject_en FROM questions q JOIN subjects s ON s.id=q.subject_id WHERE (q.school_id=? OR ?='admin') AND q.origin!='practice' ORDER BY q.class_level, q.subject_id, q.id", req.user!.school_id ?? '', req.user!.role))
+    const rows = (await q.all<any>(db, "SELECT q.*, s.name_en subject_en FROM questions q JOIN subjects s ON s.id=q.subject_id WHERE (q.school_id=? OR ?='admin' OR q.origin='book') AND q.origin!='practice' ORDER BY q.class_level, q.subject_id, q.id", req.user!.school_id ?? '', req.user!.role))
       .filter(x => (!req.query.subject || x.subject_id === req.query.subject) && (!req.query.status || x.status === req.query.status) && (!req.query.class || x.class_level === Number(req.query.class)));
     res.json({ questions: rows.map(x => ({ ...x, options: J(x.options), answer: J(x.answer) })) });
   }));

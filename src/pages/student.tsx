@@ -83,7 +83,7 @@ export function Learn() {
   const s = useLoad(() => get(`/curriculum?class=${cls}`), [cls]);
   return (
     <div className="col">
-      <PageTitle title={<Bi en="Learn" ta="பாடங்கள்" />} sub="Tamil Nadu State Board (Samacheer Kalvi) · sample lessons for this prototype" right={<div className="field"><label className="sr" htmlFor="c">Class</label><select id="c" value={cls} onChange={e => setCls(Number(e.target.value))}>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <option key={c} value={c}>Class {c}</option>)}</select></div>} />
+      <PageTitle title={<Bi en="Learn" ta="பாடங்கள்" />} sub={s.data?.fromBooks?.length ? "Tamil Nadu State Board (Samacheer Kalvi) · lessons from your class books where uploaded, sample lessons elsewhere" : "Tamil Nadu State Board (Samacheer Kalvi) · sample lessons for this prototype"} right={<div className="field"><label className="sr" htmlFor="c">Class</label><select id="c" value={cls} onChange={e => setCls(Number(e.target.value))}>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <option key={c} value={c}>Class {c}</option>)}</select></div>} />
       <div className="row wrap"><div className="field grow" style={{ maxWidth: 360 }}><label className="sr" htmlFor="lq">Search lessons</label><input id="lq" placeholder="Search lessons…" value={q} onChange={e => { const n = new URLSearchParams(sp); e.target.value ? n.set('q', e.target.value) : n.delete('q'); setSp(n, { replace: true }); }} /></div>
         <div className="row wrap" role="group" aria-label="Subject filter"><button className={`pill ${!subject ? 'on' : ''}`} onClick={() => { const n = new URLSearchParams(sp); n.delete('subject'); setSp(n); }}>All</button>
           {(s.data?.subjects ?? []).map((x: any) => <button key={x.id} className={`pill ${subject === x.id ? 'on' : ''}`} onClick={() => { const n = new URLSearchParams(sp); n.set('subject', x.id); setSp(n); }}>{x.name_en}</button>)}</div></div>
@@ -115,12 +115,13 @@ export function Lesson() {
   return <Async s={s}>{d => {
     const l = d.lesson, c = l.content; const both = lang === 'both';
     const toggleBm = async () => { try { if (bm) await del(`/bookmarks?kind=lesson&ref=${l.id}`); else await post('/bookmarks', { kind: 'lesson', ref: l.id, title: l.title_en }); setBm(!bm); toast(bm ? 'Bookmark removed' : 'Lesson bookmarked'); } catch (e) { toast(msg(e), 'err'); } };
-    const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta ?? x.en}`)].join('. ');
+    const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta || x.en}`)].join('. ');
     return (
     <div className="col lesson">
       <div className="row wrap"><Link to="/app/learn" className="link row" style={{ gap: 4 }}><Icon name="back" size={16} />All lessons</Link></div>
       <PageTitle title={<Bi en={l.title_en} ta={l.title_ta} block />} sub={<><Bi en={`${l.subject_en} · Class ${l.class_level} · Chapter ${l.chapter_no}`} ta={`${l.subject_ta} · வகுப்பு ${l.class_level} · பாடம் ${l.chapter_no}`} /> · {l.minutes} min</>} right={<div className="row wrap">{done && <Badge tone="success">Completed</Badge>}{String(l.source ?? '').startsWith('Sample') ? <Badge tone="warning">Sample content</Badge> : <Badge tone="teal">Textbook excerpt</Badge>}</div>} />
-      {!String(l.source ?? '').startsWith('Sample') && <div className="notice info no-print"><Icon name="info" /><div><b>From the Samacheer Kalvi textbook.</b> {l.source} Only a short excerpt is shown here, and the text is in English; use your printed textbook for the full lesson.</div></div>}
+      {String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From your class textbook.</b> {String(l.source).replace('Textbook: ', '')} The text is the book’s own words; the explanation, mind map, practice and tutor all use it.</div></div>}
+      {!String(l.source ?? '').startsWith('Sample') && !String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From the Samacheer Kalvi textbook.</b> {l.source} Only a short excerpt is shown here, and the text is in English; use your printed textbook for the full lesson.</div></div>}
       <div className="row wrap no-print">
         <ReadAloud en={speakEn} ta={speakTa} rate={profile?.voice_prefs?.rate ?? 1} />
         <Button tone="secondary" onClick={toggleBm} aria-pressed={bm}><Icon name="bookmark" /> {bm ? 'Bookmarked' : 'Bookmark'}</Button>

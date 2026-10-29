@@ -75,7 +75,7 @@ export function planFromSolution(sol: Solution, _text: string): Plan {
   return { topic: bi(`Solving ${sol.lhsStr} = ${sol.rhsStr}`, `${sol.lhsStr} = ${sol.rhsStr} ஐத் தீர்த்தல்`), grounded: 'solver', sources: ['Worked out by the equation solver (not from a textbook)'], refs: [], steps, solution: answer ? { variable: sol.variable, answer } : undefined };
 }
 
-const CMD = new Set('revise revision teach explain start begin topic lesson chapter quiz practice go again please tell about'.split(' '));
+const CMD = new Set('revise revision teach explain start begin topic lesson chapter quiz practice go again please tell about தொடங்கு தொடங்கலாம் ஆரம்பி ஆரம்பிக்கலாம் சொல் சொல்லு கற்பி கற்றுக்கொடு விளக்கு பாடம் பாடத்தை மீண்டும் மறுபடி திருப்பு தேர்வு பயிற்சி'.split(' '));
 /** “Revise this topic”, “start”, “teach me” and so on name no subject matter: inside a lesson they mean the lesson itself. */
 export const isGeneric = (t: string) => !tokens(t).filter(w => !CMD.has(w)).length;
 

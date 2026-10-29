@@ -81,4 +81,7 @@ export const TEXT2: Record<string, string> = {
   '). Hidden in production.': '). வெளியீட்டில் மறைக்கப்படும்.', '. Codes expire after 7 days.': '. குறியீடுகள் 7 நாட்களில் காலாவதியாகும்.', '. Written answers are marked by your teacher.': '. எழுத்து விடைகளை உங்கள் ஆசிரியர் மதிப்பிடுவார்.',
   'Continue a previous lesson': 'முந்தைய பாடத்தைத் தொடர்', 'Voice lesson': 'குரல் பாடம்', 'Take the weekly test': 'வாராந்திரத் தேர்வை எழுதுங்கள்', 'Progress and revision': 'முன்னேற்றமும் மீள்பார்வையும்',
   'Board: Tamil Nadu State Board (Samacheer Kalvi)': 'வாரியம்: தமிழ்நாடு மாநிலப் பாடத்திட்டம் (சமச்சீர் கல்வி)', 'ask your school administrator.': 'உங்கள் பள்ளி நிர்வாகியிடம் கேளுங்கள்.', 'both': 'இரண்டும்', 'teach': 'கற்பி',  'Karkai': 'கற்கை', 'Your Personal AI Teacher': 'உங்கள் தனிப்பட்ட AI ஆசிரியர்', 'Learn by Listening. Understand by Seeing.': 'கேட்டு கற்போம். பார்த்துப் புரிந்துகொள்வோம்.',
+  'From your class textbook.': 'உங்கள் வகுப்புப் பாடநூலிலிருந்து.', 'Textbook:': 'பாடநூல்:',
+  'The text is the book’s own words; the explanation, mind map, practice and tutor all use it.': 'இது பாடநூலின் சொந்த வரிகள்; விளக்கம், மனவரைபடம், பயிற்சி, ஆசிரியர் அனைத்தும் இதையே பயன்படுத்துகின்றன.',
+  'Tamil Nadu State Board (Samacheer Kalvi) · lessons from your class books where uploaded, sample lessons elsewhere': 'தமிழ்நாடு மாநிலப் பாடத்திட்டம் (சமச்சீர் கல்வி) · பதிவேற்றிய வகுப்புப் புத்தகங்களின் பாடங்கள்; மற்றவை மாதிரிப் பாடங்கள்',
 };

@@ -8,6 +8,7 @@ import { iso } from '../clock';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { textbookHits } from '../services/tutor';
+import { retireBookLessons, syncChapterLessons } from '../services/chapterLessons';
 import { detectAndStoreChapters, extractAll, listChapters, ocrQueue, ocrUsable, putPages, replaceChapters, runOcr, triage } from '../services/textbookIngest';
 
 const MAX = 60 * 1024 * 1024;
@@ -86,7 +87,7 @@ export function textbookRoutes(db: DB) {
     const body = parse(z.object({ chapters: z.array(z.object({ title: z.string().trim().min(1).max(160), startPage: z.number().int().min(1), endPage: z.number().int().min(1) })).max(300) }), req.body);
     let prevEnd = 0; // chapters must sit inside the book, in order, without overlapping
     for (const c of body.chapters) { if (c.endPage < c.startPage || c.endPage > b.page_count || c.startPage <= prevEnd) throw new HttpError(400, `“${c.title}” has page numbers that do not fit the book (1–${b.page_count}) or overlap the chapter before it.`); prevEnd = c.endPage; }
-    await replaceChapters(db, b.id, body.chapters, 'admin'); res.json({ chapters: await listChapters(db, b.id) });
+    await replaceChapters(db, b.id, body.chapters, 'admin'); await syncChapterLessons(db, b.id).catch(() => {}); res.json({ chapters: await listChapters(db, b.id) });
   }));
   /** Re-run OCR on the pages that have no usable text (e.g. after OCR was installed). */
   r.post('/:id/ocr', admin, rateLimit(10, 600000, req => req.user!.id), wrap(async (req, res) => {
@@ -98,7 +99,7 @@ export function textbookRoutes(db: DB) {
     res.status(202).json({ textbook: view(await get(b.id)) });
   }));
   r.delete('/:id', admin, wrap(async (req, res) => {
-    const b = await get(req.params.id); await storage().delete(b.file_path);
+    const b = await get(req.params.id); await storage().delete(b.file_path); await retireBookLessons(db, b.id);
     await q.run(db, 'DELETE FROM textbook_chapters WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbook_pages WHERE textbook_id=?', b.id); await q.run(db, 'DELETE FROM textbooks WHERE id=?', b.id); res.json({ ok: true });
   }));
   return r;

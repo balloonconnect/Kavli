@@ -3,6 +3,7 @@ import { JobQueue } from './jobs';
 import { getOcrEngine, ocrMissingLangs, ocrPages, textQuality } from './ocr';
 import { storage } from './storage';
 import { detectChapters } from './chapters';
+import { syncChapterLessons } from './chapterLessons';
 import { randomUUID } from 'node:crypto';
 
 export type PageText = { page: number; text: string };
@@ -87,6 +88,6 @@ export async function detectAndStoreChapters(db: DB, bookId: string, force = fal
     if (!force && (await q.get<any>(db, "SELECT 1 x FROM textbook_chapters WHERE textbook_id=? AND source='admin'", bookId))) return 0;
     const pages = await q.all<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=? ORDER BY page', bookId);
     const found = detectChapters(pages, book.page_count); if (!found.length) return 0;
-    await replaceChapters(db, bookId, found, 'auto'); return found.length;
+    await replaceChapters(db, bookId, found, 'auto'); await syncChapterLessons(db, bookId).catch(() => {}); return found.length;
   } catch { return 0; }
 }

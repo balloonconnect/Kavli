@@ -55,8 +55,8 @@ export function buildMindMap(lesson: { id: string; title_en: string; title_ta: s
     obj.en.slice(0, 5).forEach((e: string, i: number) => add({ id: `goal-${i}`, parent: 'goals', kind: 'fact', rev: true, en: clip(e, 70), ta: clip(obj.ta?.[i] ?? e, 80), detail_en: clip(e, 300), detail_ta: clip(obj.ta?.[i] ?? e, 300) }));
   }
   (c.sections ?? []).slice(0, 8).forEach((s: any, i: number) => {
-    const id = `sec-${i}`; add({ id, parent: 'root', kind: 'branch', level: 'simple', rev: true, en: clip(s.h_en, 60), ta: clip(s.h_ta, 70), detail_en: clip(s.en, 400), detail_ta: clip(s.ta ?? s.en, 400) });
-    const se = sentences(s.en), st = sentences(s.ta ?? '');
+    const id = `sec-${i}`; add({ id, parent: 'root', kind: 'branch', level: 'simple', rev: true, en: clip(s.h_en, 60), ta: clip(s.h_ta, 70), detail_en: clip(s.en, 400), detail_ta: clip(s.ta || s.en, 400) });
+    const se = sentences(s.en), st = sentences(s.ta || '');
     if (se.length > 1) se.slice(0, 5).forEach((x, j) => {
       const isF = FORMULA.test(x); const aligned = !!s.ta && se.length === st.length;
       add({ id: `${id}-${j}`, parent: id, kind: isF ? 'formula' : 'fact', rev: isF || j === 0, en: clip(x, 80), ta: clip(aligned ? st[j] : (s.ta ?? x), 90), detail_en: clip(x, 300), detail_ta: clip(aligned ? st[j] : (s.ta ?? x), 300) });

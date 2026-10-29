@@ -30,7 +30,7 @@ export async function lessonPassages(db: DB, classLevel: number, subjectId?: str
   const out: LessonPassage[] = [];
   for (const l of rows) {
     const c = J(l.content); const sample = String(l.source).startsWith('Sample'); const label = sample ? `${l.title_en} (Class ${l.class_level} sample lesson)` : `${l.title_en} — Class ${l.class_level} ${c.kind ?? 'lesson'}, Samacheer Kalvi textbook${c.textbookPage ? `, starts p. ${c.textbookPage}` : ''}`;
-    for (const s of c.sections ?? []) out.push({ bi: bi(`${s.h_en}: ${s.en}`, `${s.h_ta}: ${s.ta ?? s.en}`), label, lessonId: l.id });
+    for (const s of c.sections ?? []) out.push({ bi: bi(`${s.h_en}: ${s.en}`, `${s.h_ta}: ${s.ta || s.en}`), label, lessonId: l.id });
     for (const v of c.vocab ?? []) out.push({ bi: bi(`${v.en} (${v.ta}) — ${v.meaning}. Example: ${v.example}`, `${v.ta} (${v.en}) — ${v.meaning}. எ.கா: ${v.example}`), label, lessonId: l.id });
     for (const e of c.examples ?? []) out.push({ bi: bi(`Example — ${e.q_en} ${e.steps_en.join(' → ')}`, `எடுத்துக்காட்டு — ${e.q_ta} ${e.steps_ta.join(' → ')}`), label, lessonId: l.id });
   }

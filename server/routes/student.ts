@@ -9,6 +9,16 @@ import { gradeAnswer } from '../services/grading';
 import { buildMindMap } from '../services/mindmap';
 
 const L = (l: any) => ({ id: l.id, class_level: l.class_level, subject_id: l.subject_id, chapter_no: l.chapter_no, chapter_en: l.chapter_en, chapter_ta: l.chapter_ta, title_en: l.title_en, title_ta: l.title_ta, minutes: l.minutes, term: l.term });
+/** Published lessons for a class and subject. Once a textbook has supplied lessons for it, the sample lessons are left out. */
+export async function subjectLessons(db: DB, cls: number, subjectId: string) {
+  const rows = await q.all<any>(db, "SELECT * FROM lessons WHERE class_level=? AND subject_id=? AND status='published' ORDER BY chapter_no, position", cls, subjectId);
+  return rows.some(l => String(l.source).startsWith('Textbook:')) ? rows.filter(l => String(l.source).startsWith('Textbook:')) : rows;
+}
+/** Practice questions come from the textbook once it has supplied some for the subject, else from the sample bank. */
+export async function practiceRows(db: DB, cls: number, subjectId: string) {
+  const rows = await q.all<any>(db, "SELECT * FROM questions WHERE origin='practice' AND status='published' AND class_level=? AND subject_id=?", cls, subjectId);
+  return rows.some(x => x.created_by === 'book-import') ? rows.filter(x => x.created_by === 'book-import') : rows;
+}
 export async function myProfile(db: DB, id: string) { return (await q.get<any>(db, 'SELECT * FROM student_profiles WHERE user_id=?', id)); }
 
 /** Weekly report numbers computed only from real stored records. */
@@ -65,8 +75,8 @@ export function studentRoutes(db: DB) {
   r.get('/curriculum', wrap(async (req, res) => {
     const p = req.user!.role === 'student' ? (await myProfile(db, req.user!.id)) : null;
     const cls = Number(req.query.class ?? p?.class_level ?? 8); const prog = new Map((await q.all<any>(db, 'SELECT * FROM lesson_progress WHERE student_id=?', req.user!.id)).map(x => [x.lesson_id, x]));
-    const subjects = (await Promise.all((await q.all<any>(db, 'SELECT * FROM subjects')).map(async s => ({ ...s, lessons: (await q.all<any>(db, "SELECT * FROM lessons WHERE class_level=? AND subject_id=? AND status='published' ORDER BY chapter_no, position", cls, s.id)).map(l => ({ ...L(l), completed: !!prog.get(l.id)?.completed_at, source: l.source })) })))).filter(s => s.lessons.length);
-    res.json({ classLevel: cls, board: 'Tamil Nadu State Board (Samacheer Kalvi)', subjects, note: 'Sample content for this prototype. Official curriculum content must be imported and reviewed before use.' });
+    const subjects = (await Promise.all((await q.all<any>(db, 'SELECT * FROM subjects')).map(async s => ({ ...s, lessons: (await subjectLessons(db, cls, s.id)).map(l => ({ ...L(l), completed: !!prog.get(l.id)?.completed_at, source: l.source })) })))).filter(s => s.lessons.length);
+    res.json({ classLevel: cls, board: 'Tamil Nadu State Board (Samacheer Kalvi)', subjects, fromBooks: subjects.filter(x => x.lessons.some((l: any) => String(l.source).startsWith('Textbook:'))).map(x => x.id), note: 'Sample content for this prototype. Official curriculum content must be imported and reviewed before use.' });
   }));
   r.get('/lessons/:id', wrap(async (req, res) => {
     const l = (await q.get<any>(db, "SELECT * FROM lessons WHERE id=? AND status='published'", req.params.id)); if (!l) throw new HttpError(404, 'Lesson not found.');
@@ -115,12 +125,12 @@ export function studentRoutes(db: DB) {
   // Practice centre
   r.get('/practice/options', S, wrap(async (req, res) => {
     const p = (await myProfile(db, req.user!.id))!; const subs = (await q.all<any>(db, `SELECT s.id, s.name_en, s.name_ta, COUNT(*) n FROM questions qu JOIN subjects s ON s.id=qu.subject_id WHERE qu.origin='practice' AND qu.status='published' AND qu.class_level=? GROUP BY s.id`, p.class_level));
-    res.json({ classLevel: p.class_level, subjects: (await Promise.all(subs.map(async s => ({ ...s, chapters: (await q.all<any>(db, `SELECT DISTINCT chapter_no FROM questions WHERE origin='practice' AND class_level=? AND subject_id=? AND chapter_no IS NOT NULL ORDER BY chapter_no`, p.class_level, s.id)).map(c => c.chapter_no) })))) });
+    res.json({ classLevel: p.class_level, subjects: (await Promise.all(subs.map(async s => ({ ...s, chapters: [...new Set((await practiceRows(db, p.class_level, s.id)).map(x => x.chapter_no).filter(n => n != null))].sort((a, b) => a - b) })))) });
   }));
   r.post('/practice/start', S, wrap(async (req, res) => {
     const b = parse(z.object({ subject: z.string(), chapter: z.number().int().optional(), difficulty: z.enum(['easy', 'medium', 'hard', 'mixed']).default('mixed'), count: z.number().int().min(1).max(20).default(5), types: z.array(z.string()).optional() }), req.body);
     const p = (await myProfile(db, req.user!.id))!;
-    let rows = (await q.all<any>(db, "SELECT * FROM questions WHERE origin='practice' AND status='published' AND class_level=? AND subject_id=?", p.class_level, b.subject));
+    let rows = await practiceRows(db, p.class_level, b.subject);
     if (b.chapter) rows = rows.filter(x => x.chapter_no === b.chapter); if (b.difficulty !== 'mixed') rows = rows.filter(x => x.difficulty === b.difficulty); if (b.types?.length) rows = rows.filter(x => b.types!.includes(x.type));
     if (!rows.length) throw new HttpError(404, 'No questions match these choices yet. Try another chapter or difficulty.');
     const chosen = rows.sort(() => Math.random() - 0.5).slice(0, b.count); const id = uid();
