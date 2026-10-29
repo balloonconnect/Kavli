@@ -46,7 +46,7 @@ export function voiceRoutes(db: DB, engine: TeachEngine = ruleEngine, opts: { ma
 
   r.get('/config', S, wrap(async (req, res) => res.json({
     transport: tts ? 'browser-stt+server-tts' : 'browser', realtimeProvider: false, tts: { enabled: !!tts, provider: tts?.name ?? null, cacheMb: Number(process.env.VOICE_AUDIO_CACHE_MB ?? 24), dailyChars: ttsBudget(), usedChars: await ttsToday(req.user!.id) }, engine: { name: engine.name, mock: engine.mock }, modes: MODES, limits: { dailyTurns: await dailyLimit(), usedToday: await usedToday(req.user!.id), maxConcurrency: gate.max },
-    notes: tts ? 'Speech recognition runs in your browser; your voice is not sent to Kalvi Mitra. The tutor’s reply text (not your voice) is sent to our voice service to make the spoken audio.' : 'Speech recognition and speech synthesis run in your browser. No audio is sent to Kalvi Mitra servers.' })));
+    notes: tts ? 'Speech recognition runs in your browser; your voice is not sent to Karkai AI. The tutor’s reply text (not your voice) is sent to our voice service to make the spoken audio.' : 'Speech recognition and speech synthesis run in your browser. No audio is sent to Karkai AI servers.' })));
 
   /** Server-side AI voice for one short tutor sentence. Audio is not stored; only a small in-memory cache avoids re-generating the same sentence. */
   r.post('/tts', S, rateLimit(180, 60000, req => `tts:${req.user?.id ?? req.ip}`), wrap(async (req, res) => {

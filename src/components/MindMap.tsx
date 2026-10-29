@@ -125,7 +125,7 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
     const sc = 2, pad = 28, head = 64, cw = lay.width + pad * 2, chh = lay.height + pad * 2 + head; const cv = document.createElement('canvas'); cv.width = cw * sc; cv.height = chh * sc; const g = cv.getContext('2d'); if (!g) { toast('Your browser cannot create the image.', 'err'); return; }
     g.scale(sc, sc); g.fillStyle = '#fff'; g.fillRect(0, 0, cw, chh); g.textBaseline = 'alphabetic';
     g.fillStyle = '#1f2340'; g.font = '700 20px Inter, "Noto Sans Tamil", sans-serif'; g.fillText(`${lang === 'ta' ? map.title_ta : map.title_en} — mind map`, pad, pad + 20);
-    g.font = '12px Inter, "Noto Sans Tamil", sans-serif'; g.fillStyle = '#565b70'; g.fillText(`${MODES.find(m => m[0] === mode)![1]} mode · Kalvi Mitra · ${map.source === 'lesson' ? 'Built from sample lesson content' : 'General map'}`, pad, pad + 40);
+    g.font = '12px Inter, "Noto Sans Tamil", sans-serif'; g.fillStyle = '#565b70'; g.fillText(`${MODES.find(m => m[0] === mode)![1]} mode · Karkai AI · ${map.source === 'lesson' ? 'Built from sample lesson content' : 'General map'}`, pad, pad + 40);
     const ox = pad, oy = pad + head;
     for (const b of lay.list) for (const k of b.kids) { if (eff.has(b.n.id)) continue; const c = lay.boxes.get(k)!; g.strokeStyle = c.color[1] === '#ffffff' ? '#4f46e5' : c.color[1]; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + b.x + W, oy + b.y + b.h / 2); g.bezierCurveTo(ox + b.x + W + 30, oy + b.y + b.h / 2, ox + c.x - 30, oy + c.y + c.h / 2, ox + c.x, oy + c.y + c.h / 2); g.stroke(); }
     for (const b of lay.list) {
@@ -199,8 +199,8 @@ function Inner({ lessonId, map, initial, subjectId, onOpenLesson }: { lessonId: 
             {(node.detail_en || node.detail_ta) && <div className="col" style={{ gap: 6 }}>{lang !== 'ta' && <p>{node.detail_en ?? node.en}</p>}{lang !== 'en' && <p lang="ta" className="ta">{node.detail_ta ?? node.ta}</p>}</div>}
             <div className="row wrap"><Button tone={state.understood.includes(node.id) ? 'teal' : 'secondary'} disabled={busy} aria-pressed={state.understood.includes(node.id)} onClick={() => mark(node.id, 'understood')}>{state.understood.includes(node.id) ? '✓ Understood' : 'I understand this'}</Button>
               <Button tone="secondary" disabled={busy} aria-pressed={state.revision.includes(node.id)} onClick={() => mark(node.id, 'revision')}>{state.revision.includes(node.id) ? 'In my revision list' : 'Add to revision'}</Button></div>
-            <div className="mm-actions" role="group" aria-label="Ask Kavli AI about this concept">
-              <b className="small muted">Ask Kavli AI</b>
+            <div className="mm-actions" role="group" aria-label="Ask Karkai AI about this concept">
+              <b className="small muted">Ask Karkai AI</b>
               <Link className="btn secondary" to={ask('Explain simply')}>Explain simply</Link>
               <Link className="btn secondary" to={ask('Explain in Tamil', 'ta')}>Explain in Tamil</Link>
               <Link className="btn secondary" to={ask('Explain in English', 'en')}>Explain in English</Link>

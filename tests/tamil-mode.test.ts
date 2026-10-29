@@ -24,8 +24,8 @@ describe('pure Tamil mode', () => {
   });
   it('translates the parts of "a · b · c" strings and leaves numbers and names alone', () => {
     expect(translate('Class 8 · English medium · 2026–2027 · Ref KM-AB12CD34')).toBe('8-ஆம் வகுப்பு · ஆங்கில வழி · 2026–2027 · குறிப்பு எண் KM-AB12CD34');
-    expect(translate('Sign in · Kalvi Mitra')).toBe('உள்நுழை · கல்வி மித்ரா');
-    expect(translate('கல்வி மித்ரா')).toBeNull(); // already Tamil
+    expect(translate('Sign in · Karkai AI')).toBe('உள்நுழை · கற்கை AI');
+    expect(translate('கற்கை AI')).toBeNull(); // already Tamil
     expect(translate('42')).toBeNull();
   });
   it('every dictionary entry is real Tamil (no copy-paste of the English, no empty text)', () => {

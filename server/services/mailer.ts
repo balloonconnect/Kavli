@@ -1,7 +1,7 @@
 /**
  * Outgoing email: password-reset links, email verification and guardian approval.
  *
- *   MAIL_FROM=Kalvi Mitra <no-reply@your-domain.in>      (required for any driver)
+ *   MAIL_FROM=Karkai AI <no-reply@your-domain.in>      (required for any driver)
  *   RESEND_API_KEY=...                                    → Resend (HTTP API)
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_SECURE=1   → any SMTP service (SES, Zoho, Gmail Workspace, Brevo, ...)
  *   MAIL_DRIVER=log                                       → development only: prints the mail (and its links) to the server log

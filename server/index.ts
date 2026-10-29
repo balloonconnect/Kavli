@@ -12,4 +12,4 @@ const resumed = await resumeOcr(db); if (resumed) console.log(`Resuming OCR for 
 const port = Number(process.env.PORT ?? 3001);
 const llm = llmClientFromEnv();
 const app = createApp(db, llm ? { voiceEngine: llmEngine(llm) } : {});
-app.listen(port, () => console.log(`Kavli API listening on http://localhost:${port} — tutor: ${llm ? llm.name : 'rule-based (no model configured)'}`));
+app.listen(port, () => console.log(`Karkai AI API listening on http://localhost:${port} — tutor: ${llm ? llm.name : 'rule-based (no model configured)'}`));

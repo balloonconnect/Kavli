@@ -11,7 +11,7 @@ export function CertPreview({ c }: { c: any }) {
   const s = c.snapshot;
   return (
     <div className={`cert certprev ${c.status !== 'valid' ? 'invalid' : ''}`} aria-label="Certificate preview">
-      <div className="ctop">AI LEARNING PLATFORM · KALVI MITRA</div>
+      <div className="ctop">AI LEARNING PLATFORM · KARKAI AI</div>
       <h2 className="ctitle">Weekly Test Achievement Certificate</h2><div className="ta csub">வாராந்திரத் தேர்வு சாதனைச் சான்றிதழ்</div>
       <p className="muted">This certificate recognises that</p>
       <div className="cname">{s.student_name}</div>{s.student_name_ta && <div className="ta cname2">{s.student_name_ta}</div>}

@@ -1,6 +1,6 @@
 /** Short interface labels: navigation, buttons, form fields, attributes (aria-label / placeholder / title). */
 export const UI: Record<string, string> = {
-  'Kalvi Mitra': 'கல்வி மித்ரா', 'Kalvi Mitra · கல்வி மித்ரா': 'கல்வி மித்ரா', 'Kavli AI': 'கல்வி AI',
+  'Karkai AI': 'கற்கை AI', 'Karkai AI · கற்கை AI': 'கற்கை AI',
   'Home': 'முகப்பு', 'Features': 'சிறப்பம்சங்கள்', 'How it works': 'எப்படிச் செயல்படுகிறது', 'Privacy': 'தனியுரிமை', 'Terms': 'விதிமுறைகள்',
   'Child safety': 'குழந்தைப் பாதுகாப்பு', 'Sign in': 'உள்நுழை', 'Sign out': 'வெளியேறு', 'Create account': 'கணக்கை உருவாக்கு', 'Create an account': 'கணக்கை உருவாக்குங்கள்',
   'Create your account': 'உங்கள் கணக்கை உருவாக்குங்கள்', 'Create a free account': 'இலவசக் கணக்கை உருவாக்குங்கள்', 'Back to sign in': 'உள்நுழைவுக்குத் திரும்பு',
@@ -8,10 +8,10 @@ export const UI: Record<string, string> = {
   'The page you are looking for does not exist.': 'நீங்கள் தேடும் பக்கம் இல்லை.', 'Open app': 'செயலியைத் திற', 'See how it works': 'எப்படிச் செயல்படுகிறது என்று பாருங்கள்',
   'Learn': 'கற்க', 'Lessons': 'பாடங்கள்', 'Tutor': 'ஆசிரியர்', 'Voice': 'குரல்', 'Practice': 'பயிற்சி', 'Tests': 'தேர்வுகள்', 'Progress': 'முன்னேற்றம்', 'Certificates': 'சான்றிதழ்கள்',
   'Bookmarks': 'புத்தகக்குறிகள்', 'Settings': 'அமைப்புகள்', 'Subjects': 'பாடங்கள்', 'Subject': 'பாடம்', 'Books': 'புத்தகங்கள்', 'Mind maps': 'மனவரைபடங்கள்',
-  'Voice tutor': 'குரல் ஆசிரியர்', 'AI tutor': 'AI ஆசிரியர்', 'AI Tutor': 'AI ஆசிரியர்', 'Kavli AI tutor': 'கல்வி AI ஆசிரியர்', 'Practice centre': 'பயிற்சி மையம்',
+  'Voice tutor': 'குரல் ஆசிரியர்', 'AI tutor': 'AI ஆசிரியர்', 'AI Tutor': 'AI ஆசிரியர்', 'Karkai AI tutor': 'கற்கை AI ஆசிரியர்', 'Practice centre': 'பயிற்சி மையம்',
   'Weekly tests': 'வாராந்திரத் தேர்வுகள்', 'My progress': 'என் முன்னேற்றம்', 'My certificates': 'என் சான்றிதழ்கள்', 'Learning tools': 'கற்றல் கருவிகள்', 'More': 'மேலும்',
   'Menu': 'பட்டி', 'More menu': 'மேலும் பட்டி', 'Main navigation': 'முதன்மை வழிசெலுத்தல்', 'Primary': 'முதன்மை', 'Site': 'தளம்', 'Language': 'மொழி', 'View': 'காண்க', 'Filter': 'வடிகட்டு',
-  'Kalvi Mitra home': 'கல்வி மித்ரா முகப்பு', 'Student details': 'மாணவர் விவரங்கள்', 'Subject filter': 'பாட வடிகட்டி', 'Tutor actions': 'ஆசிரியர் செயல்கள்', 'Teaching mode': 'கற்பித்தல் முறை',
+  'Karkai AI home': 'கற்கை AI முகப்பு', 'Student details': 'மாணவர் விவரங்கள்', 'Subject filter': 'பாட வடிகட்டி', 'Tutor actions': 'ஆசிரியர் செயல்கள்', 'Teaching mode': 'கற்பித்தல் முறை',
   'Conversation': 'உரையாடல்', 'Conversations': 'உரையாடல்கள்', 'Data table': 'தரவு அட்டவணை', 'Goals': 'இலக்குகள்', 'Show password': 'கடவுச்சொல்லைக் காட்டு', 'Show': 'காட்டு',
   'Bookmark answer': 'பதிலைப் புத்தகக்குறியிடு', 'Copy answer': 'பதிலை நகலெடு', 'Read aloud': 'உரக்கப் படி', 'Report this answer': 'இந்தப் பதிலைப் புகாரளி', 'Search lessons': 'பாடங்களைத் தேடு',
   'Search lessons…': 'பாடங்களைத் தேடு…', 'Send': 'அனுப்பு', 'Speak your question': 'உங்கள் கேள்வியைப் பேசுங்கள்', 'Type here — or press Start talking': 'இங்கே தட்டச்சு செய்யுங்கள் — அல்லது “பேசத் தொடங்கு” அழுத்துங்கள்',
@@ -28,7 +28,7 @@ export const UI: Record<string, string> = {
   'Class and language': 'வகுப்பும் மொழியும்', 'About the student': 'மாணவர் பற்றி', 'Shown on certificates if provided': 'கொடுத்திருந்தால் சான்றிதழ்களில் காட்டப்படும்',
   'At least 8 characters': 'குறைந்தது 8 எழுத்துகள்', 'At least 8 characters, with letters and a number.': 'குறைந்தது 8 எழுத்துகள்; எழுத்துகளும் ஓர் எண்ணும் இருக்க வேண்டும்.',
   'Enter your email or username.': 'உங்கள் மின்னஞ்சல் அல்லது பயனர்பெயரை உள்ளிடுங்கள்.', 'Enter your password.': 'உங்கள் கடவுச்சொல்லை உள்ளிடுங்கள்.',
-  'New to Kalvi Mitra?': 'கல்வி மித்ராவுக்குப் புதியவரா?', 'Already registered?': 'ஏற்கெனவே பதிவு செய்துள்ளீர்களா?', 'Use demo login': 'டெமோ உள்நுழைவைப் பயன்படுத்து', 'Demo account (password': 'டெமோ கணக்கு (கடவுச்சொல்',
+  'New to Karkai AI?': 'கற்கை AI-க்குப் புதியவரா?', 'Already registered?': 'ஏற்கெனவே பதிவு செய்துள்ளீர்களா?', 'Use demo login': 'டெமோ உள்நுழைவைப் பயன்படுத்து', 'Demo account (password': 'டெமோ கணக்கு (கடவுச்சொல்',
   'Development only': 'வளர்ச்சிக் கட்டத்துக்கு மட்டும்', 'I agree to the': 'நான் ஒப்புக்கொள்கிறேன்:', 'and': 'மற்றும்', 'the': '', 'Terms of use': 'பயன்பாட்டு விதிமுறைகள்', 'Privacy notice': 'தனியுரிமை அறிவிப்பு', 'privacy notice': 'தனியுரிமை அறிவிப்பு',
   'child safety': 'குழந்தைப் பாதுகாப்பு', 'Children’s privacy': 'குழந்தைகளின் தனியுரிமை', 'Privacy and data': 'தனியுரிமையும் தரவும்', 'What we collect': 'நாங்கள் சேகரிப்பவை', 'Your choices': 'உங்கள் தேர்வுகள்',
   'Who can help': 'யார் உதவ முடியும்', 'Verify': 'சரிபார்', 'Verify certificate': 'சான்றிதழைச் சரிபார்', 'Verify a certificate': 'சான்றிதழைச் சரிபார்க்கவும்', 'Verification code': 'சரிபார்ப்புக் குறியீடு', 'Verifiable certificates': 'சரிபார்க்கக்கூடிய சான்றிதழ்கள்',
@@ -54,6 +54,6 @@ export const UI: Record<string, string> = {
   'No finished tests yet': 'முடித்த தேர்வுகள் இன்னும் இல்லை', 'No weak topics found yet.': 'பலவீனமான தலைப்புகள் இன்னும் கண்டறியப்படவில்லை.', 'No books for your class yet': 'உங்கள் வகுப்புக்கு இன்னும் புத்தகங்கள் இல்லை', 'Content is still growing': 'உள்ளடக்கம் தொடர்ந்து வளர்ந்து வருகிறது',
   'Ready to try a lesson?': 'ஒரு பாடத்தை முயற்சிக்கத் தயாரா?', 'Guardian linked': 'பாதுகாவலர் இணைக்கப்பட்டுள்ளார்', 'Create guardian code': 'பாதுகாவலர் குறியீட்டை உருவாக்கு', 'Complete your profile': 'உங்கள் சுயவிவரத்தை நிறைவு செய்யுங்கள்', 'Complete your student profile': 'உங்கள் மாணவர் சுயவிவரத்தை நிறைவு செய்யுங்கள்',
   'Already registered': 'ஏற்கெனவே பதிவு செய்தவர்', 'Students:': 'மாணவர்கள்:', 'Parents and teachers:': 'பெற்றோரும் ஆசிரியர்களும்:', 'School administrators:': 'பள்ளி நிர்வாகிகள்:', 'Teach me': 'எனக்குக் கற்றுக்கொடு', 'Test my understanding': 'என் புரிதலைச் சோதி',
-  'Explain simply': 'எளிமையாக விளக்கு', 'Explain fully': 'முழுமையாக விளக்கு', 'Practice with me': 'என்னுடன் பயிற்சி செய்', 'Try a mind map': 'மனவரைபடத்தை முயற்சிக்கவும்', 'Ask about my own material': 'என் சொந்தப் பொருளைப் பற்றிக் கேள்', 'Ask Kavli AI': 'கல்வி AI-யிடம் கேளுங்கள்',
-  'Ask Kavli AI to explain what is unclear': 'புரியாததை விளக்கும்படி கல்வி AI-யிடம் கேளுங்கள்', 'AI ஆசிரியரிடம் ஒரு கேள்வி கேட்க': 'AI ஆசிரியரிடம் ஒரு கேள்வி கேட்க', 'AI ஆசிரியர்': 'AI ஆசிரியர்',
+  'Explain simply': 'எளிமையாக விளக்கு', 'Explain fully': 'முழுமையாக விளக்கு', 'Practice with me': 'என்னுடன் பயிற்சி செய்', 'Try a mind map': 'மனவரைபடத்தை முயற்சிக்கவும்', 'Ask about my own material': 'என் சொந்தப் பொருளைப் பற்றிக் கேள்', 'Ask Karkai AI': 'கற்கை AI-யிடம் கேளுங்கள்',
+  'Ask Karkai AI to explain what is unclear': 'புரியாததை விளக்கும்படி கற்கை AI-யிடம் கேளுங்கள்', 'AI ஆசிரியரிடம் ஒரு கேள்வி கேட்க': 'AI ஆசிரியரிடம் ஒரு கேள்வி கேட்க', 'AI ஆசிரியர்': 'AI ஆசிரியர்',
 };

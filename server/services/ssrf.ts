@@ -2,6 +2,7 @@ import { lookup } from 'node:dns/promises';
 import https from 'node:https';
 import http from 'node:http';
 import net from 'node:net';
+import { BRAND } from '../../shared/brand';
 
 export class UrlError extends Error { name = 'UrlError'; }
 /** True for loopback, private, link-local, CGNAT, multicast, reserved and unspecified addresses (v4 + v6). */
@@ -39,7 +40,7 @@ export async function safeFetch(raw: string, hops = 0): Promise<Fetched> {
   const u = validateUrlSyntax(raw); const ip = await resolveSafe(u.hostname);
   return new Promise<Fetched>((resolve, reject) => {
     const mod = u.protocol === 'https:' ? https : http;
-    const req = mod.request({ host: u.hostname.replace(/^\[|\]$/g, ''), port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: 'GET', servername: u.hostname, headers: { 'user-agent': 'KalviMitraBot/1.0 (+educational reader)', accept: 'text/html,text/plain;q=0.9' }, timeout: TIMEOUT,
+    const req = mod.request({ host: u.hostname.replace(/^\[|\]$/g, ''), port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method: 'GET', servername: u.hostname, headers: { 'user-agent': `${BRAND.botName}/1.0 (+educational reader)`, accept: 'text/html,text/plain;q=0.9' }, timeout: TIMEOUT,
       lookup: (_h: string, _o: any, cb: any) => cb(null, ip, net.isIPv6(ip) ? 6 : 4) } as any, async res => {
       const loc = res.headers.location;
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && loc) { res.resume(); await safeFetch(new URL(loc, u).toString(), hops + 1).then(resolve, reject); return; }

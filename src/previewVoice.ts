@@ -32,7 +32,7 @@ async function* inner(body: { text?: string; action?: string }): AsyncGenerator<
   } else if (act.startsWith('mode:') || act === 'start') {
     if (!D) { yield bi('Type an equation such as 3x + 5 = 20 and I will teach it one step at a time.', 'ஒரு சமன்பாட்டை (எ.கா. 3x + 5 = 20) தட்டச்சு செய்யுங்கள்; ஒவ்வொரு படியாகக் கற்றுத் தருகிறேன்.', 'info'); yield done(); return; }
   } else if (!D && detectKey(t)) {
-    const k = detectKey(t)!; const d = describeVisual(k); yield bi(d.en, d.ta, 'info', { sources: ['Original diagram drawn by Kalvi Mitra · UI preview demo, not a textbook'] }); yield done(); return;
+    const k = detectKey(t)!; const d = describeVisual(k); yield bi(d.en, d.ta, 'info', { sources: ['Original diagram drawn by Karkai AI · UI preview demo, not a textbook'] }); yield done(); return;
   } else if (/diagram|figure|picture|label|படம்/i.test(t) && LAST) {
     if (/simpler|easier|எளிய/i.test(t)) { yield bi('Here is a simpler version with fewer labels.', 'குறைந்த குறிப்புகளுடன் எளிய வடிவம் இதோ.', 'info', { vis: { id: LAST.id, lvl: 'simple' } }); yield done(); return; }
     const lm = labelMeaning(LAST, t); if (lm) { yield bi(`${lm.label.name.en}: ${lm.label.meaning.en}`, `${lm.label.name.ta}: ${lm.label.meaning.ta}`, 'info', { vis: { id: LAST.id, hl: lm.label.id } }); yield done(); return; }

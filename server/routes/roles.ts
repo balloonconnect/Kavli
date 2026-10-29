@@ -79,7 +79,7 @@ export function adminRoutes(db: DB) {
       if (approve) { await q.run(db, 'UPDATE users SET role=? WHERE id=?', role, u.id); if (b.schoolId) await q.run(db, 'UPDATE users SET school_id=? WHERE id=?', b.schoolId, u.id); }
       else { await q.run(db, 'UPDATE users SET disabled=1 WHERE id=?', u.id); await q.run(db, 'DELETE FROM sessions WHERE user_id=?', u.id); }
       await q.run(db, 'UPDATE settings SET value=? WHERE key=?', JSON.stringify({ ...rq, status: approve ? 'approved' : 'declined', decidedAt: at }), `rolereq:${u.id}`);
-      await q.run(db, 'INSERT INTO notifications(id,user_id,title,body,created_at) VALUES (?,?,?,?,?)', uid(), u.id, approve ? 'Your account was approved' : 'Your sign-up was not approved', approve ? `You can now use Kalvi Mitra as a ${role === 'teacher' ? 'teacher' : 'school admin'}.` : 'Please contact your school if you think this is a mistake.', at);
+      await q.run(db, 'INSERT INTO notifications(id,user_id,title,body,created_at) VALUES (?,?,?,?,?)', uid(), u.id, approve ? 'Your account was approved' : 'Your sign-up was not approved', approve ? `You can now use Karkai AI as a ${role === 'teacher' ? 'teacher' : 'school admin'}.` : 'Please contact your school if you think this is a mistake.', at);
       await audit(db, req.user!.id, approve ? 'role.approved' : 'role.declined', 'user', u.id, { role, schoolId: b.schoolId ?? null });
     });
     res.json({ ok: true, role: approve ? role : null });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Adds a textbook PDF to a running Kavli server (local or deployed), as the platform admin, and waits until its pages are read.
+ * Adds a textbook PDF to a running Karkai AI server (local or deployed), as the platform admin, and waits until its pages are read.
  *   node scripts/import-book.mjs <file.pdf> --class 8 --subject tamil --medium Tamil [--title "..."] [--url http://localhost:3001]
  * Credentials: ADMIN_EMAIL and ADMIN_PASSWORD (environment). Subjects: maths, science, english, social, tamil (omit for all subjects).
  * It does the same thing as Admin -> Class books in the app, including chapter detection once the book is ready.

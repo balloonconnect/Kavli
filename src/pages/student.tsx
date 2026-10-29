@@ -18,7 +18,7 @@ export function Dashboard() {
 }
 function AskKavli() {
   const nav = useNavigate(); const [t, setT] = useState('');
-  return <Card className="col"><h2>Ask Kavli AI</h2><p className="muted small">Ask in Tamil, English or both. The tutor says when an answer comes from your lessons.</p>
+  return <Card className="col"><h2>Ask Karkai AI</h2><p className="muted small">Ask in Tamil, English or both. The tutor says when an answer comes from your lessons.</p>
     <form className="row" style={{ gap: 8 }} onSubmit={e => { e.preventDefault(); const q = t.trim(); nav(q ? `/app/tutor?q=${encodeURIComponent(q.slice(0, 290))}` : '/app/tutor'); }}>
       <div className="field grow"><label className="sr" htmlFor="ask-q">Your question</label><input id="ask-q" value={t} onChange={e => setT(e.target.value)} maxLength={290} placeholder="e.g. What is a variable? / மாறி என்றால் என்ன?" /></div>
       <Button type="submit">Ask</Button></form>

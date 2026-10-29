@@ -164,7 +164,7 @@ export function labelMeaning(k: VKey, text: string): { label: VLabel } | null {
 }
 export function makeVisual(key: VKey, step?: number): Visual {
   const m = META[key.id]; return { key, topic: m.topic, step, title: m.title, caption: m.caption, alt: m.alt, labels: LABELS[key.id],
-    source: 'Original diagram drawn by Kalvi Mitra in code', attribution: 'Kalvi Mitra (original SVG)', license: 'Own work: no third-party image is used', kind: 'original-svg', score: 0.9, reviewed: false };
+    source: 'Original diagram drawn by Karkai AI in code', attribution: 'Karkai AI (original SVG)', license: 'Own work: no third-party image is used', kind: 'original-svg', score: 0.9, reviewed: false };
 }
 
 /* ---------------- detection ---------------- */

@@ -67,7 +67,7 @@ export function ProfileForm({ mode }: { mode: 'onboard' | 'edit' }) {
 export function ProfilePage() {
   const { profile } = useAuth();
   return <PublicLayout><div className="doc col"><h1>Complete your student profile</h1><p className="muted">We only ask for what we need to personalise lessons. You can change this later in Settings.</p>
-    <div className="notice info"><Icon name="info" />{profile ? '' : 'Your answers are private to you, your parent/guardian, and your teacher if your school uses Kalvi Mitra.'}</div><ProfileForm mode="onboard" /></div></PublicLayout>;
+    <div className="notice info"><Icon name="info" />{profile ? '' : 'Your answers are private to you, your parent/guardian, and your teacher if your school uses Karkai AI.'}</div><ProfileForm mode="onboard" /></div></PublicLayout>;
 }
 
 export function Settings() {
@@ -85,7 +85,7 @@ export function Settings() {
           {d.under13 && !d.profile?.guardian_approved && <div className="notice warn"><Icon name="alert" />Your account needs a parent or guardian’s approval before you can use the AI tutor and uploads.</div>}
           {d.profile?.guardian_approved ? <p><Badge tone="success">Guardian linked</Badge></p> : null}
           {mailOn && d.under13 && !d.profile?.guardian_approved && <div className="row wrap"><Button tone="secondary" onClick={async () => { try { await post('/auth/guardian/resend'); toast('We emailed your guardian again.', 'ok'); } catch (e) { toast(msg(e), 'err'); } }}>Email my guardian again</Button></div>}
-          <p className="muted">Create a code and give it to your parent or guardian. They enter it in their Kalvi Mitra account to see your progress{d.under13 ? ' and approve your account' : ''}. Codes expire after 7 days.</p>
+          <p className="muted">Create a code and give it to your parent or guardian. They enter it in their Karkai AI account to see your progress{d.under13 ? ' and approve your account' : ''}. Codes expire after 7 days.</p>
           <div className="row wrap"><Button tone="secondary" onClick={async () => { try { setCode((await post('/profile/guardian-code')).code); } catch (e) { toast(msg(e), 'err'); } }}>Create guardian code</Button>{code && <span className="codebox" aria-live="polite">{code}</span>}</div></>}</Async>
       </Card>
       <Card className="col"><h2>Privacy and data</h2><p className="muted">Your uploads are private and never used to train AI models. Deleting your account permanently removes your profile, tests, certificates, chats and files.</p>

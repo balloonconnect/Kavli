@@ -1,4 +1,6 @@
-# Kavli — Tamil Nadu State Board AI Teaching Bot (Classes 1–12)
+# Karkai AI (கற்கை AI) — Your Personal AI Teacher
+
+A Tamil Nadu State Board (Samacheer Kalvi) AI tutor for Classes 1–12. *கேட்டு கற்போம். பார்த்துப் புரிந்துகொள்வோம். — Learn by Listening. Understand by Seeing.* The product was previously called Kalvi Mitra; the repository, database file (`data/kavli.db`), Docker names and demo logins keep the internal name "kavli" on purpose. The name and taglines live in `shared/brand.ts`, `index.html` and `public/manifest.webmanifest`.
 
 A full-stack web app: an Express API (PostgreSQL in production, SQLite for development) and a Vite/React/TypeScript front end.
 Students learn in Tamil / English / both, ask an AI tutor, learn from their own material,

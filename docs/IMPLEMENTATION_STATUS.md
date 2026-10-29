@@ -44,7 +44,7 @@ Limits: maps are only as rich as the (sample) lesson content; there is no AI-gen
 
 - Homepage (`/`), Features and How it works rewritten to describe only what exists (tutor, mind maps, practice, weekly tests, progress, own material); added an honest "what to know" section (independent, content still growing, AI can be wrong, child privacy).
 - Sign-in (`/signin`): inline field errors with focus, labelled show/hide password, "Forgot password" page (honest: no email reset exists yet), redirect only to same-site `/app`, `/profile`, `/verify` paths (`src/lib/safeNext.ts`), already-signed-in visitors are redirected, network-error message. Server: login always runs one password hash so timing does not reveal which emails exist.
-- Dashboard (`/app`): Ask Kavli AI box (opens the tutor with your question), Continue learning (+ "Open mind map"), four tool shortcuts with real counts, a Mind maps card (recent maps and your understood/revise counts), then the existing goals, subjects, tests, results and revision cards.
+- Dashboard (`/app`): Ask Karkai AI box (opens the tutor with your question), Continue learning (+ "Open mind map"), four tool shortcuts with real counts, a Mind maps card (recent maps and your understood/revise counts), then the existing goals, subjects, tests, results and revision cards.
 - Mind map: "Practise this branch" asks the tutor for questions about the whole branch. These are tutor-generated, not from the server question bank.
 
 ## Learning loop, tutor, resilience, security pass

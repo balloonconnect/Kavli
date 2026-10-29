@@ -1,6 +1,6 @@
 # Deployment checklist
 
-Kavli has two ways to run. Know which one you are looking at.
+Karkai AI has two ways to run. Know which one you are looking at.
 
 | | What it is | Backend | Use for |
 |---|---|---|---|

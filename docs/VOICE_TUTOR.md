@@ -1,4 +1,4 @@
-# Voice tutor (Kalvi AI → interactive tutor)
+# Voice tutor (Karkai AI → interactive tutor)
 
 ## 1. Audit of the repository (before this change)
 - **Framework:** Vite + React 18 + TypeScript front end; Express + `node:sqlite` back end (`server/`); Vitest + supertest tests; deployed on Vercel in browser-only UI-preview mode, or as a Node server (`npm start`) serving `dist/`.
