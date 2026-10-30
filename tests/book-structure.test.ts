@@ -145,4 +145,19 @@ describe('API', () => {
     await expect(explainItem({ name: 'm', complete: async () => '{"simple_ta":"english only text here"}' } as any, k, 'explain', { chapter: 'x' })).rejects.toBeInstanceOf(ItemAiError);
     await expect(explainItem({ name: 'm', complete: async () => 'not json' } as any, k, 'explain', { chapter: 'x' })).rejects.toBeInstanceOf(ItemAiError);
   });
+  it('teacher check: students see AI text as a draft; a teacher can mark it checked, students cannot, and rewriting clears the mark', async () => {
+    await seed(); const s = await as(DEMO.student); const k = (await s.get(`/api/lessons/${LID}/structure`)).body.structure.items.find((i: any) => i.kind === 'couplet');
+    const { itemHash } = await import('../server/services/itemLearn'); const st = (await s.get(`/api/lessons/${LID}/structure`)).body.structure;
+    await q.run(t.db, 'INSERT INTO item_ai(lesson_id,item_id,kind,content,source_hash,model,created_at) VALUES (?,?,?,?,?,?,?)', LID, k.id, 'explain', JSON.stringify({ simple_ta: 'சோதனை விளக்கம்' }), itemHash(st.items.find((x: any) => x.id === k.id)), 'mock', new Date().toISOString());
+    expect((await s.get(`/api/lessons/${LID}/items/${k.id}`)).body.explanation.verified).toBeNull();
+    expect((await s.post(`/api/lessons/${LID}/items/${k.id}/verify`, { kind: 'explain', verified: true })).status).toBe(403);
+    const tc = await as(DEMO.teacher);
+    expect((await tc.post(`/api/lessons/${LID}/items/${k.id}/verify`, { kind: 'explain', verified: true })).status).toBe(200);
+    expect((await s.get(`/api/lessons/${LID}/items/${k.id}`)).body.explanation.verified).toMatchObject({ by: expect.any(String) });
+    expect((await tc.post(`/api/lessons/${LID}/items/${k.id}/verify`, { kind: 'answer', verified: true })).status).toBe(404);
+    const rv = (await tc.get('/api/lesson-review')).body.lessons.find((l: any) => l.id === LID); expect(rv).toMatchObject({ ai_total: 1, ai_checked: 1 });
+    expect((await s.get('/api/lesson-review')).status).toBe(403);
+    expect((await tc.post(`/api/lessons/${LID}/items/${k.id}/verify`, { kind: 'explain', verified: false })).status).toBe(200);
+    expect((await s.get(`/api/lessons/${LID}/items/${k.id}`)).body.explanation.verified).toBeNull();
+  });
 });

@@ -135,3 +135,10 @@ export function CertAdmin() {
     {act && <Modal title={act.kind === 'revoke' ? 'Revoke certificate' : 'Reissue certificate'} onClose={() => setAct(null)}><p className="muted small">{act.kind === 'revoke' ? 'The certificate will stop verifying as valid.' : 'The current certificate is replaced by a new one using the latest result.'} The student is notified and the reason is logged.</p><div className="field"><label htmlFor="rs">Reason (required)</label><textarea id="rs" rows={2} value={reason} onChange={e => setReason(e.target.value)} /></div>
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><Button tone="secondary" onClick={() => setAct(null)}>Cancel</Button><Button tone={act.kind === 'revoke' ? 'danger' : 'primary'} disabled={reason.trim().length < 3} onClick={async () => { try { await post(`/certificates/${act.c.id}/${act.kind}`, { reason }); toast(act.kind === 'revoke' ? 'Certificate revoked' : 'Certificate reissued'); setAct(null); s.reload(); } catch (e) { toast(msg(e), 'err'); } }}>Confirm</Button></div></Modal>}</div>;
 }
+
+/** Teachers open book lessons here to read the AI texts and mark the good ones as checked. */
+export function LessonReview() {
+  const s = useLoad(() => get('/lesson-review'));
+  return <div className="col"><PageTitle title="Lesson review" sub="Open a lesson made from your textbook, read the AI explanations, and mark the correct ones as checked. Students see which texts a teacher has checked." />
+    <Async s={s}>{d => !d.lessons.length ? <Empty title="No book lessons yet" text="Lessons appear here after a textbook is uploaded and its chapters are found." /> : <Card className="col">{d.lessons.map((l: any) => <div key={l.id} className="row wrap listrow"><div className="grow"><b>{l.title_en}</b><div className="muted small">Class {l.class_level} · {l.subject_id} · Chapter {l.chapter_no} · {l.ai_total ? `${l.ai_checked} of ${l.ai_total} AI texts checked` : 'no AI texts yet'}</div></div><Button tone="secondary" to={`/app/learn/${l.id}`}>Open</Button></div>)}</Card>}</Async></div>;
+}

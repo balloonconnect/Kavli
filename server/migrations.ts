@@ -22,4 +22,6 @@ export const MIGRATIONS: Migration[] = [
   { version: 3, name: 'item_progress', sql: `CREATE TABLE item_progress (
     student_id TEXT NOT NULL, lesson_id TEXT NOT NULL, item_id TEXT NOT NULL, viewed_at TEXT, completed_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, correct INTEGER NOT NULL DEFAULT 0, wrong INTEGER NOT NULL DEFAULT 0, last_at TEXT NOT NULL,
     PRIMARY KEY (student_id, lesson_id, item_id))` },
+  // A teacher can mark an AI explanation as checked. Writing a new explanation clears the mark.
+  { version: 4, name: 'item_ai_verified', sql: `ALTER TABLE item_ai ADD COLUMN verified_by TEXT; ALTER TABLE item_ai ADD COLUMN verified_at TEXT` },
 ];

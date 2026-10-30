@@ -4,6 +4,7 @@ import { Async, Badge, Button, Card, Empty, useLoad } from './ui';
 import { Bi, useLang } from './lang';
 import { get, post, msg } from '../api';
 import { useToast } from './toast';
+import { useAuth } from '../auth';
 import { TamilVoice } from './TamilVoice';
 import { MindMapView } from './MindMap';
 
@@ -57,6 +58,13 @@ function Overview({ st, by, go, prog }: { st: any; by: Map<string, Item>; go: (v
 
 type Part = { key: string; en: string; ta: string; source: 'textbook' | 'ai' | 'rule' };
 const SRC_LABEL: Record<string, [string, string, string]> = { textbook: ['Textbook', 'பாடநூல்', 'b-success'], ai: ['AI-generated', 'AI உருவாக்கியது', 'b-info'], rule: ['Made by the app from the text', 'உரையிலிருந்து செயலி உருவாக்கியது', 'b-neutral'] };
+/** Says whether a teacher has checked an AI text; teachers and admins get the button to check or un-check it. */
+function Verify({ e, kind, lessonId, itemId, onDone }: { e: any; kind: string; lessonId: string; itemId: string; onDone: () => void }) {
+  const { user } = useAuth(); const toast = useToast(); const can = user && ['teacher', 'school_admin', 'admin'].includes(user.role);
+  const set = async (verified: boolean) => { try { await post(`/lessons/${lessonId}/items/${itemId}/verify`, { kind, verified }); onDone(); } catch (x) { toast(msg(x), 'err'); } };
+  return <div className="row wrap no-print">{e.verified ? <Badge tone="success"><Bi en={`✓ Checked by a teacher${e.verified.by ? ` (${e.verified.by})` : ''}`} ta={`✓ ஆசிரியர் சரிபார்த்தது${e.verified.by ? ` (${e.verified.by})` : ''}`} /></Badge> : <Badge tone="warning"><Bi en="AI draft — not yet checked by a teacher" ta="AI வரைவு — ஆசிரியர் இன்னும் சரிபார்க்கவில்லை" /></Badge>}
+    {can && <Button tone="secondary" onClick={() => set(!e.verified)}>{e.verified ? 'Remove the check' : 'Mark as checked'}</Button>}</div>;
+}
 const Tag = ({ s }: { s: string }) => <Badge tone={s === 'textbook' ? 'success' : s === 'ai' ? 'info' : 'neutral'}><Bi en={SRC_LABEL[s][0]} ta={SRC_LABEL[s][1]} /></Badge>;
 const has = (v: any) => (Array.isArray(v) ? v.length > 0 : !!v);
 
@@ -74,12 +82,12 @@ function Detail({ lessonId, st, id, go, onProgress }: { lessonId: string; st: an
       <div className="row wrap no-print"><Button tone="secondary" disabled={!d.prev} onClick={() => go('detail', d.prev)}>← Previous</Button><b className="grow" style={{ textAlign: 'center' }}>{label(it) || 'Item'} <span className="muted small">· <Bi en={tpl.en} ta={tpl.ta} /></span></b><Button tone="secondary" disabled={!d.next} onClick={() => go('detail', d.next)}>Next →</Button></div>
       <Card className="col"><div className="row wrap"><Tag s="textbook" /><div className="grow" /></div><Source it={it} /><Flags it={it} /><div className="row wrap no-print"><TamilVoice text={speakText([it])} label="Listen to this item" />
         <Button tone="secondary" to={`/app/tutor?lesson=${lessonId}&q=${encodeURIComponent(`${it.kind === 'question' ? 'இந்த வினாவுக்கு உதவுங்கள்' : 'இந்தப் பகுதியை விளக்குங்கள்'}: ${it.lines[0] ?? ''}`.slice(0, 280))}`}><Bi en="Ask the tutor about this" ta="இதைப் பற்றி ஆசிரியரிடம் கேள்" /></Button></div></Card>
-      <Card className="col aibox"><div className="row wrap"><h2 className="grow"><Bi en="Explanation" ta="விளக்கம்" /></h2><Tag s="ai" /></div>
+      <Card className="col aibox"><div className="row wrap"><h2 className="grow"><Bi en="Explanation" ta="விளக்கம்" /></h2><span className="muted small"><Bi en={`Based on textbook page ${it.page}`} ta={`பாடநூல் பக்கம் ${it.page} அடிப்படையில்`} /></span><Tag s="ai" /></div>
         {isQ ? <>
           <p className="muted small"><Bi en="This textbook does not print an answer for this question." ta="இந்த வினாவுக்கான விடையை நூல் தரவில்லை." /></p>
-          {an ? <><p lang="ta" className="ta">{an.answer}</p>{an.why && <p lang="ta" className="ta muted">{an.why}</p>}<Badge tone="info">AI-generated answer — not from the textbook. Check with your teacher.</Badge></> : <Button disabled={!!busy || !d.aiEnabled} onClick={() => ask('answer', lang === 'en' ? 'en' : 'ta')}>{busy ? 'Writing…' : 'Suggest an answer (AI)'}</Button>}
+          {an ? <><p lang="ta" className="ta">{an.answer}</p>{an.why && <p lang="ta" className="ta muted">{an.why}</p>}<Badge tone="info">AI-generated answer — not from the textbook. Check with your teacher.</Badge><Verify e={an} kind="answer" lessonId={lessonId} itemId={id} onDone={() => { setFresh({}); s.reload(); }} /></> : <Button disabled={!!busy || !d.aiEnabled} onClick={() => ask('answer', lang === 'en' ? 'en' : 'ta')}>{busy ? 'Writing…' : 'Suggest an answer (AI)'}</Button>}
         </> : <>
-          {exs.map(([l, e]) => e ? <div key={l} className="col"><ExplanationParts tpl={tpl} ex={e} l={l as 'ta' | 'en'} lessonId={lessonId} itemId={id} onResult={onProgress} />{e.stale && <Badge tone="warning">The textbook text was re-read after this was written. Ask again to refresh.</Badge>}</div>
+          {exs.map(([l, e]) => e ? <div key={l} className="col"><ExplanationParts tpl={tpl} ex={e} l={l as 'ta' | 'en'} lessonId={lessonId} itemId={id} onResult={onProgress} /><Verify e={e} kind={l === 'en' ? 'explain_en' : 'explain'} lessonId={lessonId} itemId={id} onDone={() => { setFresh({}); s.reload(); }} />{e.stale && <Badge tone="warning">The textbook text was re-read after this was written. Ask again to refresh.</Badge>}</div>
             : <div key={l}><Button disabled={!!busy || !d.aiEnabled} onClick={() => ask('explain', l as 'ta' | 'en')}>{busy === `explain${l}` ? 'Writing…' : l === 'ta' ? 'Explain in Tamil (AI)' : 'Explain in English (AI)'}</Button></div>)}
         </>}
         {!d.aiEnabled && !ex0 && !an && <p className="muted small">The AI explanation service is not switched on for this school yet. The textbook text above is always available.</p>}

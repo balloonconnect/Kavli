@@ -47,4 +47,10 @@ export const BOOK: Record<string, string> = {
   'AI Tutor sections': 'AI ஆசிரியர் பிரிவுகள்',
   'Both (Tamil + English)': 'இரண்டும் (தமிழ் + ஆங்கிலம்)',
   'Book updated.': 'புத்தகம் புதுப்பிக்கப்பட்டது.',
+  'Lesson review': 'பாடச் சரிபார்ப்பு',
+  'Mark as checked': 'சரிபார்த்ததாகக் குறி',
+  'Remove the check': 'சரிபார்ப்பை நீக்கு',
+  'Open a lesson made from your textbook, read the AI explanations, and mark the correct ones as checked. Students see which texts a teacher has checked.': 'உங்கள் பாடநூலிலிருந்து உருவான பாடத்தைத் திறந்து, AI விளக்கங்களைப் படித்து, சரியானவற்றைச் சரிபார்த்ததாகக் குறியுங்கள். எந்த உரைகளை ஆசிரியர் சரிபார்த்தார் என்பதை மாணவர்கள் காண்பார்கள்.',
+  'No book lessons yet': 'நூல் பாடங்கள் இன்னும் இல்லை',
+  'Lessons appear here after a textbook is uploaded and its chapters are found.': 'பாடநூல் பதிவேற்றப்பட்டு அதன் அத்தியாயங்கள் கண்டறியப்பட்ட பின் பாடங்கள் இங்கே தோன்றும்.',
 };

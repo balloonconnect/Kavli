@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { DB, q } from '../db';
 import { iso } from '../clock';
-import { rateLimit } from '../security';
+import { rateLimit, requireRole } from '../security';
 import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { LlmClient, llmClientFromEnv } from '../services/llmEngine';
@@ -23,7 +23,7 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
   const item = (st: Structure, id: string) => { const it = st.items.find(i => i.id === id); if (!it) throw new HttpError(404, 'Item not found.'); return it; };
   const aiRow = async (lid: string, iid: string, kind: string, it: Structure['items'][number]) => {
     const row = await q.get<any>(db, 'SELECT * FROM item_ai WHERE lesson_id=? AND item_id=? AND kind=?', lid, iid, kind); if (!row) return null;
-    return { ...JSON.parse(row.content) as ItemAi, label: 'AI-generated', model: row.model, createdAt: row.created_at, stale: row.source_hash !== itemHash(it) };
+    return { ...JSON.parse(row.content) as ItemAi, label: 'AI-generated', model: row.model, createdAt: row.created_at, stale: row.source_hash !== itemHash(it), verified: row.verified_at && row.source_hash === itemHash(it) ? { by: row.verified_by, at: row.verified_at } : null };
   };
 
   r.get('/lessons/:id/structure', A, wrap(async (req, res) => {
@@ -62,6 +62,21 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
     const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId); const ex = await aiRow(l.id, it.id, 'explain', it);
     res.json({ map: itemMindMap(l, st, it.id, ex && !ex.stale ? ex : null) });
   }));
+  // Lessons made from uploaded books, with how many AI texts exist and how many a teacher has checked.
+  r.get('/lesson-review', requireRole('teacher', 'school_admin', 'admin'), wrap(async (_req, res) => {
+    const ls = await q.all<any>(db, "SELECT id,class_level,subject_id,chapter_no,title_en,title_ta FROM lessons WHERE id LIKE 'bk-%' AND status='published' ORDER BY class_level, subject_id, chapter_no");
+    const ai = await q.all<any>(db, "SELECT lesson_id, COUNT(*) total, SUM(CASE WHEN verified_at IS NOT NULL THEN 1 ELSE 0 END) checked FROM item_ai GROUP BY lesson_id");
+    const m = new Map(ai.map(a => [a.lesson_id, a]));
+    res.json({ lessons: ls.map(l => ({ ...l, ai_total: Number(m.get(l.id)?.total ?? 0), ai_checked: Number(m.get(l.id)?.checked ?? 0) })) });
+  }));
+  // Teachers (and admins) mark an AI explanation as checked, or take the mark off again.
+  r.post('/lessons/:id/items/:itemId/verify', requireRole('teacher', 'school_admin', 'admin'), wrap(async (req, res) => {
+    const b = parse(z.object({ kind: z.enum(['explain', 'explain_en', 'answer']), verified: z.boolean() }), req.body ?? {});
+    const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId);
+    const row = await q.get<any>(db, 'SELECT 1 x FROM item_ai WHERE lesson_id=? AND item_id=? AND kind=?', l.id, it.id, b.kind); if (!row) throw new HttpError(404, 'There is no AI text here to check yet.');
+    await q.run(db, 'UPDATE item_ai SET verified_by=?, verified_at=? WHERE lesson_id=? AND item_id=? AND kind=?', b.verified ? req.user!.display_name ?? 'Teacher' : null, b.verified ? iso() : null, l.id, it.id, b.kind);
+    res.json({ ok: true });
+  }));
   r.post('/lessons/:id/items/:itemId/ai', A, rateLimit(20, 60000, req => `itemai:${req.user?.id ?? req.ip}`), wrap(async (req, res) => {
     const b = parse(z.object({ mode: z.enum(['explain', 'answer']).default('explain'), lang: z.enum(['ta', 'en']).default('ta') }), req.body ?? {});
     const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId);
@@ -71,9 +86,9 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
     const ac = new AbortController(); res.on('close', () => { if (!res.writableFinished) ac.abort(); });
     try {
       const ai = await explainItem(llm, it, b.mode, { chapter: l.title_ta || l.title_en, signal: ac.signal, lang: b.lang, classLevel: l.class_level }); const kind = aiKind(b.mode, b.lang);
-      await q.run(db, 'INSERT INTO item_ai(lesson_id,item_id,kind,content,source_hash,model,created_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(lesson_id,item_id,kind) DO UPDATE SET content=excluded.content, source_hash=excluded.source_hash, model=excluded.model, created_at=excluded.created_at', l.id, it.id, kind, JSON.stringify(ai), itemHash(it), llm.name, iso());
+      await q.run(db, 'INSERT INTO item_ai(lesson_id,item_id,kind,content,source_hash,model,created_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(lesson_id,item_id,kind) DO UPDATE SET content=excluded.content, source_hash=excluded.source_hash, model=excluded.model, created_at=excluded.created_at, verified_by=NULL, verified_at=NULL', l.id, it.id, kind, JSON.stringify(ai), itemHash(it), llm.name, iso());
       await q.run(db, 'INSERT INTO ai_usage(user_id,provider,kind,input_chars,output_chars,at) VALUES (?,?,?,?,?,?)', req.user!.id, llm.name, 'item_ai', it.lines.join('').length, JSON.stringify(ai).length, iso());
-      res.json({ [b.mode === 'answer' ? 'answer' : b.lang === 'en' ? 'explanation_en' : 'explanation']: { ...ai, label: 'AI-generated', model: llm.name, stale: false } });
+      res.json({ [b.mode === 'answer' ? 'answer' : b.lang === 'en' ? 'explanation_en' : 'explanation']: { ...ai, label: 'AI-generated', model: llm.name, stale: false, verified: null } });
     } catch (e) { if (e instanceof ItemAiError) throw new HttpError(e.status, e.message); throw e; }
   }));
   return r;

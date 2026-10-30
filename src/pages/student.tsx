@@ -87,6 +87,7 @@ import { LessonBook } from './books';
 import { StructuredLesson } from '../components/StructuredLesson';
 const TABS: [string, string][] = [['explain', 'Explanation'], ['map', 'Mind Map'], ['examples', 'Examples'], ['practice', 'Practice questions'], ['revision', 'Quick revision'], ['book', 'Textbook'], ['chapter', 'Book view']];
 export function Lesson() {
+  const { user: me } = useAuth(); const isStu = me?.role === 'student';
   const { id } = useParams(); const nav = useNavigate(); const [sp, setSp] = useSearchParams(); const rawTab = sp.get('tab') ?? 'explain'; const tab = TABS.some(t => t[0] === rawTab) ? rawTab : 'explain';
   const goTab = (t: string, el?: string | null) => { const n = new URLSearchParams(sp); n.set('tab', t); setSp(n, { replace: true }); if (el) setTimeout(() => document.getElementById(el)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80); else window.scrollTo({ top: 0 });}; const toast = useToast(); const { profile } = useAuth(); const { lang } = useLang();
   const s = useLoad(() => get(`/lessons/${id}`), [id]); const [bm, setBm] = useState(false); const [done, setDone] = useState(false);
@@ -97,7 +98,7 @@ export function Lesson() {
     const speakEn = [l.title_en, ...c.sections.map((x: any) => `${x.h_en}. ${x.en}`)].join('. '); const speakTa = [l.title_ta, ...c.sections.map((x: any) => `${x.h_ta}. ${x.ta || x.en}`)].join('. ');
     return (
     <div className="col lesson">
-      <div className="row wrap"><Link to="/app/learn" className="link row" style={{ gap: 4 }}><Icon name="back" size={16} />All lessons</Link></div>
+      <div className="row wrap"><Link to={isStu ? '/app/learn' : '/teacher/lessons'} className="link row" style={{ gap: 4 }}><Icon name="back" size={16} />{isStu ? 'All lessons' : 'Lesson review'}</Link></div>
       <PageTitle title={<Bi en={l.title_en} ta={l.title_ta} block />} sub={<><Bi en={`${l.subject_en} · Class ${l.class_level} · Chapter ${l.chapter_no}`} ta={`${l.subject_ta} · வகுப்பு ${l.class_level} · பாடம் ${l.chapter_no}`} /> · {l.minutes} min</>} right={<div className="row wrap">{done && <Badge tone="success">Completed</Badge>}{String(l.source ?? '').startsWith('Sample') ? <Badge tone="warning">Sample content</Badge> : <Badge tone="teal">Textbook excerpt</Badge>}</div>} />
       {String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From your class textbook.</b> {String(l.source).replace('Textbook: ', '')} The text is the book’s own words; the explanation, mind map, practice and tutor all use it.</div></div>}
       {!String(l.source ?? '').startsWith('Sample') && !String(l.source ?? '').startsWith('Textbook:') && <div className="notice info no-print"><Icon name="info" /><div><b>From the Samacheer Kalvi textbook.</b> {l.source} Only a short excerpt is shown here, and the text is in English; use your printed textbook for the full lesson.</div></div>}
@@ -134,7 +135,7 @@ export function Lesson() {
       <div className="row wrap lessonnav no-print">
         {d.prev ? <Button tone="secondary" to={`/app/learn/${d.prev.id}`}><Icon name="back" size={16} /> Previous</Button> : <span />}
         <div className="grow" />
-        <Button tone={done ? 'secondary' : 'teal'} disabled={done} onClick={async () => { try { await post(`/lessons/${l.id}/complete`); setDone(true); toast('Lesson marked complete'); } catch (e) { toast(msg(e), 'err'); } }}>{done ? '✓ Completed' : 'Mark as complete'}</Button>
+        {isStu && <Button tone={done ? 'secondary' : 'teal'} disabled={done} onClick={async () => { try { await post(`/lessons/${l.id}/complete`); setDone(true); toast('Lesson marked complete'); } catch (e) { toast(msg(e), 'err'); } }}>{done ? '✓ Completed' : 'Mark as complete'}</Button>}
         {d.next ? <Button to={`/app/learn/${d.next.id}`}>Next lesson →</Button> : <Button tone="secondary" onClick={() => nav('/app/learn')}>Back to lessons</Button>}
       </div>
     </div>); }}</Async>;
