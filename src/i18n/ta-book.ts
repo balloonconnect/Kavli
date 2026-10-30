@@ -58,4 +58,7 @@ export const BOOK: Record<string, string> = {
   'Glance at': 'ஒரு முறை பாருங்கள்',
   'Go through the word list': 'சொல் பட்டியலைப் பாருங்கள்',
   'This chapter has no main items to revise yet.': 'இந்தப் பாடத்தில் திருப்புவதற்கான முதன்மைப் பகுதிகள் இன்னும் இல்லை.',
+  'PDF file missing — upload again': 'PDF கோப்பு இல்லை — மீண்டும் பதிவேற்றுங்கள்',
+  'The PDF file is not available on the server.': 'PDF கோப்பு சேவையகத்தில் இல்லை.',
+  'The page text below is still shown. Ask your teacher or admin to upload the book again.': 'பக்க உரை கீழே தொடர்ந்து காட்டப்படுகிறது. புத்தகத்தை மீண்டும் பதிவேற்றுமாறு உங்கள் ஆசிரியர் அல்லது நிர்வாகியிடம் கேளுங்கள்.',
 };

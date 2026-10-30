@@ -16,7 +16,7 @@ services:
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: kavli-books
       initialBuckets: kavli-books
-      retainFilesOnExit: "false"
+      retainFilesOnExit: "true"
     volumes: [s3data:/s3mockroot]
 
   app:

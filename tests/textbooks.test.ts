@@ -58,4 +58,14 @@ describe('lesson textbook tab', () => {
     expect(r.body.pages.length).toBeGreaterThan(0); expect(r.body.pages.every((p: any) => p.book === 'Class 8 Maths')).toBe(true); expect(JSON.stringify(r.body)).not.toMatch(/marmalade/);
     expect((await s.c.get('/api/textbooks/for-lesson/c10-nope')).status).toBe(404);
   });
+  it('says when the stored PDF file is gone, while the page text stays readable', async () => {
+    const t = await login(DEMO.admin); const id = (await addBook(t, 'Class 8 Science', 8, P8)).body.textbook.id;
+    expect((await t.c.get(`/api/textbooks/${id}`)).body.textbook.file_ok).toBe(true);
+    const { storage } = await import('../server/services/storage'); const { q } = await import('../server/db');
+    const row = await q.get<any>(ctx.db, 'SELECT file_path FROM textbooks WHERE id=?', id); await storage().delete(row.file_path);
+    expect((await t.c.get(`/api/textbooks/${id}`)).body.textbook.file_ok).toBe(false);
+    expect((await t.c.get('/api/textbooks')).body.textbooks.find((b: any) => b.id === id).file_ok).toBe(false);
+    expect((await t.c.get(`/api/textbooks/${id}/file`)).status).toBe(404);
+    expect((await t.c.get(`/api/textbooks/${id}/pages/2`)).body.text).toMatch(/Zephyrian/);
+  });
 });

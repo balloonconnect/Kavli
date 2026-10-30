@@ -33,7 +33,7 @@ export function textbookRoutes(db: DB) {
     if (STAFF.includes(u.role)) rows = (await q.all<any>(db, 'SELECT * FROM textbooks ORDER BY class_level, subject_id, title'));
     else if (u.role === 'student') { const c = await studentClass(u.id); rows = c ? (await q.all<any>(db, "SELECT * FROM textbooks WHERE class_level=? AND status IN ('ready','needs_ocr','processing') ORDER BY subject_id, title", c)) : []; }
     else rows = [];
-    res.json({ textbooks: rows.map(view) });
+    res.json({ textbooks: await Promise.all(rows.map(async b => ({ ...view(b), ...(STAFF.includes(u.role) ? { file_ok: await storage().exists(b.file_path).catch(() => false) } : {}) }))) });
   }));
 
   r.post('/', admin, rateLimit(10, 600000, req => req.user!.id), upload.single('file'), wrap(async (req, res) => {
@@ -70,7 +70,7 @@ export function textbookRoutes(db: DB) {
     res.json({ pages });
   }));
 
-  r.get('/:id', requireAuth, wrap(async (req, res) => { const b = await get(req.params.id); if (!(await allowed(req, b))) throw new HttpError(404, 'Book not found.'); res.json({ textbook: view(b) }); }));
+  r.get('/:id', requireAuth, wrap(async (req, res) => { const b = await get(req.params.id); if (!(await allowed(req, b))) throw new HttpError(404, 'Book not found.'); res.json({ textbook: { ...view(b), file_ok: await storage().exists(b.file_path) } }); }));
   r.get('/:id/pages/:n', requireAuth, wrap(async (req, res) => {
     const b = await get(req.params.id); if (!(await allowed(req, b))) throw new HttpError(404, 'Book not found.');
     const n = Number(req.params.n); const p = Number.isInteger(n) ? (await q.get<any>(db, 'SELECT page,text FROM textbook_pages WHERE textbook_id=? AND page=?', b.id, n)) : undefined;
