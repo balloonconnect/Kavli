@@ -85,6 +85,7 @@ function Detail({ lessonId, st, id, go, onProgress }: { lessonId: string; st: an
       <Card className="col aibox"><div className="row wrap"><h2 className="grow"><Bi en="Explanation" ta="விளக்கம்" /></h2><span className="muted small"><Bi en={`Based on textbook page ${it.page}`} ta={`பாடநூல் பக்கம் ${it.page} அடிப்படையில்`} /></span><Tag s="ai" /></div>
         {isQ ? <>
           <p className="muted small"><Bi en="This textbook does not print an answer for this question." ta="இந்த வினாவுக்கான விடையை நூல் தரவில்லை." /></p>
+          <Hints key={id} lessonId={lessonId} itemId={id} />
           {an ? <><p lang="ta" className="ta">{an.answer}</p>{an.why && <p lang="ta" className="ta muted">{an.why}</p>}<Badge tone="info">AI-generated answer — not from the textbook. Check with your teacher.</Badge><Verify e={an} kind="answer" lessonId={lessonId} itemId={id} onDone={() => { setFresh({}); s.reload(); }} /></> : <Button disabled={!!busy || !d.aiEnabled} onClick={() => ask('answer', lang === 'en' ? 'en' : 'ta')}>{busy ? 'Writing…' : 'Suggest an answer (AI)'}</Button>}
         </> : <>
           {exs.map(([l, e]) => e ? <div key={l} className="col"><ExplanationParts tpl={tpl} ex={e} l={l as 'ta' | 'en'} lessonId={lessonId} itemId={id} onResult={onProgress} /><Verify e={e} kind={l === 'en' ? 'explain_en' : 'explain'} lessonId={lessonId} itemId={id} onDone={() => { setFresh({}); s.reload(); }} />{e.stale && <Badge tone="warning">The textbook text was re-read after this was written. Ask again to refresh.</Badge>}</div>
@@ -142,6 +143,14 @@ function PracticeView({ lessonId, st, go }: { lessonId: string; st: any; go: (v:
 }
 
 const STEP_TXT: Record<string, [string, string]> = { glance: ['Glance at', 'ஒரு முறை பாருங்கள்'], read: ['Read', 'படியுங்கள்'], recall: ['Cover it and say it from memory', 'மூடிவைத்து நினைவிலிருந்து சொல்லுங்கள்'], quiz: ['Check yourself with the quiz', 'வினாவில் சோதியுங்கள்'], words: ['Go through the word list', 'சொல் பட்டியலைப் பாருங்கள்'] };
+/** Three guided hints for a textbook question, taken from the chapter's own text. The answer is never shown before the student asks for it. */
+function Hints({ lessonId, itemId }: { lessonId: string; itemId: string }) {
+  const [hints, setHints] = useState<any[] | null>(null); const [n, setN] = useState(0); const toast = useToast(); const { lang } = useLang();
+  const next = async () => { try { let h = hints; if (!h) { h = (await get(`/lessons/${lessonId}/items/${itemId}/hints`)).hints; setHints(h); } setN(x => Math.min(x + 1, h!.length)); } catch (e) { toast(msg(e), 'err'); } };
+  return <div className="col no-print">{hints?.slice(0, n).map(h => <div key={h.level} className="notice info"><div className="col"><b><Bi en={`Hint ${h.level}`} ta={`குறிப்பு ${h.level}`} /></b><span>{lang === 'ta' ? h.ta : lang === 'en' ? h.en : `${h.en} ${h.ta}`}</span>{!!h.lines?.length && <div className="ta verse" lang="ta">{h.lines.map((l: string, i: number) => <div key={i}>{l}</div>)}</div>}</div></div>)}
+    {(!hints || n < hints.length) && <div className="row"><Button tone="secondary" onClick={next}>{n === 0 ? <Bi en="Give me a hint" ta="ஒரு குறிப்பு தாருங்கள்" /> : <Bi en="One more hint" ta="இன்னொரு குறிப்பு" />}</Button></div>}</div>;
+}
+
 /** 1, 5, 15 and 30 minute revision packs, built by the app from this chapter's own items. */
 function RevisionPacks({ lessonId, st, go }: { lessonId: string; st: any; go: (v: string, i?: string) => void }) {
   const { lang } = useLang(); const one = (en: string, ta: string) => (lang === 'ta' ? ta : lang === 'en' ? en : `${en} · ${ta}`);

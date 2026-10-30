@@ -7,7 +7,7 @@ import { parse, wrap } from '../http';
 import { HttpError } from '../services/tests';
 import { LlmClient, llmClientFromEnv } from '../services/llmEngine';
 import { Structure } from '../services/bookStructure';
-import { ItemAi, ItemAiError, aiKind, chapterMap, explainItem, itemHash, itemMindMap, itemPractice } from '../services/itemLearn';
+import { ItemAi, ItemAiError, aiKind, chapterMap, explainItem, itemHash, itemMindMap, itemPractice, questionHints } from '../services/itemLearn';
 import { TEMPLATES, formatOf, lessonKindOf } from '../services/learnTemplates';
 import { PACK_MINUTES, buildPack } from '../services/revisionPack';
 
@@ -63,6 +63,8 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
     const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId); const ex = await aiRow(l.id, it.id, 'explain', it);
     res.json({ map: itemMindMap(l, st, it.id, ex && !ex.stale ? ex : null) });
   }));
+  // Guided hints for a textbook question, from the chapter's own text. Hint 3 shows the best-matching textbook lines.
+  r.get('/lessons/:id/items/:itemId/hints', A, wrap(async (req, res) => { const { st } = await load(req.params.id); item(st, req.params.itemId); res.json({ hints: questionHints(st, req.params.itemId) }); }));
   // A time-boxed revision pack (1, 5, 15 or 30 minutes) from this chapter. Items the student struggled with come first.
   r.get('/lessons/:id/revision-pack', A, wrap(async (req, res) => {
     const m = Number(req.query.minutes ?? 5); if (!(PACK_MINUTES as readonly number[]).includes(m)) throw new HttpError(400, 'Choose 1, 5, 15 or 30 minutes.');

@@ -174,4 +174,11 @@ describe('API', () => {
     expect(lessonKindOf('ஒரு சிறுகதை', {})).toBe('story'); expect(lessonKindOf('Poem chapter', {})).toBeUndefined();
     expect(formatOf({ kind: 'paragraph', section: 'body', lines: ['x'], title: '' } as any, 'story')).toBe('story');
   });
+  it('question hints come from the chapter text, step by step, with no AI and no answer invented', async () => {
+    await seed(); const s = await as(DEMO.student); const st = (await s.get(`/api/lessons/${LID}/structure`)).body.structure;
+    const qn = st.items.find((i: any) => i.kind === 'question'); const r = (await s.get(`/api/lessons/${LID}/items/${qn.id}/hints`)); expect(r.status).toBe(200);
+    const h = r.body.hints; expect(h.length).toBeGreaterThan(0); expect(h.map((x: any) => x.level)).toEqual(h.map((_: any, i: number) => i + 1));
+    if (h.length === 3) { expect(h[0].page).toBeGreaterThan(0); expect(h[2].lines.length).toBeGreaterThan(0); const text = st.items.flatMap((i: any) => i.lines).join('\n'); for (const l of h[2].lines) expect(text).toContain(l); }
+    const k = st.items.find((i: any) => i.kind === 'couplet'); expect((await s.get(`/api/lessons/${LID}/items/${k.id}/hints`)).body.hints).toEqual([]); // only questions have hints
+  });
 });

@@ -112,3 +112,27 @@ export async function explainItem(client: LlmClient, it: Item, mode: 'explain' |
   if (mode === 'explain' && !(ai.simple_ta || ai.summary || ai.key_points.length || ai.word_meanings.length || ai.line_notes.length || ai.definition || ai.steps.length || ai.structure.length)) throw new ItemAiError('The model gave no explanation. Nothing was saved.', 422);
   return ai;
 }
+
+/**
+ * Three guided hints for a textbook question, built from the chapter's own text (no AI): where to look, which words matter, and the passage itself.
+ * They never invent an answer; the last hint shows the textbook's own lines that best match the question.
+ */
+export type Hint = { level: 1 | 2 | 3; en: string; ta: string; page?: number; lines?: string[] };
+export function questionHints(st: Structure, itemId: string): Hint[] {
+  const q = st.items.find(i => i.id === itemId); if (!q || q.kind !== 'question') return [];
+  const qWords = new Set(words(itemText(q)).filter(w => [...w].length >= 3).map(w => w.toLowerCase()));
+  let best: { it: Item; score: number } | null = null;
+  for (const it of st.items) {
+    if (it.id === q.id || it.kind === 'question' || it.kind === 'heading' || !it.lines.length) continue;
+    const ws = new Set(words(itemText(it)).filter(w => [...w].length >= 3).map(w => w.toLowerCase())); let score = 0; qWords.forEach(w => { if (ws.has(w)) score++; });
+    if (score > 0 && (!best || score > best.score)) best = { it, score };
+  }
+  if (!best) return [{ level: 1, en: 'Read the question slowly and underline the key words. Then look through the chapter for those words.', ta: 'வினாவை மெதுவாகப் படித்து முக்கிய சொற்களுக்குக் கீழ் கோடிடுங்கள். பிறகு பாடத்தில் அந்தச் சொற்களைத் தேடுங்கள்.' }];
+  const p = best.it; const heading = st.segments.find(s => s.itemIds.includes(p.id))?.heading ?? '';
+  const shared = [...new Set(words(itemText(p)).filter(w => qWords.has(w.toLowerCase())))].slice(0, 4);
+  return [
+    { level: 1, en: `Look at page ${p.page}${heading ? ` — “${heading}”` : ''}. The answer is in that part of the chapter.`, ta: `பக்கம் ${p.page}${heading ? ` — “${heading}”` : ''} பகுதியைப் பாருங்கள். விடை அந்தப் பகுதியில் உள்ளது.`, page: p.page },
+    { level: 2, en: `Find these words in the text and read the lines around them: ${shared.join(', ')}.`, ta: `இந்தச் சொற்களை உரையில் தேடி, அவற்றைச் சுற்றியுள்ள வரிகளைப் படியுங்கள்: ${shared.join(', ')}.`, page: p.page },
+    { level: 3, en: 'These lines from the textbook help most. Use them to write the answer in your own words.', ta: 'பாடநூலின் இந்த வரிகள் மிகவும் உதவும். இவற்றைக் கொண்டு விடையை உங்கள் சொற்களில் எழுதுங்கள்.', page: p.page, lines: p.lines.slice(0, 6) },
+  ];
+}
