@@ -61,4 +61,5 @@ export const BOOK: Record<string, string> = {
   'PDF file missing — upload again': 'PDF கோப்பு இல்லை — மீண்டும் பதிவேற்றுங்கள்',
   'The PDF file is not available on the server.': 'PDF கோப்பு சேவையகத்தில் இல்லை.',
   'The page text below is still shown. Ask your teacher or admin to upload the book again.': 'பக்க உரை கீழே தொடர்ந்து காட்டப்படுகிறது. புத்தகத்தை மீண்டும் பதிவேற்றுமாறு உங்கள் ஆசிரியர் அல்லது நிர்வாகியிடம் கேளுங்கள்.',
+  'AI usage': 'AI பயன்பாடு',
 };

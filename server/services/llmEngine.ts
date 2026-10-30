@@ -51,22 +51,31 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
     throw new Error(`LLM provider returned ${r.status}`);
   }
 }
+/** Token counts the provider reports for each call. The server registers one sink at start-up that stores them; nothing is stored when no sink is set. */
+export type TokenUse = { provider: string; input: number; output: number };
+let usageSink: ((u: TokenUse) => void) | null = null;
+export function setUsageSink(fn: ((u: TokenUse) => void) | null) { usageSink = fn; }
+const report = (provider: string, input: unknown, output: unknown) => { const i = Number(input) || 0, o = Number(output) || 0; if (usageSink && (i || o)) { try { usageSink({ provider, input: i, output: o }); } catch { /* accounting must never break a lesson */ } } };
 export function anthropicClient(o: { apiKey: string; model: string; baseUrl?: string }): LlmClient {
   const base = (o.baseUrl ?? 'https://api.anthropic.com').replace(/\/+$/, '');
   return {
     name: `anthropic:${o.model}`,
     async complete({ system, user, maxTokens, signal }) {
       const d = await postJson(`${base}/v1/messages`, { 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01' }, { model: o.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }, signal);
+      report(`anthropic:${o.model}`, d.usage?.input_tokens, d.usage?.output_tokens);
       return String((d.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join(''));
     },
     async *stream({ system, user, maxTokens, signal }) {
       const r = await postStream(`${base}/v1/messages`, { 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01' }, { model: o.model, max_tokens: maxTokens, system, stream: true, messages: [{ role: 'user', content: user }] }, signal);
-      if (!isSse(r)) { const d: any = await r.json(); yield String((d.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')); return; } // the provider ignored stream:true
+      if (!isSse(r)) { const d: any = await r.json(); report(`anthropic:${o.model}`, d.usage?.input_tokens, d.usage?.output_tokens); yield String((d.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')); return; } // the provider ignored stream:true
+      let tIn = 0, tOut = 0;
       for await (const data of sseData(r.body!)) {
         let j: any; try { j = JSON.parse(data); } catch { continue; }
+        if (j.type === 'message_start') tIn = j.message?.usage?.input_tokens ?? 0;
+        else if (j.type === 'message_delta') tOut = j.usage?.output_tokens ?? tOut;
         if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta' && j.delta.text) yield String(j.delta.text);
         else if (j.type === 'error') throw new Error(`LLM stream error: ${String(j.error?.type ?? 'unknown')}`);
-        else if (j.type === 'message_stop') return;
+        else if (j.type === 'message_stop') { report(`anthropic:${o.model}`, tIn, tOut); return; }
       }
     },
   };
@@ -78,6 +87,7 @@ export function openaiClient(o: { apiKey?: string; model: string; baseUrl: strin
     name: `openai-compatible:${o.model}`,
     async complete({ system, user, maxTokens, signal }) {
       const d = await postJson(`${base}/chat/completions`, o.apiKey ? { authorization: `Bearer ${o.apiKey}` } : {}, { model: o.model, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }, signal);
+      report(`openai-compatible:${o.model}`, d.usage?.prompt_tokens, d.usage?.completion_tokens);
       return String(d.choices?.[0]?.message?.content ?? '');
     },
     async *stream({ system, user, maxTokens, signal }) {

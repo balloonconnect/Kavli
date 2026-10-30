@@ -24,4 +24,6 @@ export const MIGRATIONS: Migration[] = [
     PRIMARY KEY (student_id, lesson_id, item_id))` },
   // A teacher can mark an AI explanation as checked. Writing a new explanation clears the mark.
   { version: 4, name: 'item_ai_verified', sql: `ALTER TABLE item_ai ADD COLUMN verified_by TEXT; ALTER TABLE item_ai ADD COLUMN verified_at TEXT` },
+  // Token counts reported by the AI provider for each call, so the admin can see real usage and an estimated cost. Only written when a provider returns usage.
+  { version: 5, name: 'ai_token_usage', sql: `CREATE TABLE ai_token_usage (id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, at TEXT NOT NULL)` },
 ];
