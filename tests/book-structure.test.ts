@@ -160,4 +160,18 @@ describe('API', () => {
     expect((await tc.post(`/api/lessons/${LID}/items/${k.id}/verify`, { kind: 'explain', verified: false })).status).toBe(200);
     expect((await s.get(`/api/lessons/${LID}/items/${k.id}`)).body.explanation.verified).toBeNull();
   });
+  it('revision packs fit their time, put missed items first, and the API checks the minutes', async () => {
+    await seed(); const s = await as(DEMO.student); const st = (await s.get(`/api/lessons/${LID}/structure`)).body.structure;
+    const { buildPack } = await import('../server/services/revisionPack');
+    const sizes = [1, 5, 15, 30].map(m => buildPack(st, m)); for (const [k, m] of [1, 5, 15, 30].entries()) { expect(sizes[k].total).toBeLessThanOrEqual(m + 0.01); expect(sizes[k].steps.length).toBeGreaterThan(0); }
+    expect(sizes[3].covered).toBeGreaterThanOrEqual(sizes[1].covered); expect(sizes[1].covered).toBeGreaterThanOrEqual(sizes[0].covered);
+    expect(sizes[0].steps.every(x => x.kind === 'glance')).toBe(true); expect(sizes[2].steps.some(x => x.kind === 'quiz')).toBe(true);
+    const k7 = st.items.filter((i: any) => i.kind === 'couplet')[6]; expect(buildPack(st, 1, [k7.id]).steps[0].itemId).toBe(k7.id);
+    expect((await s.get(`/api/lessons/${LID}/revision-pack?minutes=5`)).body.pack.minutes).toBe(5); expect((await s.get(`/api/lessons/${LID}/revision-pack?minutes=7`)).status).toBe(400);
+  });
+  it('a chapter whose title says story gets the story format', async () => {
+    const { lessonKindOf, formatOf } = await import('../server/services/learnTemplates');
+    expect(lessonKindOf('ஒரு சிறுகதை', {})).toBe('story'); expect(lessonKindOf('Poem chapter', {})).toBeUndefined();
+    expect(formatOf({ kind: 'paragraph', section: 'body', lines: ['x'], title: '' } as any, 'story')).toBe('story');
+  });
 });

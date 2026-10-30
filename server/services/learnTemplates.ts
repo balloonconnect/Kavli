@@ -75,4 +75,6 @@ export function formatOf(it: Pick<Item, 'kind' | 'section' | 'lines' | 'title'>,
   if (it.section === 'prose' || it.section === 'body') return /கடிதம்|கட்டுரை/.test(text.slice(0, 60)) ? 'writing' : lessonKind === 'story' ? 'story' : it.kind === 'paragraph' ? 'prose' : 'info';
   return 'info';
 }
+/** A chapter is treated as a story when its title or a heading says so. */
+export const lessonKindOf = (title: string, st: { segments?: { heading: string }[] }): 'story' | undefined => /கதை|சிறுகதை|\bstory\b/i.test([title, ...(st.segments ?? []).map(s => s.heading)].join(' ')) ? 'story' : undefined;
 export const templateOf = (it: Parameters<typeof formatOf>[0], k?: 'story' | 'prose') => TEMPLATES[formatOf(it, k)];

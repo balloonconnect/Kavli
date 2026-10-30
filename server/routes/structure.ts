@@ -8,7 +8,8 @@ import { HttpError } from '../services/tests';
 import { LlmClient, llmClientFromEnv } from '../services/llmEngine';
 import { Structure } from '../services/bookStructure';
 import { ItemAi, ItemAiError, aiKind, chapterMap, explainItem, itemHash, itemMindMap, itemPractice } from '../services/itemLearn';
-import { TEMPLATES, formatOf } from '../services/learnTemplates';
+import { TEMPLATES, formatOf, lessonKindOf } from '../services/learnTemplates';
+import { PACK_MINUTES, buildPack } from '../services/revisionPack';
 
 /** The structured view of a book lesson: items in the book's order, per-item mind maps, practice and AI explanations (stored apart, labelled). */
 export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
@@ -37,7 +38,7 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
   const teachable = (st: Structure) => st.items.filter(i => !['heading', 'poem'].includes(i.kind) || (i.kind === 'poem' && !!i.lines.length));
   r.get('/lessons/:id/items/:itemId', A, wrap(async (req, res) => {
     const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId);
-    const idx = st.items.filter(i => !['heading'].includes(i.kind)); const k = idx.findIndex(i => i.id === it.id); const fmt = formatOf(it);
+    const idx = st.items.filter(i => !['heading'].includes(i.kind)); const k = idx.findIndex(i => i.id === it.id); const fmt = formatOf(it, lessonKindOf(l.title_en, st));
     const pr = req.user!.role === 'student' ? (await mine(req.user!.id, l.id)).get(it.id) ?? null : null;
     res.json({ item: it, format: fmt, template: TEMPLATES[fmt], explanation: await aiRow(l.id, it.id, 'explain', it), explanation_en: await aiRow(l.id, it.id, 'explain_en', it), answer: await aiRow(l.id, it.id, 'answer', it), official: { hasAnswer: false, note: 'This textbook does not print an answer key for this item.' }, practice: itemPractice(st, it.id), progress: pr && { completed: !!pr.completed_at, attempts: pr.attempts, correct: pr.correct, wrong: pr.wrong }, prev: idx[k - 1]?.id ?? null, next: idx[k + 1]?.id ?? null, aiEnabled: !!llm });
   }));
@@ -62,6 +63,13 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
     const { l, st } = await load(req.params.id); const it = item(st, req.params.itemId); const ex = await aiRow(l.id, it.id, 'explain', it);
     res.json({ map: itemMindMap(l, st, it.id, ex && !ex.stale ? ex : null) });
   }));
+  // A time-boxed revision pack (1, 5, 15 or 30 minutes) from this chapter. Items the student struggled with come first.
+  r.get('/lessons/:id/revision-pack', A, wrap(async (req, res) => {
+    const m = Number(req.query.minutes ?? 5); if (!(PACK_MINUTES as readonly number[]).includes(m)) throw new HttpError(400, 'Choose 1, 5, 15 or 30 minutes.');
+    const { l, st } = await load(req.params.id); let need: string[] = [];
+    if (req.user!.role === 'student') { const rows = await q.all<any>(db, 'SELECT item_id, completed_at, attempts, correct, wrong FROM item_progress WHERE student_id=? AND lesson_id=?', req.user!.id, l.id); need = rows.filter(x => x.wrong > x.correct || (x.attempts > 0 && !x.completed_at)).map(x => x.item_id); }
+    res.json({ pack: buildPack(st, m, need) });
+  }));
   // Lessons made from uploaded books, with how many AI texts exist and how many a teacher has checked.
   r.get('/lesson-review', requireRole('teacher', 'school_admin', 'admin'), wrap(async (_req, res) => {
     const ls = await q.all<any>(db, "SELECT id,class_level,subject_id,chapter_no,title_en,title_ta FROM lessons WHERE id LIKE 'bk-%' AND status='published' ORDER BY class_level, subject_id, chapter_no");
@@ -85,7 +93,7 @@ export function structureRoutes(db: DB, opts: { llm?: LlmClient | null } = {}) {
     if (b.mode === 'explain' && it.kind === 'question') throw new HttpError(400, 'Use mode “answer” for questions.');
     const ac = new AbortController(); res.on('close', () => { if (!res.writableFinished) ac.abort(); });
     try {
-      const ai = await explainItem(llm, it, b.mode, { chapter: l.title_ta || l.title_en, signal: ac.signal, lang: b.lang, classLevel: l.class_level }); const kind = aiKind(b.mode, b.lang);
+      const ai = await explainItem(llm, it, b.mode, { lessonKind: lessonKindOf(l.title_en, st), chapter: l.title_ta || l.title_en, signal: ac.signal, lang: b.lang, classLevel: l.class_level }); const kind = aiKind(b.mode, b.lang);
       await q.run(db, 'INSERT INTO item_ai(lesson_id,item_id,kind,content,source_hash,model,created_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(lesson_id,item_id,kind) DO UPDATE SET content=excluded.content, source_hash=excluded.source_hash, model=excluded.model, created_at=excluded.created_at, verified_by=NULL, verified_at=NULL', l.id, it.id, kind, JSON.stringify(ai), itemHash(it), llm.name, iso());
       await q.run(db, 'INSERT INTO ai_usage(user_id,provider,kind,input_chars,output_chars,at) VALUES (?,?,?,?,?,?)', req.user!.id, llm.name, 'item_ai', it.lines.join('').length, JSON.stringify(ai).length, iso());
       res.json({ [b.mode === 'answer' ? 'answer' : b.lang === 'en' ? 'explanation_en' : 'explanation']: { ...ai, label: 'AI-generated', model: llm.name, stale: false, verified: null } });

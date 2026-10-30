@@ -53,4 +53,9 @@ export const BOOK: Record<string, string> = {
   'Open a lesson made from your textbook, read the AI explanations, and mark the correct ones as checked. Students see which texts a teacher has checked.': 'உங்கள் பாடநூலிலிருந்து உருவான பாடத்தைத் திறந்து, AI விளக்கங்களைப் படித்து, சரியானவற்றைச் சரிபார்த்ததாகக் குறியுங்கள். எந்த உரைகளை ஆசிரியர் சரிபார்த்தார் என்பதை மாணவர்கள் காண்பார்கள்.',
   'No book lessons yet': 'நூல் பாடங்கள் இன்னும் இல்லை',
   'Lessons appear here after a textbook is uploaded and its chapters are found.': 'பாடநூல் பதிவேற்றப்பட்டு அதன் அத்தியாயங்கள் கண்டறியப்பட்ட பின் பாடங்கள் இங்கே தோன்றும்.',
+  'Check yourself with the quiz': 'வினாவில் சோதியுங்கள்',
+  'Cover it and say it from memory': 'மூடிவைத்து நினைவிலிருந்து சொல்லுங்கள்',
+  'Glance at': 'ஒரு முறை பாருங்கள்',
+  'Go through the word list': 'சொல் பட்டியலைப் பாருங்கள்',
+  'This chapter has no main items to revise yet.': 'இந்தப் பாடத்தில் திருப்புவதற்கான முதன்மைப் பகுதிகள் இன்னும் இல்லை.',
 };
