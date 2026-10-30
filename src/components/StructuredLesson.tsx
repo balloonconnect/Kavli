@@ -5,6 +5,7 @@ import { Bi, useLang } from './lang';
 import { get, post, msg } from '../api';
 import { useToast } from './toast';
 import { useAuth } from '../auth';
+import { normalizeTamil } from '../../shared/tamil';
 import { TamilVoice } from './TamilVoice';
 import { MindMapView } from './MindMap';
 
@@ -16,10 +17,12 @@ const label = (it: Item) => it.kind === 'couplet' ? `குறள் ${it.number
 const speakText = (its: Item[]) => its.map(i => [i.title, ...i.lines, ...(i.meaning ?? [])].filter(Boolean).join('. ')).join('. ');
 export const Flags = ({ it }: { it: Item }) => it.flags.length ? <div className="row wrap">{it.flags.map(f => <Badge key={f} tone="warning">{FLAG[f] ?? f}</Badge>)}</div> : null;
 
-function Source({ it }: { it: Item }) {
+/** True when this printed line is part of the piece of text the voice is reading right now (or the piece is part of a long line). */
+const isReading = (line: string, chunk?: string | null) => { if (!chunk) return false; const a = normalizeTamil(line), b = normalizeTamil(chunk); return a.length > 1 && (b.includes(a) || a.includes(b)); };
+function Source({ it, reading }: { it: Item; reading?: string | null }) {
   const bad = new Set(it.uncertain ?? []);
   return <div className="srcbox" lang="ta"><div className="srctag"><Bi en="From the textbook" ta="பாடநூலில் உள்ளபடி" /> · p.{it.page}</div>
-    {it.kind === 'word' ? <p className="ta"><b>{it.word?.term}</b> — {it.word?.meaning}</p> : <div className="ta verse">{it.lines.map((l, i) => <div key={i} className={bad.has(i) ? 'uncertain' : ''}>{l}</div>)}</div>}
+    {it.kind === 'word' ? <p className="ta"><b>{it.word?.term}</b> — {it.word?.meaning}</p> : <div className="ta verse">{it.lines.map((l, i) => <div key={i} className={`${bad.has(i) ? 'uncertain' : ''}${isReading(l, reading) ? ' reading' : ''}`} ref={el => { if (el && isReading(l, reading)) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }}>{l}</div>)}</div>}
     {!!it.meaning?.length && <p className="ta"><b>பொருள்: </b>{it.meaning.join(' ')}</p>}{it.device && <p className="ta"><b>அணி: </b>{it.device}</p>}
     {it.question?.options?.length ? <ul className="ta opts">{it.question.options.map(o => <li key={o}>{o}</li>)}</ul> : null}</div>;
 }
@@ -69,6 +72,7 @@ const Tag = ({ s }: { s: string }) => <Badge tone={s === 'textbook' ? 'success' 
 const has = (v: any) => (Array.isArray(v) ? v.length > 0 : !!v);
 
 function Detail({ lessonId, st, id, go, onProgress }: { lessonId: string; st: any; id: string; go: (v: string, i?: string) => void; onProgress: () => void }) {
+  const [reading, setReading] = useState<string | null>(null); useEffect(() => setReading(null), [id]);
   const s = useLoad(() => get(`/lessons/${lessonId}/items/${id}`), [lessonId, id]); const toast = useToast(); const { lang } = useLang(); const [busy, setBusy] = useState(''); const [fresh, setFresh] = useState<any>({}); const [showMap, setShowMap] = useState(true); const [mapKey, setMapKey] = useState(0); const [done, setDone] = useState<boolean | null>(null);
   useEffect(() => { setFresh({}); setDone(null); setMapKey(k => k + 1); if (id) post(`/lessons/${lessonId}/items/${id}/progress`, { event: 'view' }).then(onProgress).catch(() => {}); }, [id]); // eslint-disable-line
   const ask = async (mode: 'explain' | 'answer', l: 'ta' | 'en') => { setBusy(`${mode}${l}`); try { const r = await post(`/lessons/${lessonId}/items/${id}/ai`, { mode, lang: l }); setFresh((f: any) => ({ ...f, ...r })); setMapKey(k => k + 1); } catch (e) { toast(msg(e), 'err'); } finally { setBusy(''); } };
@@ -80,7 +84,7 @@ function Detail({ lessonId, st, id, go, onProgress }: { lessonId: string; st: an
     const learned = done ?? !!d.progress?.completed;
     return <div className="col">
       <div className="row wrap no-print"><Button tone="secondary" disabled={!d.prev} onClick={() => go('detail', d.prev)}>← Previous</Button><b className="grow" style={{ textAlign: 'center' }}>{label(it) || 'Item'} <span className="muted small">· <Bi en={tpl.en} ta={tpl.ta} /></span></b><Button tone="secondary" disabled={!d.next} onClick={() => go('detail', d.next)}>Next →</Button></div>
-      <Card className="col"><div className="row wrap"><Tag s="textbook" /><div className="grow" /></div><Source it={it} /><Flags it={it} /><div className="row wrap no-print"><TamilVoice text={speakText([it])} label="Listen to this item" />
+      <Card className="col"><div className="row wrap"><Tag s="textbook" /><div className="grow" /></div><Source it={it} reading={reading} /><Flags it={it} /><div className="row wrap no-print"><TamilVoice text={speakText([it])} label="Listen to this item" onChunk={setReading} chunkMax={70} />
         <Button tone="secondary" to={`/app/tutor?lesson=${lessonId}&q=${encodeURIComponent(`${it.kind === 'question' ? 'இந்த வினாவுக்கு உதவுங்கள்' : 'இந்தப் பகுதியை விளக்குங்கள்'}: ${it.lines[0] ?? ''}`.slice(0, 280))}`}><Bi en="Ask the tutor about this" ta="இதைப் பற்றி ஆசிரியரிடம் கேள்" /></Button></div></Card>
       <Card className="col aibox"><div className="row wrap"><h2 className="grow"><Bi en="Explanation" ta="விளக்கம்" /></h2><span className="muted small"><Bi en={`Based on textbook page ${it.page}`} ta={`பாடநூல் பக்கம் ${it.page} அடிப்படையில்`} /></span><Tag s="ai" /></div>
         {isQ ? <>

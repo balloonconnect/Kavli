@@ -281,3 +281,5 @@ input[aria-invalid=true]{border-color:var(--danger)}
 .progressbar{height:8px;border-radius:99px;background:var(--border,#dde);overflow:hidden}.progressbar>span{display:block;height:100%;background:var(--brand,#0a3d91)}.part h3{margin:0;color:var(--muted,#566)}
 
 @media(max-width:900px){.content{padding-bottom:88px}.lessonnav{bottom:84px!important}.bottomnav button{flex:none;flex-direction:row;justify-content:center;align-items:center;width:56px;height:56px;min-height:56px;padding:0;border-radius:50%;background:var(--primary);color:#fff;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(10,61,145,.3);cursor:pointer}.bottomnav button:focus-visible{outline:3px solid var(--primary-soft);outline-offset:2px}}
+
+.reading{background:var(--accent-soft,#fff3c4);box-shadow:0 0 0 3px var(--accent-soft,#fff3c4);border-radius:6px;transition:background .2s}

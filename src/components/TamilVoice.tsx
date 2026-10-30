@@ -16,7 +16,8 @@ export const SPEEDS = [0.75, 1, 1.25, 1.5];
 const synthOK = typeof window !== 'undefined' && 'speechSynthesis' in window;
 const isTa = (v: SpeechSynthesisVoice) => /^ta([-_]|$)/i.test(v.lang);
 
-export function TamilVoice({ text, label = 'Listen in Tamil' }: { text: string; label?: string }) {
+export function TamilVoice({ text, label = 'Listen in Tamil', onChunk, chunkMax }: { text: string; label?: string; onChunk?: (chunk: string | null) => void; chunkMax?: number }) {
+  const cb = useRef(onChunk); cb.current = onChunk; // tells the page which piece is being read now, so it can highlight it
   const [cfg, setCfg] = useState<Cfg>(null); const [cfgDone, setCfgDone] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]); const [voiceId, setVoiceId] = useState('');
   const [speed, setSpeed] = useState(1); const [state, setState] = useState<State>('idle'); const [err, setErr] = useState(''); const [pct, setPct] = useState(0); const [part, setPart] = useState<[number, number]>([0, 0]);
@@ -35,7 +36,7 @@ export function TamilVoice({ text, label = 'Listen in Tamil' }: { text: string; 
     if (audio.current) { audio.current.onended = audio.current.onerror = audio.current.ontimeupdate = null; audio.current.pause(); audio.current = null; }
     urls.current.forEach(p => p.then(u => URL.revokeObjectURL(u)).catch(() => {})); urls.current.clear();
   }, []);
-  const stop = useCallback(() => { release(); setState('idle'); setPct(0); setPart([0, 0]); }, [release]);
+  const stop = useCallback(() => { release(); cb.current?.(null); setState('idle'); setPct(0); setPart([0, 0]); }, [release]);
   useEffect(() => { stop(); setErr(''); }, [text, stop]); // editing the text invalidates any prepared audio
   useEffect(() => () => release(), [release]);
 
@@ -49,12 +50,12 @@ export function TamilVoice({ text, label = 'Listen in Tamil' }: { text: string; 
   const play = async () => {
     const clean = normalizeTamil(text); if (!clean) { setErr('There is no text to read.'); setState('error'); return; }
     if (!voiceId) { setErr('No Tamil voice is available on this device or server.'); setState('error'); return; }
-    release(); const my = ++run.current; setErr(''); const server = voiceId === 'server'; const chunks = chunkText(clean, server ? 280 : 180); setPart([0, chunks.length]); setPct(0);
+    release(); const my = ++run.current; setErr(''); const server = voiceId === 'server'; const chunks = chunkText(clean, chunkMax ?? (server ? 280 : 180)); setPart([0, chunks.length]); setPct(0);
     const alive = () => run.current === my;
-    const fail = (m: string) => { if (alive()) { setErr(m); setState('error'); } };
+    const fail = (m: string) => { if (alive()) { cb.current?.(null); setErr(m); setState('error'); } };
     const next = (i: number) => {
-      if (!alive()) return; if (i >= chunks.length) { setState('idle'); setPct(100); return; }
-      setPart([i, chunks.length]); setPct(Math.round((i / chunks.length) * 100));
+      if (!alive()) return; if (i >= chunks.length) { cb.current?.(null); setState('idle'); setPct(100); return; }
+      cb.current?.(chunks[i]); setPart([i, chunks.length]); setPct(Math.round((i / chunks.length) * 100));
       if (server) {
         setState(s => (s === 'paused' ? s : 'loading'));
         fetchChunk(chunks[i], i).then(u => {
